@@ -60,8 +60,8 @@ const GWSModule = (() => {
   </div>
   <div class="table-wrapper">
     <table><thead><tr>
-      <th style="cursor:pointer" onclick="GWSModule.setSort('email')">Email${si('email')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('display_name')">Display Name${si('display_name')}</th>
+      <th style="cursor:pointer" onclick="GWSModule.setSort('email')">Email${si('email')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('org_unit')">Org Unit${si('org_unit')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('account_type')">Type${si('account_type')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('gws_role')">Role${si('gws_role')}</th>
@@ -123,11 +123,11 @@ const GWSModule = (() => {
 
     tbody.innerHTML = paged.rows.map(r => `
       <tr style="${r.status==='suspended'?'opacity:0.6':''}">
-        <td><span class="td-mono" style="color:var(--primary);font-size:12px">${Utils.esc(r.email)}</span></td>
         <td>
-          <div style="font-weight:500;font-size:13px">${Utils.esc(r.display_name)}</div>
+          <span onclick="GWSModule.openView(${r.id})" style="font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;">${Utils.esc(r.display_name)}</span>
           ${r.designation?`<div class="text-xs text-muted">${Utils.esc(r.designation)}</div>`:''}
         </td>
+        <td><span class="td-mono" style="color:var(--primary);font-size:12px">${Utils.esc(r.email)}</span></td>
         <td><span class="text-sm text-muted">${Utils.esc(r.org_unit||'—')}</span></td>
         <td><span class="badge ${r.account_type==='service_account'?'badge-accent':'badge-primary'}">${r.account_type==='service_account'?'Service':'User'}</span></td>
         <td>${r.gws_role?`<span class="badge ${roleColor[r.gws_role]||'badge-muted'}">${Utils.esc(r.gws_role)}</span>`:'<span class="text-muted">—</span>'}</td>
