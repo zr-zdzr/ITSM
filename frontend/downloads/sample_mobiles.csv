@@ -1,0 +1,7 @@
+manufacturer,model,serial_number,imei,imei2,color,os,os_version,storage_capacity,status,assigned_type,purpose,service_details,warranty_expiry,purchase_date,invoice_number,notes
+Samsung,Galaxy S23,R3CX12345,354321012345678,,Phantom Black,Android,Android 14,256GB,in_use,user,personal,,2025-06-01,2023-06-01,INV-2023-M01,
+Apple,iPhone 14,F2MN98765,354321012345679,,Space Gray,iOS,iOS 17,128GB,in_use,user,personal,,2025-09-01,2023-09-01,INV-2023-M02,
+Samsung,Galaxy A54,R3CX54321,354321012345680,354321012345681,Awesome White,Android,Android 14,128GB,available,inventory,,,2026-01-01,2024-01-01,INV-2024-M01,Spare device
+Xiaomi,Redmi Note 12,XM-RN12-001,354321012345682,,Ice Blue,Android,Android 12,64GB,retired,inventory,,,2024-06-01,2022-06-01,INV-2022-M01,EOL retired
+Samsung,Galaxy A23,R3CX99001,354321012345683,,Black,Android,Android 13,64GB,in_use,inventory,qa_testing,,2025-11-01,2022-11-01,INV-2022-M02,QA testing device
+Apple,iPhone 13,ABCD12345,354321012345684,,Midnight,iOS,iOS 16,128GB,in_use,inventory,service,WhatsApp Business OTP,2025-04-01,2022-04-01,INV-2022-M03,Service SIM device

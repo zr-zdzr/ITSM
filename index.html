@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ITMS — IT Asset Management System</title>
+  <meta name="description" content="Comprehensive IT Asset Management System for tracking hardware, software, vendors, and employees."/>
+  <link rel="stylesheet" href="public/css/main.css"/>
+</head>
+<body>
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar" aria-label="Main navigation">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🖥️</div>
+      <div class="sidebar-brand">
+        <h2>ITMS</h2>
+        <span>Asset Management</span>
+      </div>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-label">Overview</div>
+        <a class="nav-item active" data-page="dashboard" href="#dashboard" id="nav-dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Assets</div>
+        <a class="nav-item" data-page="assets" href="#assets" id="nav-assets">
+          <span class="nav-icon">💻</span>
+          <span class="nav-label">All Assets</span>
+          <span class="nav-badge" id="badge-assets">0</span>
+        </a>
+        <a class="nav-item" data-page="network" href="#network" id="nav-network">
+          <span class="nav-icon">🌐</span>
+          <span class="nav-label">Network Devices</span>
+        </a>
+        <a class="nav-item" data-page="accessories" href="#accessories" id="nav-accessories">
+          <span class="nav-icon">🔌</span>
+          <span class="nav-label">Accessories</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">People</div>
+        <a class="nav-item" data-page="employees" href="#employees" id="nav-employees">
+          <span class="nav-icon">👤</span>
+          <span class="nav-label">Employees</span>
+          <span class="nav-badge" id="badge-employees">0</span>
+        </a>
+        <a class="nav-item" data-page="vendors" href="#vendors" id="nav-vendors">
+          <span class="nav-icon">🏢</span>
+          <span class="nav-label">Vendors</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Records</div>
+        <a class="nav-item" data-page="gws" href="#gws" id="nav-gws">
+          <span class="nav-icon">📧</span>
+          <span class="nav-label">GWS Google IDs</span>
+          <span class="nav-badge" id="badge-gws">0</span>
+        </a>
+        <a class="nav-item" data-page="mobiles" href="#mobiles" id="nav-mobiles">
+          <span class="nav-icon">📱</span>
+          <span class="nav-label">Mobile Records</span>
+        </a>
+        <a class="nav-item" data-page="sims" href="#sims" id="nav-sims">
+          <span class="nav-icon">📶</span>
+          <span class="nav-label">SIMs Record</span>
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-group-label">Analytics</div>
+        <a class="nav-item" data-page="reports" href="#reports" id="nav-reports">
+          <span class="nav-icon">📈</span>
+          <span class="nav-label">Reports</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-toggle" id="sidebar-toggle-btn" title="Toggle sidebar" aria-label="Toggle sidebar">
+        ◀
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div id="main">
+    <header id="header">
+      <div class="header-title">
+        <h1 id="header-page-title">Dashboard</h1>
+        <p id="header-page-subtitle">Welcome back, IT Admin</p>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-search" role="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="global-search" placeholder="Search assets, employees…" aria-label="Global search"/>
+      </div>
+      <div class="header-actions">
+        <button class="header-btn" id="notif-btn" title="Notifications" aria-label="Notifications">
+          🔔
+          <span class="notif-dot" id="notif-dot"></span>
+        </button>
+        <button class="header-btn" id="refresh-btn" title="Refresh data" aria-label="Refresh">🔄</button>
+        <div class="header-avatar" title="Admin" aria-label="Admin user">A</div>
+      </div>
+    </header>
+
+    <main id="page-content" role="main" aria-live="polite">
+      <div class="spinner"></div>
+    </main>
+  </div>
+</div>
+
+<!-- MODAL (shared) -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Modal</h2>
+      <button class="modal-close" id="modal-close-btn" aria-label="Close modal">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container" role="status" aria-live="polite"></div>
+
+<!-- SCRIPTS -->
+<script src="public/js/db.js"></script>
+<script src="public/js/utils.js"></script>
+<script src="public/js/modules/dashboard.js"></script>
+<script src="public/js/modules/assets.js"></script>
+<script src="public/js/modules/vendors.js"></script>
+<script src="public/js/modules/employees.js"></script>
+<script src="public/js/modules/network.js"></script>
+<script src="public/js/modules/accessories.js"></script>
+<script src="public/js/modules/reports.js"></script>
+<script src="public/js/modules/import.js"></script>
+<script src="public/js/app.js"></script>
+</body>
+</html>

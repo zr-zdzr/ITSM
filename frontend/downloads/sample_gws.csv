@@ -1,0 +1,9 @@
+display_name,email,department,designation,account_type,gws_role,status,two_fa,storage_used,storage_limit,creation_date,org_unit,notes
+Zeeshan Rafiq,it@bykea.com,IT,IT Manager,user,Super Admin,active,true,12.5,30,2022-01-01,/IT,Primary IT admin
+Ali Hassan,ali@bykea.com,Engineering,Senior Developer,user,User,active,true,8.2,30,2023-07-15,/Engineering,
+Sara Ahmed,sara@bykea.com,HR,HR Manager,user,User,active,false,5.0,30,2023-08-01,/HR,2FA not yet enabled
+Omar Farooq,omar@bykea.com,Finance,Finance Analyst,user,User,active,true,3.1,30,2023-09-01,/Finance,
+Hina Malik,hina@bykea.com,Engineering,Frontend Dev,user,User,active,true,4.5,30,2023-10-01,/Engineering,
+billing@bykea.com,billing@bykea.com,Finance,,service_account,User,active,false,0.5,30,2022-06-01,/Service Accounts,Automated billing notifications
+noreply@bykea.com,noreply@bykea.com,IT,,service_account,User,active,false,1.2,30,2022-03-01,/Service Accounts,System notifications sender
+ex.employee@bykea.com,ex.employee@bykea.com,Marketing,Marketing Lead,user,User,suspended,false,2.0,30,2022-06-01,/Marketing,Employee left - suspended

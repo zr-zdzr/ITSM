@@ -1,0 +1,9 @@
+serial_number,type,manufacturer,model,system_category,disk_type,disk_size,ram,ram_bus,cpu,status,assigned_type,warranty_expiry,purchase_date,location,notes
+DL-LT-001,branded,Dell,Latitude 5540,,SSD,512GB,16GB DDR5,4800MHz,Intel Core i7-13th Gen,in_use,user,2026-06-01,2023-06-01,HQ Floor 2,IT Manager Laptop
+HP-DT-001,branded,HP,EliteDesk 800 G6,,SSD,256GB,8GB DDR4,3200MHz,Intel Core i5-12th Gen,in_use,user,2026-08-01,2023-08-01,HR Office,HR Desktop
+LN-LT-001,branded,Lenovo,ThinkPad X1 Carbon,,NVMe,512GB,16GB DDR5,5200MHz,Intel Core i7-13th Gen,in_use,user,2026-10-01,2023-10-01,HQ Floor 3,Dev Team Laptop
+SRV-001,unbranded,,,Server,HDD,4TB,64GB ECC,3200MHz,Intel Xeon Silver 4210,in_use,inventory,2025-01-15,2022-01-15,Server Room,Primary App Server
+SRV-002,unbranded,,,System,SATA,1TB,32GB DDR4,2666MHz,Intel Core i9-11th Gen,available,inventory,2027-03-01,2024-03-01,Server Room,Dev Server
+HP-LT-001,branded,HP,ProBook 450 G9,,SSD,256GB,8GB DDR4,3200MHz,Intel Core i5-12th Gen,in_use,user,2027-03-01,2024-03-01,Support Desk,Support Laptop
+DL-DT-001,branded,Dell,OptiPlex 7090,,SSD,512GB,16GB DDR4,3200MHz,Intel Core i7-11th Gen,available,inventory,2026-12-01,2023-12-01,IT Store,Spare Desktop
+LN-LT-002,branded,Lenovo,IdeaPad 5,,SSD,512GB,8GB DDR4,3200MHz,AMD Ryzen 5 5600U,retired,inventory,2024-05-01,2021-05-01,IT Store,EOL - retired

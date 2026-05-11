@@ -1,0 +1,8 @@
+phone_number,iccid,vendor,assigned_type,sim_holder,service_type,package_name,data_limit,monthly_rate,status,activation_date,expiry_date,notes
+0321-1234001,8992010112345678901,Jazz,user,,,"Business Pro 50GB",50GB,1500,active,2023-06-01,,IT Manager SIM
+0321-1234002,8992010112345678902,Jazz,user,,,"Business Pro 50GB",50GB,1500,active,2023-09-01,,Ops Lead SIM
+0300-1234567,8992040112345678903,Ufone,inventory,IT Store,,"Data SIM 30GB",30GB,800,active,2024-02-01,,Spare hotspot SIM
+0333-9876543,8992030112345678904,Telenor,inventory,,,"Business 20GB",20GB,600,inactive,2022-01-01,2025-01-01,Plan expired
+0311-5555555,8992060112345678905,Zong,service,,WhatsApp OTP,"Business 100GB",100GB,2000,active,2024-03-01,,WhatsApp Business service SIM
+0320-9999001,8992010112345678906,Jazz,user,,,"Jazz Postpaid 10GB",10GB,800,active,2024-06-01,,Finance team SIM
+0345-1111001,8992040112345678907,Ufone,inventory,Security Guard,,Monthly 2GB,2GB,300,active,2024-01-01,,Security desk SIM
