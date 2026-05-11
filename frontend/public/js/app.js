@@ -28,6 +28,7 @@ const App = (() => {
   function navigate(page) {
     if (!PAGES[page]) page = 'dashboard';
     if (page === 'users' && currentUser?.role !== 'super_admin') page = 'dashboard';
+    if (page !== 'dashboard' && currentUser?.role !== 'super_admin' && currentUser?.permissions?.[page]?.can_read === false) page = 'dashboard';
 
     document.querySelectorAll('.nav-item').forEach(el =>
       el.classList.toggle('active', el.dataset.page === page));
@@ -88,6 +89,14 @@ const App = (() => {
     }
     if (user.role === 'super_admin') {
       document.getElementById('admin-nav').style.display = 'block';
+    }
+    if (user.role !== 'super_admin' && user.permissions) {
+      document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+        const page = el.dataset.page;
+        if (page !== 'dashboard' && user.permissions[page]?.can_read === false) {
+          el.style.display = 'none';
+        }
+      });
     }
   }
 

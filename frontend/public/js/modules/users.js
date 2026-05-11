@@ -154,7 +154,7 @@ const UsersModule = (() => {
   <thead>
     <tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:6px 8px;color:var(--text-muted)">Module</th>
-      ${ACTIONS.map(a=>`<th style="text-align:center;padding:6px 8px;color:var(--text-muted);text-transform:capitalize">${a}</th>`).join('')}
+      ${ACTIONS.map(a=>`<th style="text-align:center;padding:6px 8px;color:var(--text-muted);text-transform:capitalize">${a==='read'?'View':a}</th>`).join('')}
     </tr>
   </thead>
   <tbody>
@@ -162,9 +162,10 @@ const UsersModule = (() => {
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:6px 8px;font-weight:500">${MODULE_LABELS[mod]||mod}</td>
       ${ACTIONS.map(act => {
-        const checked = perms[mod]?.[`can_${act}`] ? 'checked' : '';
-        const disabled = act === 'read' ? 'disabled checked' : checked;
-        return `<td style="text-align:center;padding:6px 8px"><input type="checkbox" id="perm-${mod}-${act}" ${act==='read'?'disabled checked':checked}/></td>`;
+        const chk = act === 'read'
+          ? (perms[mod]?.can_read !== false ? 'checked' : '')
+          : (perms[mod]?.[`can_${act}`] ? 'checked' : '');
+        return `<td style="text-align:center;padding:6px 8px"><input type="checkbox" id="perm-${mod}-${act}" ${chk}/></td>`;
       }).join('')}
     </tr>`).join('')}
   </tbody>
@@ -203,6 +204,19 @@ ${permMatrix}`,
 
     setTimeout(() => {
       document.getElementById('mc').onclick = Utils.closeModal;
+
+      // View checkbox controls other permission checkboxes
+      MODULES.forEach(mod => {
+        const viewCb = document.getElementById(`perm-${mod}-read`);
+        if (!viewCb) return;
+        const others = ['create','update','delete'].map(a => document.getElementById(`perm-${mod}-${a}`)).filter(Boolean);
+        const syncOthers = () => {
+          others.forEach(cb => { cb.disabled = !viewCb.checked; if (!viewCb.checked) cb.checked = false; });
+        };
+        syncOthers();
+        viewCb.addEventListener('change', syncOthers);
+      });
+
       document.getElementById('ms').onclick = async () => {
         const role      = document.getElementById('u-role').value;
         const is_active = document.getElementById('u-active').value === 'true';
@@ -217,7 +231,7 @@ ${permMatrix}`,
             for (const mod of MODULES) {
               permissions[mod] = {};
               for (const act of ACTIONS) {
-                permissions[mod][`can_${act}`] = act === 'read' ? true : !!(document.getElementById(`perm-${mod}-${act}`)?.checked);
+                permissions[mod][`can_${act}`] = !!(document.getElementById(`perm-${mod}-${act}`)?.checked);
               }
             }
             await API.put(`/api/users/${id}/permissions`, { permissions });

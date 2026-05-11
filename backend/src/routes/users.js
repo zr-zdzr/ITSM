@@ -100,7 +100,7 @@ router.put('/:id/permissions', requireAuth, adminOnly, async (req, res) => {
       await db.query(
         `INSERT INTO user_permissions (user_id,module,can_create,can_read,can_update,can_delete)
          VALUES ($1,$2,$3,$4,$5,$6)`,
-        [req.params.id, mod, !!p.can_create, p.can_read !== false, !!p.can_update, !!p.can_delete]
+        [req.params.id, mod, !!p.can_create, !!p.can_read, !!p.can_update, !!p.can_delete]
       );
     }
     await log(req.user.id, 'updated', Number(req.params.id), null, 'Permissions updated', getIP(req));
