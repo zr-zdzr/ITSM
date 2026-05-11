@@ -58,12 +58,11 @@ const SIMsModule = (() => {
   <div class="table-wrapper">
     <table><thead><tr>
       <th style="cursor:pointer" onclick="SIMsModule.setSort('phone_number')">Phone Number${si('phone_number')}</th>
-      <th style="cursor:pointer" onclick="SIMsModule.setSort('vendor')">Carrier${si('vendor')}</th>
       <th style="cursor:pointer" onclick="SIMsModule.setSort('user_name')">User Name${si('user_name')}</th>
+      <th style="cursor:pointer" onclick="SIMsModule.setSort('sim_holder')">SIM Holder${si('sim_holder')}</th>
+      <th style="cursor:pointer" onclick="SIMsModule.setSort('vendor')">Carrier${si('vendor')}</th>
       <th style="cursor:pointer" onclick="SIMsModule.setSort('package_name')">Calling Package${si('package_name')}</th>
       <th style="cursor:pointer" onclick="SIMsModule.setSort('data_limit')">Data Package${si('data_limit')}</th>
-      <th style="cursor:pointer" onclick="SIMsModule.setSort('sim_holder')">SIM Holder${si('sim_holder')}</th>
-      <th style="cursor:pointer" onclick="SIMsModule.setSort('monthly_rate')">Monthly Rate${si('monthly_rate')}</th>
       <th style="cursor:pointer" onclick="SIMsModule.setSort('status')">Status${si('status')}</th>
       <th>Actions</th>
     </tr></thead><tbody id="sim-tbody"></tbody></table>
@@ -105,19 +104,17 @@ const SIMsModule = (() => {
     const rows=filtered(), paged=Utils.paginate(rows,state.page,state.perPage);
     const tbody=document.getElementById('sim-tbody'); if(!tbody) return;
     const carrierColor={Jazz:'badge-primary',Telenor:'badge-info',Ufone:'badge-accent',Zong:'badge-success',Other:'badge-muted'};
-    if(!paged.rows.length){tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📶</div><h3>No SIMs found</h3></div></td></tr>`;return;}
+    if(!paged.rows.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📶</div><h3>No SIMs found</h3></div></td></tr>`;return;}
     tbody.innerHTML=paged.rows.map(r=>`
       <tr>
-        <td><span class="td-mono" style="font-weight:600">${Utils.esc(r.phone_number)}</span></td>
+        <td><span class="td-mono" style="font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onclick="SIMsModule.openView(${r.id})">${Utils.esc(r.phone_number)}</span></td>
+        <td>${r.user_name?`<span style="cursor:pointer;text-decoration:underline;text-underline-offset:3px" onclick="SIMsModule.openByUser(${r.id})">${Utils.esc(r.user_name)}</span>`:'<span class="text-muted">—</span>'}</td>
+        <td>${Utils.esc(r.sim_holder||'—')}</td>
         <td><span class="badge ${carrierColor[r.vendor]||'badge-muted'}">${Utils.esc(r.vendor)}</span></td>
-        <td><span class="text-sm">${Utils.esc(r.user_name||'—')}</span></td>
-        <td><span class="text-sm">${Utils.esc(r.package_name||'—')}</span></td>
-        <td><span class="text-sm text-muted">${Utils.esc(r.data_limit||'—')}</span></td>
-        <td><span class="text-sm">${Utils.esc(r.sim_holder||'—')}</span></td>
-        <td><span class="text-sm">${r.monthly_rate?'PKR '+Number(r.monthly_rate).toLocaleString():'—'}</span></td>
+        <td>${Utils.esc(r.package_name||'—')}</td>
+        <td>${Utils.esc(r.data_limit||'—')}</td>
         <td>${Utils.statusBadge(r.status)}</td>
         <td><div style="display:flex;gap:5px">
-          <button class="btn btn-secondary btn-sm" onclick="SIMsModule.openView(${r.id})">👁</button>
           ${canW?`<button class="btn btn-secondary btn-sm" onclick="SIMsModule.openEdit(${r.id})">✏️</button>`:''}
           ${canD?`<button class="btn btn-danger btn-sm" onclick="SIMsModule.deleteRow(${r.id})">🗑</button>`:''}
         </div></td>
@@ -209,6 +206,38 @@ const SIMsModule = (() => {
     setTimeout(()=>{document.getElementById('mc').onclick=Utils.closeModal;},50);
   }
 
+  function openByUser(id) {
+    const row = allRows.find(r => r.id === id); if (!row || !row.user_name) return;
+    const userName = row.user_name;
+    const sims = allRows.filter(r => r.user_name === userName);
+    const carrierColor = {Jazz:'badge-primary',Telenor:'badge-info',Ufone:'badge-accent',Zong:'badge-success',Other:'badge-muted'};
+    Utils.openModal({
+      title: `📶 SIMs for ${Utils.esc(userName)} (${sims.length})`,
+      body: `
+<table style="width:100%;border-collapse:collapse">
+  <thead><tr>
+    <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);color:var(--text-muted)">Phone Number</th>
+    <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);color:var(--text-muted)">Carrier</th>
+    <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);color:var(--text-muted)">Calling Package</th>
+    <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);color:var(--text-muted)">Data Package</th>
+    <th style="padding:10px 12px;text-align:left;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);color:var(--text-muted)">Status</th>
+  </tr></thead>
+  <tbody>
+    ${sims.map(s=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px 12px"><span style="font-family:'JetBrains Mono',monospace;font-weight:600">${Utils.esc(s.phone_number)}</span></td>
+      <td style="padding:10px 12px"><span class="badge ${carrierColor[s.vendor]||'badge-muted'}">${Utils.esc(s.vendor)}</span></td>
+      <td style="padding:10px 12px">${Utils.esc(s.package_name||'—')}</td>
+      <td style="padding:10px 12px">${Utils.esc(s.data_limit||'—')}</td>
+      <td style="padding:10px 12px">${Utils.statusBadge(s.status)}</td>
+    </tr>`).join('')}
+  </tbody>
+</table>`,
+      footer: `<button class="btn btn-secondary" id="mc">Close</button>`
+    });
+    setTimeout(()=>{ document.getElementById('mc').onclick = Utils.closeModal; }, 50);
+  }
+
   function deleteRow(id) {
     const r=allRows.find(row=>row.id===id);
     Utils.confirm(`Delete SIM ${r?.phone_number}?`,async()=>{
@@ -217,5 +246,5 @@ const SIMsModule = (() => {
     });
   }
 
-  return { render, openView, openEdit, deleteRow, setSort };
+  return { render, openView, openByUser, openEdit, deleteRow, setSort };
 })();

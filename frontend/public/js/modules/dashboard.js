@@ -24,6 +24,7 @@ const DashboardModule = (() => {
       const totalGws = Object.values(gws).reduce((a,b)=>a+b,0);
       const lic = {}; (data.gwsLicense||[]).forEach(r => { lic[r.license] = +r.n; });
       const typ = {}; (data.gwsType||[]).forEach(r => { typ[r.account_type] = +r.n; });
+      const simPkg = (data.simPackages||[]);
 
       document.getElementById('page-content').innerHTML = `
 <div class="animate-in">
@@ -46,7 +47,10 @@ const DashboardModule = (() => {
     <div class="kpi-card accent stagger-4 animate-in" style="cursor:pointer" onclick="App.navigate('sims')">
       <div class="kpi-icon">📶</div><div class="kpi-value">${totalSim}</div>
       <div class="kpi-label">SIM Cards</div>
-      <div class="kpi-sub">${data.sims.filter(r=>r.status==='active').reduce((a,r)=>a+ +r.n,0)} active</div>
+      <div class="kpi-sub">
+        <span style="color:var(--success)">${data.sims.filter(r=>r.status==='active').reduce((a,r)=>a+ +r.n,0)} active</span> · <span style="color:var(--danger)">${data.sims.filter(r=>r.status==='suspended').reduce((a,r)=>a+ +r.n,0)} suspended</span><br>
+        ${simPkg.map(p=>`${Utils.esc(p.package_name)}: ${p.n}`).join(' · ')||'No packages'}
+      </div>
     </div>
     <div class="kpi-card warning stagger-5 animate-in" style="cursor:pointer" onclick="App.navigate('gws')">
       <div class="kpi-icon">☁️</div><div class="kpi-value">${totalGws}</div>
