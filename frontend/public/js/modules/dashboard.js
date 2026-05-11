@@ -22,6 +22,8 @@ const DashboardModule = (() => {
       const totalMob = Object.values(mob).reduce((a,b)=>a+b,0);
       const totalSim = data.sims.reduce((a,r)=>a+ +r.n,0);
       const totalGws = Object.values(gws).reduce((a,b)=>a+b,0);
+      const lic = {}; (data.gwsLicense||[]).forEach(r => { lic[r.license] = +r.n; });
+      const typ = {}; (data.gwsType||[]).forEach(r => { typ[r.account_type] = +r.n; });
 
       document.getElementById('page-content').innerHTML = `
 <div class="animate-in">
@@ -47,9 +49,13 @@ const DashboardModule = (() => {
       <div class="kpi-sub">${data.sims.filter(r=>r.status==='active').reduce((a,r)=>a+ +r.n,0)} active</div>
     </div>
     <div class="kpi-card warning stagger-5 animate-in" style="cursor:pointer" onclick="App.navigate('gws')">
-      <div class="kpi-icon">📧</div><div class="kpi-value">${totalGws}</div>
-      <div class="kpi-label">GWS Accounts</div>
-      <div class="kpi-sub">${gws.active||0} active · ${gws.suspended||0} suspended</div>
+      <div class="kpi-icon">☁️</div><div class="kpi-value">${totalGws}</div>
+      <div class="kpi-label">Cloud IDs</div>
+      <div class="kpi-sub">
+        <span style="color:var(--success)">${gws.active||0} active</span> · <span style="color:var(--danger)">${gws.suspended||0} suspended</span><br>
+        Starter: ${lic['Starter']||0} · Standard: ${lic['Standard']||0} · Vault: ${lic['Vault']||0} · N/A: ${lic['Not Assigned']||0}<br>
+        User: ${typ['user']||0} · Service: ${typ['service_account']||0}
+      </div>
     </div>
     <div class="kpi-card danger stagger-1 animate-in">
       <div class="kpi-icon">⚠️</div><div class="kpi-value">${data.warrantyExpired + data.warrantySoon}</div>

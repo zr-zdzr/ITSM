@@ -5,7 +5,7 @@ const GWSModule = (() => {
 
   const STATUSES  = ['active','suspended'];
   const ROLES     = ['Super Admin','Admin','User'];
-  const LICENSES  = ['Starter','Standard','Vault'];
+  const LICENSES  = ['Starter','Standard','Vault','Not Assigned'];
   const ACC_TYPES = [['user','User Account'],['service_account','Service Account']];
 
   function setSort(col) {
@@ -66,7 +66,6 @@ const GWSModule = (() => {
       <th style="cursor:pointer" onclick="GWSModule.setSort('account_type')">Type${si('account_type')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('gws_role')">Role${si('gws_role')}</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('license')">License${si('license')}</th>
-      <th>2FA</th>
       <th style="cursor:pointer" onclick="GWSModule.setSort('status')">Status${si('status')}</th>
       <th>Actions</th>
     </tr></thead><tbody id="gws-tbody"></tbody></table>
@@ -104,7 +103,7 @@ const GWSModule = (() => {
           { key:'org_unit',     desc:'Org unit e.g. /Engineering, /IT' },
           { key:'account_type', desc:'user or service_account' },
           { key:'gws_role',     desc:'Super Admin, Admin, User' },
-          { key:'license',      desc:'Starter, Standard or Vault' },
+          { key:'license',      desc:'Starter, Standard, Vault or Not Assigned' },
           { key:'status',       desc:'active or suspended' },
         ])
       );
@@ -115,12 +114,12 @@ const GWSModule = (() => {
     const rows = filtered(), paged = Utils.paginate(rows, state.page, state.perPage);
     const tbody = document.getElementById('gws-tbody'); if (!tbody) return;
     if (!paged.rows.length) {
-      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">☁️</div><h3>No Cloud IDs found</h3><p>${allRows.length ? 'Adjust your filters' : 'Click "+ Add Cloud ID" or import a CSV to get started'}</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">☁️</div><h3>No Cloud IDs found</h3><p>${allRows.length ? 'Adjust your filters' : 'Click "+ Add Cloud ID" or import a CSV to get started'}</p></div></td></tr>`;
       return;
     }
     const roleColor    = { 'Super Admin':'badge-danger','Admin':'badge-warning','User':'badge-info' };
-    const statusColor  = { active:'badge-success', suspended:'badge-warning' };
-    const licenseColor = { Starter:'badge-muted', Standard:'badge-primary', Vault:'badge-success' };
+    const statusColor  = { active:'badge-success', suspended:'badge-danger' };
+    const licenseColor = { Starter:'badge-muted', Standard:'badge-primary', Vault:'badge-success', 'Not Assigned':'badge-muted' };
 
     tbody.innerHTML = paged.rows.map(r => `
       <tr style="${r.status==='suspended'?'opacity:0.6':''}">
@@ -133,7 +132,6 @@ const GWSModule = (() => {
         <td><span class="badge ${r.account_type==='service_account'?'badge-accent':'badge-primary'}">${r.account_type==='service_account'?'Service':'User'}</span></td>
         <td>${r.gws_role?`<span class="badge ${roleColor[r.gws_role]||'badge-muted'}">${Utils.esc(r.gws_role)}</span>`:'<span class="text-muted">—</span>'}</td>
         <td>${r.license?`<span class="badge ${licenseColor[r.license]||'badge-muted'}">${Utils.esc(r.license)}</span>`:'<span class="text-muted">—</span>'}</td>
-        <td>${r.two_fa?`<span class="badge badge-success">✔ On</span>`:`<span class="badge badge-danger">✘ Off</span>`}</td>
         <td><span class="badge ${statusColor[r.status]||'badge-muted'}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
         <td><div style="display:flex;gap:5px">
           <button class="btn btn-secondary btn-sm" onclick="GWSModule.openView(${r.id})">👁</button>
@@ -194,13 +192,6 @@ const GWSModule = (() => {
       <option value="suspended" ${data.status==='suspended'?'selected':''}>Suspended</option>
     </select>
   </div>
-  <div class="form-group">
-    <label class="form-label">2FA</label>
-    <select class="form-control" id="g-2fa">
-      <option value="false" ${!data.two_fa?'selected':''}>Disabled</option>
-      <option value="true"  ${data.two_fa?'selected':''}>Enabled</option>
-    </select>
-  </div>
 </div>
 <div class="form-group" style="margin-top:12px">
   <label class="form-label">Notes</label>
@@ -220,7 +211,6 @@ const GWSModule = (() => {
       gws_role:     v('g-role'),
       license:      v('g-license') || null,
       status:       v('g-status'),
-      two_fa:       v('g-2fa') === 'true',
       notes:        v('g-notes') || null,
     };
   }
@@ -286,7 +276,6 @@ const GWSModule = (() => {
   <div class="detail-item"><div class="detail-label">Role</div><div class="detail-value">${r.gws_role?`<span class="badge ${roleColor[r.gws_role]||'badge-muted'}">${Utils.esc(r.gws_role)}</span>`:'—'}</div></div>
   <div class="detail-item"><div class="detail-label">License</div><div class="detail-value">${r.license?`<span class="badge ${licColor[r.license]||'badge-muted'}">${Utils.esc(r.license)}</span>`:'—'}</div></div>
   <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value"><span class="badge ${statusColor[r.status]||'badge-muted'}">${r.status}</span></div></div>
-  <div class="detail-item"><div class="detail-label">2FA</div><div class="detail-value">${r.two_fa?'<span class="badge badge-success">✔ Enabled</span>':'<span class="badge badge-danger">✘ Disabled</span>'}</div></div>
 </div>
 ${r.notes?`<div class="detail-section"><div class="detail-label">Notes</div><div class="detail-value" style="margin-top:8px">${Utils.esc(r.notes)}</div></div>`:''}`,
       footer: `<button class="btn btn-secondary" id="mc">Close</button>${canW?`<button class="btn btn-primary" onclick="GWSModule.openEdit(${id})">✏️ Edit</button>`:''}`

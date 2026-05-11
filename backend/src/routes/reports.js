@@ -6,12 +6,14 @@ const { requireAuth } = require('../middleware/auth');
 // ── DASHBOARD STATS ───────────────────────────────────────
 router.get('/dashboard', requireAuth, async (req, res) => {
   try {
-    const [sys, net, mob, sim, gws, usr, warExp, warSoon, act] = await Promise.all([
+    const [sys, net, mob, sim, gws, gwsLic, gwsTyp, usr, warExp, warSoon, act] = await Promise.all([
       db.query('SELECT status, COUNT(*) n FROM systems GROUP BY status'),
       db.query('SELECT device_type, COUNT(*) n FROM network_devices GROUP BY device_type'),
       db.query('SELECT status, COUNT(*) n FROM mobiles GROUP BY status'),
       db.query('SELECT status, vendor, COUNT(*) n FROM sims GROUP BY status, vendor'),
       db.query('SELECT status, COUNT(*) n FROM gws_accounts GROUP BY status'),
+      db.query("SELECT COALESCE(license,'Not Assigned') AS license, COUNT(*) n FROM gws_accounts GROUP BY license"),
+      db.query('SELECT account_type, COUNT(*) n FROM gws_accounts GROUP BY account_type'),
       db.query('SELECT role, COUNT(*) n FROM users GROUP BY role'),
       db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry < NOW()"),
       db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry BETWEEN NOW() AND NOW() + INTERVAL '90 days'"),
@@ -23,6 +25,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       mobiles:         mob.rows,
       sims:            sim.rows,
       gws:             gws.rows,
+      gwsLicense:      gwsLic.rows,
+      gwsType:         gwsTyp.rows,
       users:           usr.rows,
       warrantyExpired: Number(warExp.rows[0].n),
       warrantySoon:    Number(warSoon.rows[0].n),

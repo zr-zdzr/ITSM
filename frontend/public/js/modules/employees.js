@@ -71,7 +71,7 @@ const EmployeesModule = (() => {
   </div>
   <div class="table-wrapper">
     <table><thead><tr>
-      <th style="cursor:pointer" onclick="EmployeesModule.setSort('first_name')">Name${si('first_name')}</th>
+      <th style="cursor:pointer" onclick="EmployeesModule.setSort('first_name')">Display Name${si('first_name')}</th>
       <th style="cursor:pointer" onclick="EmployeesModule.setSort('email')">Email${si('email')}</th>
       <th style="cursor:pointer" onclick="EmployeesModule.setSort('designation')">Designation${si('designation')}</th>
       <th style="cursor:pointer" onclick="EmployeesModule.setSort('department')">Department${si('department')}</th>
@@ -138,12 +138,7 @@ const EmployeesModule = (() => {
 
     tbody.innerHTML = paged.rows.map(e => `
       <tr style="${!e.is_active?'opacity:0.55':''}">
-        <td>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-hover));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${Utils.esc(e.first_name[0])}${Utils.esc(e.last_name[0])}</div>
-            <span style="font-weight:600">${Utils.esc(fullName(e))}</span>
-          </div>
-        </td>
+        <td><span style="font-weight:600">${Utils.esc(fullName(e))}</span></td>
         <td><span class="td-mono text-sm">${e.email?Utils.esc(e.email):'<span class="text-muted">—</span>'}</span></td>
         <td><span class="text-sm">${Utils.esc(e.designation)}</span></td>
         <td><span class="badge badge-muted">${Utils.esc(e.department)}</span></td>
