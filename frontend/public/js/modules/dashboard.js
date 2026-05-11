@@ -26,24 +26,34 @@ const DashboardModule = (() => {
       const typ = {}; (data.gwsType||[]).forEach(r => { typ[r.account_type] = +r.n; });
       const simPkg = (data.simPackages||[]);
 
+      const canSys = App.canPerm('systems', 'read');
+      const canNet = App.canPerm('network', 'read');
+      const canMob = App.canPerm('mobiles', 'read');
+      const canSim = App.canPerm('sims',    'read');
+      const canGws = App.canPerm('gws',     'read');
+
       document.getElementById('page-content').innerHTML = `
 <div class="animate-in">
   <div class="kpi-grid">
+    ${canSys ? `
     <div class="kpi-card primary stagger-1 animate-in" style="cursor:pointer" onclick="App.navigate('systems')">
       <div class="kpi-icon">💻</div><div class="kpi-value">${totalSys}</div>
       <div class="kpi-label">PC / Systems</div>
       <div class="kpi-sub">${sys.in_use||0} in use · ${sys.available||0} available</div>
-    </div>
+    </div>` : ''}
+    ${canNet ? `
     <div class="kpi-card info stagger-2 animate-in" style="cursor:pointer" onclick="App.navigate('network')">
       <div class="kpi-icon">🌐</div><div class="kpi-value">${totalNet}</div>
       <div class="kpi-label">Network Devices</div>
       <div class="kpi-sub">${data.networkDevices.map(r=>r.device_type+': '+r.n).join(' · ')}</div>
-    </div>
+    </div>` : ''}
+    ${canMob ? `
     <div class="kpi-card success stagger-3 animate-in" style="cursor:pointer" onclick="App.navigate('mobiles')">
       <div class="kpi-icon">📱</div><div class="kpi-value">${totalMob}</div>
       <div class="kpi-label">Mobile Phones</div>
       <div class="kpi-sub">${mob.in_use||0} in use · ${mob.available||0} available</div>
-    </div>
+    </div>` : ''}
+    ${canSim ? `
     <div class="kpi-card accent stagger-4 animate-in" style="cursor:pointer" onclick="App.navigate('sims')">
       <div class="kpi-icon">📶</div><div class="kpi-value">${totalSim}</div>
       <div class="kpi-label">SIM Cards</div>
@@ -51,7 +61,8 @@ const DashboardModule = (() => {
         <span style="color:var(--success)">${data.sims.filter(r=>r.status==='active').reduce((a,r)=>a+ +r.n,0)} active</span> · <span style="color:var(--danger)">${data.sims.filter(r=>r.status==='suspended').reduce((a,r)=>a+ +r.n,0)} suspended</span><br>
         ${simPkg.map(p=>`${Utils.esc(p.package_name)}: ${p.n}`).join(' · ')||'No packages'}
       </div>
-    </div>
+    </div>` : ''}
+    ${canGws ? `
     <div class="kpi-card warning stagger-5 animate-in" style="cursor:pointer" onclick="App.navigate('gws')">
       <div class="kpi-icon">☁️</div><div class="kpi-value">${totalGws}</div>
       <div class="kpi-label">Cloud IDs</div>
@@ -60,31 +71,36 @@ const DashboardModule = (() => {
         Starter: ${lic['Starter']||0} · Standard: ${lic['Standard']||0} · Vault: ${lic['Vault']||0} · N/A: ${lic['Not Assigned']||0}<br>
         User: ${typ['user']||0} · Service: ${typ['service_account']||0}
       </div>
-    </div>
+    </div>` : ''}
+    ${canSys ? `
     <div class="kpi-card danger stagger-1 animate-in">
       <div class="kpi-icon">⚠️</div><div class="kpi-value">${data.warrantyExpired + data.warrantySoon}</div>
       <div class="kpi-label">Warranty Alerts</div>
       <div class="kpi-sub">${data.warrantyExpired} expired · ${data.warrantySoon} expiring soon</div>
-    </div>
+    </div>` : ''}
   </div>
 
   <div class="charts-grid">
+    ${canSys ? `
     <div class="chart-card">
       <div class="chart-title">System Status</div>
       <canvas id="chart-systems" height="220"></canvas>
-    </div>
+    </div>` : ''}
+    ${canNet ? `
     <div class="chart-card">
       <div class="chart-title">Network Devices by Type</div>
       <canvas id="chart-network" height="220"></canvas>
-    </div>
+    </div>` : ''}
+    ${canSim ? `
     <div class="chart-card">
       <div class="chart-title">SIM Cards by Carrier</div>
       <canvas id="chart-sims" height="220"></canvas>
-    </div>
+    </div>` : ''}
+    ${canGws ? `
     <div class="chart-card">
       <div class="chart-title">GWS Account Status</div>
       <canvas id="chart-gws" height="220"></canvas>
-    </div>
+    </div>` : ''}
   </div>
 
   <div class="section-grid">
@@ -115,17 +131,16 @@ const DashboardModule = (() => {
         charts.push(new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{ data:values, backgroundColor:COLORS, borderWidth:2, borderColor:'#1a2332' }] }, options:opts }));
       };
 
-      mkDoughnut('chart-systems',
+      if (canSys) mkDoughnut('chart-systems',
         Object.keys(sys).map(k=>k.replace('_',' ')), Object.values(sys));
-      mkDoughnut('chart-network',
+      if (canNet) mkDoughnut('chart-network',
         data.networkDevices.map(r=>r.device_type), data.networkDevices.map(r=>+r.n));
-
-      // SIMs by carrier
-      const simByCarrier = {};
-      data.sims.forEach(r => { simByCarrier[r.vendor] = (simByCarrier[r.vendor]||0) + +r.n; });
-      mkDoughnut('chart-sims', Object.keys(simByCarrier), Object.values(simByCarrier));
-
-      mkDoughnut('chart-gws', Object.keys(gws), Object.values(gws));
+      if (canSim) {
+        const simByCarrier = {};
+        data.sims.forEach(r => { simByCarrier[r.vendor] = (simByCarrier[r.vendor]||0) + +r.n; });
+        mkDoughnut('chart-sims', Object.keys(simByCarrier), Object.values(simByCarrier));
+      }
+      if (canGws) mkDoughnut('chart-gws', Object.keys(gws), Object.values(gws));
 
     }).catch(e => {
       document.getElementById('page-content').innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Failed to load dashboard</h3><p>${Utils.esc(e.message)}</p></div>`;

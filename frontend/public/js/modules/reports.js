@@ -3,8 +3,25 @@ const ReportsModule = (() => {
   let charts = [];
   function destroyCharts() { charts.forEach(c=>c.destroy()); charts=[]; }
 
+  const TABS = [
+    { id:'warranty',     label:'⚠️ Warranty',      needs:['systems']                     },
+    { id:'assignments',  label:'👤 Assignments',    needs:['systems','mobiles','sims']    },
+    { id:'by-brand',     label:'🏷 By Brand',       needs:['systems','mobiles','network'] },
+    { id:'by-asset-tag', label:'🔍 By Asset Tag',   needs:['systems','mobiles']           },
+    { id:'sim-costs',    label:'📶 SIM Costs',      needs:['sims']                        },
+    { id:'gws-report',   label:'☁️ Cloud IDs',      needs:['gws']                         },
+    { id:'elog',         label:'📋 eLog',           needs:[]                              },
+  ];
+
+  function canTab(tab) {
+    return tab.needs.length === 0 || tab.needs.some(m => App.canPerm(m, 'read'));
+  }
+
   async function render() {
     destroyCharts();
+    const visibleTabs = TABS.filter(canTab);
+    const firstTab = visibleTabs[0]?.id || 'elog';
+
     document.getElementById('page-content').innerHTML = `
 <div class="animate-in">
   <div class="section-header">
@@ -14,13 +31,7 @@ const ReportsModule = (() => {
     </div>
   </div>
   <div class="reports-tabs">
-    <button class="rep-tab active" data-tab="warranty">⚠️ Warranty</button>
-    <button class="rep-tab" data-tab="assignments">👤 Assignments</button>
-    <button class="rep-tab" data-tab="by-brand">🏷 By Brand</button>
-    <button class="rep-tab" data-tab="by-asset-tag">🔍 By Asset Tag</button>
-    <button class="rep-tab" data-tab="sim-costs">📶 SIM Costs</button>
-    <button class="rep-tab" data-tab="gws-report">☁️ Cloud IDs</button>
-    <button class="rep-tab" data-tab="elog">📋 eLog</button>
+    ${visibleTabs.map((t,i)=>`<button class="rep-tab${i===0?' active':''}" data-tab="${t.id}">${t.label}</button>`).join('')}
   </div>
   <div id="rep-content"></div>
 </div>`;
@@ -33,7 +44,7 @@ const ReportsModule = (() => {
         loadTab(btn.dataset.tab);
       });
     });
-    loadTab('warranty');
+    loadTab(firstTab);
   }
 
   async function loadTab(tab) {
@@ -82,7 +93,12 @@ const ReportsModule = (() => {
   async function renderAssignments(el) {
     const data = await API.get('/api/reports/assignments');
     const allUsers = {};
-    [...data.systems, ...data.mobiles, ...data.sims].forEach(row => {
+    const sources = [
+      ...(App.canPerm('systems','read') ? data.systems : []),
+      ...(App.canPerm('mobiles','read') ? data.mobiles : []),
+      ...(App.canPerm('sims','read')    ? data.sims    : []),
+    ];
+    sources.forEach(row => {
       if (!allUsers[row.email]) allUsers[row.email] = { name:row.name, department:row.department, items:[] };
       (row.items||[]).forEach(item => allUsers[row.email].items.push(item));
     });
@@ -125,9 +141,9 @@ const ReportsModule = (() => {
     el.innerHTML = `
 <div style="margin-top:16px">
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
-    <div>${brandTable(data.systems,  '🖥️ Systems by Manufacturer')}</div>
-    <div>${brandTable(data.mobiles,  '📱 Mobiles by Manufacturer')}</div>
-    <div>${brandTable(data.network,  '🌐 Network by Brand')}</div>
+    ${App.canPerm('systems','read')  ? `<div>${brandTable(data.systems, '🖥️ Systems by Manufacturer')}</div>` : ''}
+    ${App.canPerm('mobiles','read')  ? `<div>${brandTable(data.mobiles, '📱 Mobiles by Manufacturer')}</div>` : ''}
+    ${App.canPerm('network','read')  ? `<div>${brandTable(data.network, '🌐 Network by Brand')}</div>`        : ''}
   </div>
 </div>`;
   }
@@ -151,7 +167,10 @@ const ReportsModule = (() => {
       res.innerHTML = '<div class="spinner"></div>';
       try {
         const data = await API.get('/api/reports/by-asset-tag' + (q ? `?q=${encodeURIComponent(q)}` : ''));
-        const allRows = [...data.systems.map(r=>({...r,_type:'System'})), ...data.mobiles.map(r=>({...r,_type:'Mobile'}))];
+        const allRows = [
+          ...(App.canPerm('systems','read') ? data.systems.map(r=>({...r,_type:'System'})) : []),
+          ...(App.canPerm('mobiles','read') ? data.mobiles.map(r=>({...r,_type:'Mobile'})) : []),
+        ];
         if (!allRows.length) { res.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><h3>No matching assets</h3></div>'; return; }
         res.innerHTML = `
 <div class="table-wrapper">
