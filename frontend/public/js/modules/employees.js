@@ -138,7 +138,7 @@ const EmployeesModule = (() => {
 
     tbody.innerHTML = paged.rows.map(e => `
       <tr style="${!e.is_active?'opacity:0.55':''}">
-        <td><span style="font-weight:600">${Utils.esc(fullName(e))}</span></td>
+        <td><span style="font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px" onclick="EmployeesModule.openView(${e.id})">${Utils.esc(fullName(e))}</span></td>
         <td><span class="td-mono text-sm">${e.email?Utils.esc(e.email):'<span class="text-muted">—</span>'}</span></td>
         <td><span class="text-sm">${Utils.esc(e.designation)}</span></td>
         <td><span class="badge badge-muted">${Utils.esc(e.department)}</span></td>
@@ -323,6 +323,30 @@ const EmployeesModule = (() => {
     }, 50);
   }
 
+  function openView(id) {
+    const e = allRows.find(r => r.id === id); if (!e) return;
+    const canW = App.canPerm('employees','update');
+    const locColor  = {Karachi:'badge-primary', Lahore:'badge-success', Islamabad:'badge-info', Others:'badge-muted'};
+    const typeColor = {Permanent:'badge-success', Contractual:'badge-warning'};
+    Utils.openModal({
+      title: `👤 ${Utils.esc(fullName(e))}`,
+      body: `
+<div class="detail-grid">
+  <div class="detail-item"><div class="detail-label">First Name</div><div class="detail-value">${Utils.esc(e.first_name)}</div></div>
+  <div class="detail-item"><div class="detail-label">Last Name</div><div class="detail-value">${Utils.esc(e.last_name)}</div></div>
+  <div class="detail-item"><div class="detail-label">Designation</div><div class="detail-value">${Utils.esc(e.designation||'—')}</div></div>
+  <div class="detail-item"><div class="detail-label">Department</div><div class="detail-value">${Utils.esc(e.department||'—')}</div></div>
+  <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value mono">${Utils.esc(e.email||'—')}</div></div>
+  <div class="detail-item"><div class="detail-label">Mobile Number</div><div class="detail-value">${Utils.esc(e.mobile_number||'—')}</div></div>
+  <div class="detail-item"><div class="detail-label">Location</div><div class="detail-value">${e.location?`<span class="badge ${locColor[e.location]||'badge-muted'}">${Utils.esc(e.location)}</span>`:'—'}</div></div>
+  <div class="detail-item"><div class="detail-label">Employment Type</div><div class="detail-value">${e.employment_type?`<span class="badge ${typeColor[e.employment_type]||'badge-muted'}">${Utils.esc(e.employment_type)}</span>`:'—'}</div></div>
+  <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value">${e.is_active?'<span class="badge badge-success">Active</span>':'<span class="badge badge-danger">Inactive</span>'}</div></div>
+</div>`,
+      footer: `<button class="btn btn-secondary" id="mc">Close</button>${canW?`<button class="btn btn-primary" onclick="EmployeesModule.openEdit(${id})">✏️ Edit</button>`:''}`
+    });
+    setTimeout(() => { document.getElementById('mc').onclick = Utils.closeModal; }, 50);
+  }
+
   function deleteRow(id) {
     const e = allRows.find(r => r.id === id);
     Utils.confirm(`Delete ${fullName(e)}? Their name will be cleared from any assigned assets.`, async () => {
@@ -335,5 +359,5 @@ const EmployeesModule = (() => {
     });
   }
 
-  return { render, openEdit, deleteRow, setSort };
+  return { render, openView, openEdit, deleteRow, setSort };
 })();
