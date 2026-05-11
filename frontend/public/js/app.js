@@ -6,7 +6,7 @@ const App = (() => {
     dashboard: { title:'Dashboard',        subtitle:'IT inventory overview',           mod: DashboardModule   },
     systems:   { title:'Systems',           subtitle:'Laptop, desktop and server inventory', mod: SystemsModule },
     network:   { title:'Network Devices',  subtitle:'Switches, routers, firewalls',    mod: NetworkModule     },
-    mobiles:   { title:'Mobile Phones',    subtitle:'Company mobile device inventory', mod: MobilesModule     },
+    mobiles:   { title:'Mobile Devices',   subtitle:'Company mobile device inventory', mod: MobilesModule     },
     sims:      { title:'SIM Cards',        subtitle:'SIM card management',             mod: SIMsModule        },
     gws:       { title:'Cloud IDs',         subtitle:'Cloud account management',        mod: GWSModule         },
     employees: { title:'Employees',        subtitle:'Company employee directory',      mod: EmployeesModule   },

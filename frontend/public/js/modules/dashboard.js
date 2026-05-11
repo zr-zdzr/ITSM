@@ -15,11 +15,11 @@ const DashboardModule = (() => {
         const m = {}; arr.forEach(r => m[r.status] = +r.n); return m;
       };
       const sys = byStatus(data.systems);
-      const mob = byStatus(data.mobiles);
+      const mob = data.mobiles; // {total, it_inventory, rogue}
       const gws = byStatus(data.gws);
       const totalSys = Object.values(sys).reduce((a,b)=>a+b,0);
       const totalNet = data.networkDevices.reduce((a,r)=>a+ +r.n,0);
-      const totalMob = Object.values(mob).reduce((a,b)=>a+b,0);
+      const totalMob = +mob.total;
       const totalSim = data.sims.reduce((a,r)=>a+ +r.n,0);
       const totalGws = Object.values(gws).reduce((a,b)=>a+b,0);
       const lic = {}; (data.gwsLicense||[]).forEach(r => { lic[r.license] = +r.n; });
@@ -50,8 +50,11 @@ const DashboardModule = (() => {
     ${canMob ? `
     <div class="kpi-card success stagger-3 animate-in" style="cursor:pointer" onclick="App.navigate('mobiles')">
       <div class="kpi-icon">📱</div><div class="kpi-value">${totalMob}</div>
-      <div class="kpi-label">Mobile Phones</div>
-      <div class="kpi-sub">${mob.in_use||0} in use · ${mob.available||0} available</div>
+      <div class="kpi-label">Mobile Devices</div>
+      <div class="kpi-sub">
+        IT Inventory: ${mob.it_inventory||0} · Rogue: ${mob.rogue||0}<br>
+        <span style="font-size:11px;color:var(--text-muted)">Rogue = assigned but no IMEI</span>
+      </div>
     </div>` : ''}
     ${canSim ? `
     <div class="kpi-card accent stagger-4 animate-in" style="cursor:pointer" onclick="App.navigate('sims')">

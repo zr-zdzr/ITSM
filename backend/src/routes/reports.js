@@ -9,7 +9,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
     const [sys, net, mob, sim, simPkg, gws, gwsLic, gwsTyp, usr, warExp, warSoon, act] = await Promise.all([
       db.query('SELECT status, COUNT(*) n FROM systems GROUP BY status'),
       db.query('SELECT device_type, COUNT(*) n FROM network_devices GROUP BY device_type'),
-      db.query('SELECT status, COUNT(*) n FROM mobiles GROUP BY status'),
+      db.query(`SELECT COUNT(*) total, COUNT(*) FILTER (WHERE assigned_user_id IS NULL) it_inventory, COUNT(*) FILTER (WHERE (imei IS NULL OR imei='') AND assigned_type='user') rogue FROM mobiles`),
       db.query('SELECT status, vendor, COUNT(*) n FROM sims GROUP BY status, vendor'),
       db.query("SELECT COALESCE(package_name,'Unassigned') AS package_name, COUNT(*) n FROM sims GROUP BY package_name ORDER BY n DESC"),
       db.query('SELECT status, COUNT(*) n FROM gws_accounts GROUP BY status'),
@@ -23,7 +23,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
     res.json({
       systems:         sys.rows,
       networkDevices:  net.rows,
-      mobiles:         mob.rows,
+      mobiles:         mob.rows[0],
       sims:            sim.rows,
       simPackages:     simPkg.rows,
       gws:             gws.rows,
