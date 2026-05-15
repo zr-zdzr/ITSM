@@ -36,7 +36,8 @@ app.use('/api/sims',    require('./routes/sims'));
 app.use('/api/gws',     require('./routes/gws'));
 app.use('/api/users',     require('./routes/users'));
 app.use('/api/employees', require('./routes/employees'));
-app.use('/api/reports',   require('./routes/reports'));
+app.use('/api/reports',      require('./routes/reports'));
+app.use('/api/recycle-bin',  require('./routes/recycle-bin'));
 app.get('/api/health',  (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -63,6 +64,19 @@ async function runMigrations() {
       can_update BOOLEAN NOT NULL DEFAULT false,
       can_delete BOOLEAN NOT NULL DEFAULT false,
       PRIMARY KEY (user_id, module)
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS recycle_bin (
+      id          SERIAL PRIMARY KEY,
+      module      VARCHAR(50) NOT NULL,
+      table_name  VARCHAR(100) NOT NULL,
+      record_id   INTEGER NOT NULL,
+      record_name VARCHAR(255),
+      data        JSONB NOT NULL,
+      deleted_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days'
     )
   `);
 }

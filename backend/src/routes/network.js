@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
@@ -88,14 +88,13 @@ router.post('/import/csv', requireAuth, perm('network','create'), upload.single(
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL (password-verified) ───────────────────────
+// ── DELETE ALL ────────────────────────────────────────────
 router.delete('/all', requireAuth, perm('network','delete'), async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required' });
-    const u = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    if (!u.rows[0] || !(await bcrypt.compare(password, u.rows[0].password_hash)))
-      return res.status(403).json({ error: 'Incorrect password' });
+    const all = await db.query('SELECT * FROM network_devices');
+    await Promise.all(all.rows.map(row =>
+      saveToRecycleBin('network', 'network_devices', row, `${row.brand||''} ${row.model||''}`.trim(), req.user.id)
+    ));
     const r = await db.query('DELETE FROM network_devices RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Network Devices', `Deleted all ${r.rowCount} devices`);
     res.json({ deleted: r.rowCount });
@@ -153,6 +152,7 @@ router.delete('/:id', requireAuth, perm('network','delete'), async (req, res) =>
   try {
     const r = await db.query('DELETE FROM network_devices WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await saveToRecycleBin('network', 'network_devices', r.rows[0], `${r.rows[0].brand||''} ${r.rows[0].model||''}`.trim(), req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, `${r.rows[0].brand} ${r.rows[0].model}`, 'Deleted');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

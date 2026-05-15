@@ -1,126 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ITMS — Bykea IT Management</title>
-  <link rel="stylesheet" href="/public/css/main.css"/>
-  <script src="/public/js/chart.umd.min.js?v=2" defer></script>
-</head>
-<body>
-<div id="app" style="opacity:0;transition:opacity .15s">
-  <nav id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">🖥️</div>
-      <div class="sidebar-brand"><h2>ITMS</h2><span>Bykea IT</span></div>
-    </div>
-    <div class="sidebar-nav">
-      <div class="nav-group">
-        <div class="nav-group-label">Overview</div>
-        <a class="nav-item active" data-page="dashboard" href="#dashboard">
-          <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
-        </a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-label">Inventory</div>
-        <a class="nav-item" data-page="systems" href="#systems">
-          <span class="nav-icon">💻</span><span class="nav-label">Systems</span>
-          <span class="nav-badge" id="badge-systems">0</span>
-        </a>
-        <a class="nav-item" data-page="network" href="#network">
-          <span class="nav-icon">🌐</span><span class="nav-label">Network Devices</span>
-        </a>
-        <a class="nav-item" data-page="mobiles" href="#mobiles">
-          <span class="nav-icon">📱</span><span class="nav-label">Mobile Devices</span>
-        </a>
-        <a class="nav-item" data-page="sims" href="#sims">
-          <span class="nav-icon">📶</span><span class="nav-label">SIM Cards</span>
-        </a>
-        <a class="nav-item" data-page="gws" href="#gws">
-          <span class="nav-icon">☁️</span><span class="nav-label">Cloud IDs</span>
-        </a>
-        <a class="nav-item" data-page="employees" href="#employees">
-          <span class="nav-icon">👤</span><span class="nav-label">Employees</span>
-        </a>
-      </div>
-      <div class="nav-group">
-        <div class="nav-group-label">Analytics</div>
-        <a class="nav-item" data-page="reports" href="#reports">
-          <span class="nav-icon">📈</span><span class="nav-label">Reports</span>
-        </a>
-      </div>
-      <div class="nav-group" id="admin-nav" style="display:none">
-        <div class="nav-group-label">Admin</div>
-        <a class="nav-item" data-page="users" href="#users">
-          <span class="nav-icon">👥</span><span class="nav-label">User Management</span>
-        </a>
-      </div>
-    </div>
-    <div class="sidebar-footer">
-      <div class="user-info" id="user-info">
-        <img id="user-avatar" src="" alt="" class="user-avatar" style="display:none"/>
-        <div class="user-details">
-          <div id="user-name" class="user-name"></div>
-          <div id="user-role" class="user-role"></div>
-        </div>
-      </div>
-      <button class="sidebar-toggle" id="sidebar-toggle-btn" title="Toggle">&lt;</button>
-    </div>
-  </nav>
-
-  <div id="main">
-    <header id="header">
-      <div class="header-title">
-        <h1 id="header-page-title">Dashboard</h1>
-        <p id="header-page-subtitle">Loading…</p>
-      </div>
-      <div class="header-spacer"></div>
-      <div class="header-search" role="search">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" id="global-search" placeholder="Search…" aria-label="Global search"/>
-      </div>
-      <div class="header-actions">
-        <button class="header-btn" id="refresh-btn" title="Refresh">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-        </button>
-        <div class="user-menu" id="user-menu">
-          <button class="user-menu-trigger" id="user-menu-btn">
-            <span id="header-user-name">—</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="user-menu-dropdown" id="user-menu-dropdown">
-            <button class="user-menu-item" id="theme-toggle-btn">☀️ Bright Mode</button>
-            <button class="user-menu-item" id="change-pass-menu-btn">🔑 Change Password</button>
-            <div class="user-menu-divider"></div>
-            <button class="user-menu-item danger" id="logout-btn">🚪 Logout</button>
-          </div>
-        </div>
-      </div>
-    </header>
-    <main id="page-content" role="main">
-      <div class="spinner"></div>
-    </main>
-    <footer style="text-align:center;padding:14px 24px;font-size:13px;color:var(--text-muted);border-top:1px solid var(--border);background:var(--bg-elevated);flex-shrink:0">
-      &copy; <span id="footer-year"></span> Bykea IT Department &nbsp;·&nbsp; Created by Zeeshan Rafiq &nbsp;·&nbsp; v1.1.05.26
-    </footer>
-  </div>
-</div>
-<script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
-  <div class="modal" id="modal">
-    <div class="modal-header">
-      <h2 class="modal-title" id="modal-title"></h2>
-      <button class="modal-close" id="modal-close-btn">✕</button>
-    </div>
-    <div class="modal-body" id="modal-body"></div>
-    <div class="modal-footer" id="modal-footer"></div>
-  </div>
-</div>
-
-<div id="toast-container" role="status" aria-live="polite"></div>
-
-<script src="/public/js/bundle.js?v=2" defer></script>
-</body>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ITMS — Bykea IT Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
@@ -108,48 +108,87 @@ router.post('/import/csv', requireAuth, perm('mobiles','create'), upload.single(
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
-    let inserted = 0, skipped = 0, errors = [];
+    let inserted = 0, updated = 0, skipped = 0, errors = [];
     for (const raw of records) {
       const d = normalizeRow(raw);
-      const tag          = d.asset_tag || await autoTag();
-      const manufacturer = d.manufacturer || d.make || d.brand || 'Unknown';
-      const model        = d.model || d.device || 'Unknown';
-      const serial       = d.serial_number || d.serial || d.sn || null;
+      const tag   = d.asset_tag || null;
+      const mfr   = d.manufacturer || d.make || d.brand || null;
+      const model = d.model || d.device || null;
+      const serial = d.serial_number || d.serial || d.sn || null;
       try {
-        await db.query(
-          `INSERT INTO mobiles
-             (asset_tag,manufacturer,model,serial_number,imei,imei2,os,assigned_type,department,
-              purpose,warranty_start,warranty_expiry,condition,status,notes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-           ON CONFLICT (asset_tag) DO NOTHING`,
-          [tag, manufacturer, model, serial,
-           d.imei_1||d.imei||null, d.imei_2||d.imei2||null,
-           pickOS(d.os),
-           pickAssignedType(d.assigned_to||d.assigned_type),
-           d.department||null,
-           pickPurpose(d.assigned_purpose||d.purpose),
-           d.warranty_start||null,
-           d.warranty_end||d.warranty_expiry||null,
-           pickCondition(d.condition),
-           pickStatus(d.status),
-           d.notes||null]
-        );
-        inserted++;
-      } catch (e) { skipped++; errors.push(`${tag}: ${e.message}`); }
+        let existing = null;
+        if (tag) {
+          const r = await db.query('SELECT id FROM mobiles WHERE asset_tag=$1', [tag]);
+          existing = r.rows[0];
+        }
+        if (!existing && mfr && model && serial) {
+          const r = await db.query(
+            'SELECT id FROM mobiles WHERE manufacturer=$1 AND model=$2 AND serial_number=$3',
+            [mfr, model, serial]
+          );
+          existing = r.rows[0];
+        }
+
+        const imei   = d.imei_1||d.imei||null;
+        const imei2  = d.imei_2||d.imei2||null;
+        const os     = pickOS(d.os);
+        const atype  = pickAssignedType(d.assigned_to||d.assigned_type);
+        const dept   = d.department||null;
+        const purp   = pickPurpose(d.assigned_purpose||d.purpose);
+        const wstart = d.warranty_start||null;
+        const wend   = d.warranty_end||d.warranty_expiry||null;
+        const cond   = pickCondition(d.condition);
+        const status = pickStatus(d.status);
+        const notes  = d.notes||null;
+
+        if (existing) {
+          await db.query(`
+            UPDATE mobiles SET
+              manufacturer    = COALESCE($1, manufacturer),
+              model           = COALESCE($2, model),
+              serial_number   = COALESCE($3, serial_number),
+              imei            = COALESCE($4, imei),
+              imei2           = COALESCE($5, imei2),
+              os              = COALESCE($6, os),
+              assigned_type   = COALESCE($7, assigned_type),
+              department      = COALESCE($8, department),
+              purpose         = COALESCE($9, purpose),
+              warranty_start  = COALESCE($10, warranty_start),
+              warranty_expiry = COALESCE($11, warranty_expiry),
+              condition       = COALESCE($12, condition),
+              status          = COALESCE($13, status),
+              notes           = COALESCE($14, notes)
+            WHERE id=$15`,
+            [mfr, model, serial, imei, imei2, os, atype, dept, purp,
+             wstart, wend, cond, status, notes, existing.id]
+          );
+          updated++;
+        } else {
+          const newTag = tag || await autoTag();
+          await db.query(
+            `INSERT INTO mobiles
+               (asset_tag,manufacturer,model,serial_number,imei,imei2,os,assigned_type,department,
+                purpose,warranty_start,warranty_expiry,condition,status,notes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+            [newTag, mfr||'Unknown', model||'Unknown', serial,
+             imei, imei2, os, atype, dept, purp, wstart, wend, cond, status, notes]
+          );
+          inserted++;
+        }
+      } catch (e) { skipped++; errors.push(`${tag||serial||'?'}: ${e.message}`); }
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} mobiles, skipped ${skipped}`);
-    res.json({ inserted, skipped, errors });
+    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} mobiles, updated ${updated}, skipped ${skipped}`);
+    res.json({ inserted, updated, skipped, errors });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL (password-verified) ───────────────────────
+// ── DELETE ALL ────────────────────────────────────────────
 router.delete('/all', requireAuth, perm('mobiles','delete'), async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required' });
-    const u = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    if (!u.rows[0] || !(await bcrypt.compare(password, u.rows[0].password_hash)))
-      return res.status(403).json({ error: 'Incorrect password' });
+    const all = await db.query('SELECT * FROM mobiles');
+    await Promise.all(all.rows.map(row =>
+      saveToRecycleBin('mobiles', 'mobiles', row, row.asset_tag || `${row.manufacturer||''} ${row.model||''}`.trim(), req.user.id)
+    ));
     const r = await db.query('DELETE FROM mobiles RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Mobiles', `Deleted all ${r.rowCount} mobiles`);
     res.json({ deleted: r.rowCount });
@@ -225,6 +264,7 @@ router.delete('/:id', requireAuth, perm('mobiles','delete'), async (req, res) =>
   try {
     const r = await db.query('DELETE FROM mobiles WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await saveToRecycleBin('mobiles', 'mobiles', r.rows[0], r.rows[0].asset_tag || `${r.rows[0].manufacturer||''} ${r.rows[0].model||''}`.trim(), req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].asset_tag, 'Deleted mobile');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

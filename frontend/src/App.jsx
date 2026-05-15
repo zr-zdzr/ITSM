@@ -1,0 +1,60 @@
+import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
+import Layout from './components/layout/Layout'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Systems from './pages/Systems'
+import NetworkDevices from './pages/NetworkDevices'
+import MobileDevices from './pages/MobileDevices'
+import SIMCards from './pages/SIMCards'
+import CloudIDs from './pages/CloudIDs'
+import Employees from './pages/Employees'
+import Reports from './pages/Reports'
+import UserManagement from './pages/UserManagement'
+import ActivityLog from './pages/ActivityLog'
+
+function Guard({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+      <div className="w-7 h-7 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+  return user ? children : <Navigate to="/login" replace />
+}
+
+function AppRoutes() {
+  const { user } = useAuth()
+  return (
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/" element={<Guard><Layout /></Guard>}>
+        <Route index element={<Dashboard />} />
+        <Route path="systems"   element={<Systems />} />
+        <Route path="network"   element={<NetworkDevices />} />
+        <Route path="mobiles"   element={<MobileDevices />} />
+        <Route path="sims"      element={<SIMCards />} />
+        <Route path="gws"       element={<CloudIDs />} />
+        <Route path="employees" element={<Employees />} />
+        <Route path="reports"   element={<Reports />} />
+        <Route path="users"     element={<UserManagement />} />
+        <Route path="logs"      element={<ActivityLog />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  )
+}

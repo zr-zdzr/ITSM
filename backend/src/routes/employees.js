@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
@@ -84,7 +85,7 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
-    let inserted = 0, skipped = 0, errors = [];
+    let inserted = 0, updated = 0, skipped = 0, errors = [];
     for (const raw of records) {
       const d = normalizeRow(raw);
       if (!d.first_name || !d.last_name || !d.designation || !d.department) {
@@ -93,17 +94,42 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
         continue;
       }
       try {
-        await db.query(
-          `INSERT INTO employees (first_name,last_name,email,designation,department,mobile_number,location,employment_type)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [d.first_name, d.last_name, d.email||null, d.designation, d.department,
-           d.mobile_number||null, pickLocation(d.location), pickEmpType(d.employment_type)]
+        const existing = await db.query(
+          'SELECT id FROM employees WHERE LOWER(first_name)=LOWER($1) AND LOWER(last_name)=LOWER($2)',
+          [d.first_name, d.last_name]
         );
-        inserted++;
+        const email   = d.email||null;
+        const desig   = d.designation||null;
+        const dept    = d.department||null;
+        const mobile  = d.mobile_number||null;
+        const loc     = pickLocation(d.location);
+        const empType = pickEmpType(d.employment_type);
+
+        if (existing.rows[0]) {
+          await db.query(`
+            UPDATE employees SET
+              email           = COALESCE($1, email),
+              designation     = COALESCE($2, designation),
+              department      = COALESCE($3, department),
+              mobile_number   = COALESCE($4, mobile_number),
+              location        = COALESCE($5, location),
+              employment_type = COALESCE($6, employment_type)
+            WHERE id=$7`,
+            [email, desig, dept, mobile, loc, empType, existing.rows[0].id]
+          );
+          updated++;
+        } else {
+          await db.query(
+            `INSERT INTO employees (first_name,last_name,email,designation,department,mobile_number,location,employment_type)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [d.first_name, d.last_name, email, desig, dept, mobile, loc, empType]
+          );
+          inserted++;
+        }
       } catch (e) { skipped++; errors.push(`${d.first_name} ${d.last_name}: ${e.message}`); }
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} employees, skipped ${skipped}`);
-    res.json({ inserted, skipped, errors });
+    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} employees, updated ${updated}, skipped ${skipped}`);
+    res.json({ inserted, updated, skipped, errors });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -199,14 +225,13 @@ router.put('/:id', requireAuth, canWrite, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL (password-verified) ───────────────────────────
+// ── DELETE ALL ────────────────────────────────────────────────
 router.delete('/all', requireAuth, canDelete, async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required' });
-    const u = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    if (!u.rows[0] || !(await bcrypt.compare(password, u.rows[0].password_hash)))
-      return res.status(403).json({ error: 'Incorrect password' });
+    const all = await db.query('SELECT * FROM employees');
+    await Promise.all(all.rows.map(row =>
+      saveToRecycleBin('employees', 'employees', row, `${row.first_name} ${row.last_name}`, req.user.id)
+    ));
     const r = await db.query('DELETE FROM employees RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Employees', `Deleted all ${r.rowCount} employees`);
     res.json({ deleted: r.rowCount });
@@ -218,6 +243,7 @@ router.delete('/:id', requireAuth, canDelete, async (req, res) => {
   try {
     const r = await db.query('DELETE FROM employees WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await saveToRecycleBin('employees', 'employees', r.rows[0], `${r.rows[0].first_name} ${r.rows[0].last_name}`, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, `${r.rows[0].first_name} ${r.rows[0].last_name}`, 'Deleted employee');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

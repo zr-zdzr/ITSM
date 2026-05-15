@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
@@ -91,41 +91,66 @@ router.post('/import/csv', requireAuth, perm('gws','create'), upload.single('fil
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
-    let inserted = 0, skipped = 0, errors = [];
+    let inserted = 0, updated = 0, skipped = 0, errors = [];
     for (const raw of records) {
       const d = normalizeRow(raw);
+      if (!d.email) { skipped++; errors.push('Skipped: email is required'); continue; }
       const displayName = (d.first_name || d.last_name)
         ? `${d.first_name||''} ${d.last_name||''}`.trim()
-        : (d.display_name || d.name || (d.email ? d.email.split('@')[0] : ''));
-      if (!d.email) { skipped++; errors.push('Skipped: email is required'); continue; }
+        : (d.display_name || d.name || null);
       try {
-        await db.query(
-          `INSERT INTO gws_accounts (email,display_name,designation,department,org_unit,account_type,gws_role,license,status,two_fa,notes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (email) DO NOTHING`,
-          [d.email, displayName, d.designation||null, d.department||null, d.org_unit||null,
-           pickAcctType(d.account_type),
-           pickRole(d.gws_role),
-           pickLicense(d.license),
-           pickStatus(d.status),
-           d.two_fa==='true'||d.two_fa===true||d.two_fa==='yes'||d.two_fa==='1',
-           d.notes||null]
-        );
-        inserted++;
+        const existing = await db.query('SELECT id FROM gws_accounts WHERE email=$1', [d.email]);
+        const desig  = d.designation||null;
+        const dept   = d.department||null;
+        const ou     = d.org_unit||null;
+        const atype  = pickAcctType(d.account_type);
+        const role   = pickRole(d.gws_role);
+        const lic    = pickLicense(d.license);
+        const status = pickStatus(d.status);
+        const twofa  = d.two_fa==='true'||d.two_fa===true||d.two_fa==='yes'||d.two_fa==='1';
+        const notes  = d.notes||null;
+
+        if (existing.rows[0]) {
+          await db.query(`
+            UPDATE gws_accounts SET
+              display_name = COALESCE($1, display_name),
+              designation  = COALESCE($2, designation),
+              department   = COALESCE($3, department),
+              org_unit     = COALESCE($4, org_unit),
+              account_type = COALESCE($5, account_type),
+              gws_role     = COALESCE($6, gws_role),
+              license      = COALESCE($7, license),
+              status       = COALESCE($8, status),
+              two_fa       = $9,
+              notes        = COALESCE($10, notes)
+            WHERE id=$11`,
+            [displayName, desig, dept, ou, atype||null, role||null, lic,
+             status||null, twofa, notes, existing.rows[0].id]
+          );
+          updated++;
+        } else {
+          await db.query(
+            `INSERT INTO gws_accounts (email,display_name,designation,department,org_unit,account_type,gws_role,license,status,two_fa,notes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            [d.email, displayName || d.email.split('@')[0], desig, dept, ou,
+             atype, role, lic, status, twofa, notes]
+          );
+          inserted++;
+        }
       } catch (e) { skipped++; errors.push(`${d.email}: ${e.message}`); }
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} Cloud IDs, skipped ${skipped}`);
-    res.json({ inserted, skipped, errors });
+    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} Cloud IDs, updated ${updated}, skipped ${skipped}`);
+    res.json({ inserted, updated, skipped, errors });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL (password-verified) ───────────────────────
+// ── DELETE ALL ────────────────────────────────────────────
 router.delete('/all', requireAuth, perm('gws','delete'), async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required' });
-    const u = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    if (!u.rows[0] || !(await bcrypt.compare(password, u.rows[0].password_hash)))
-      return res.status(403).json({ error: 'Incorrect password' });
+    const all = await db.query('SELECT * FROM gws_accounts');
+    await Promise.all(all.rows.map(row =>
+      saveToRecycleBin('gws', 'gws_accounts', row, row.email, req.user.id)
+    ));
     const r = await db.query('DELETE FROM gws_accounts RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Cloud IDs', `Deleted all ${r.rowCount} Cloud IDs`);
     res.json({ deleted: r.rowCount });
@@ -185,6 +210,7 @@ router.delete('/:id', requireAuth, perm('gws','delete'), async (req, res) => {
   try {
     const r = await db.query('DELETE FROM gws_accounts WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await saveToRecycleBin('gws', 'gws_accounts', r.rows[0], r.rows[0].email, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].email, 'Deleted Cloud ID');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

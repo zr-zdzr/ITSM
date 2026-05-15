@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
@@ -73,40 +73,59 @@ router.post('/import/csv', requireAuth, perm('sims','create'), upload.single('fi
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
-    let inserted = 0, skipped = 0, errors = [];
+    let inserted = 0, updated = 0, skipped = 0, errors = [];
     for (const raw of records) {
       const d = normalizeRow(raw);
       if (!d.phone_number) { skipped++; errors.push('Skipped: phone_number required'); continue; }
       try {
-        await db.query(
-          `INSERT INTO sims (phone_number,vendor,user_name,package_name,data_limit,sim_holder,monthly_rate,status,notes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
-          [d.phone_number, pickVendor(d.vendor),
-           d.user_name||null,
-           d.calling_package||d.package_name||null,
-           d.data_package||d.data_limit||null,
-           d.sim_holder||null,
-           d.monthly_rate||null,
-           (d.status||'active').toLowerCase() === 'suspended' ? 'suspended' :
-           (d.status||'active').toLowerCase() === 'inactive'  ? 'inactive'  : 'active',
-           d.notes||null]
-        );
-        inserted++;
+        const existing = await db.query('SELECT id FROM sims WHERE phone_number=$1', [d.phone_number]);
+        const vendor  = pickVendor(d.vendor);
+        const uname   = d.user_name||null;
+        const pkg     = d.calling_package||d.package_name||null;
+        const data    = d.data_package||d.data_limit||null;
+        const holder  = d.sim_holder||null;
+        const rate    = d.monthly_rate||null;
+        const status  = (d.status||'active').toLowerCase() === 'suspended' ? 'suspended' :
+                        (d.status||'active').toLowerCase() === 'inactive'  ? 'inactive'  : 'active';
+        const notes   = d.notes||null;
+
+        if (existing.rows[0]) {
+          await db.query(`
+            UPDATE sims SET
+              vendor       = COALESCE($1, vendor),
+              user_name    = COALESCE($2, user_name),
+              package_name = COALESCE($3, package_name),
+              data_limit   = COALESCE($4, data_limit),
+              sim_holder   = COALESCE($5, sim_holder),
+              monthly_rate = COALESCE($6, monthly_rate),
+              status       = COALESCE($7, status),
+              notes        = COALESCE($8, notes)
+            WHERE id=$9`,
+            [vendor||null, uname, pkg, data, holder, rate, status||null, notes, existing.rows[0].id]
+          );
+          updated++;
+        } else {
+          await db.query(
+            `INSERT INTO sims (phone_number,vendor,user_name,package_name,data_limit,sim_holder,monthly_rate,status,notes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [d.phone_number, vendor, uname, pkg, data, holder, rate, status, notes]
+          );
+          inserted++;
+        }
       } catch (e) { skipped++; errors.push(`${d.phone_number}: ${e.message}`); }
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} SIMs, skipped ${skipped}`);
-    res.json({ inserted, skipped, errors });
+    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} SIMs, updated ${updated}, skipped ${skipped}`);
+    res.json({ inserted, updated, skipped, errors });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL (password-verified) ───────────────────────
+// ── DELETE ALL ────────────────────────────────────────────
 router.delete('/all', requireAuth, perm('sims','delete'), async (req, res) => {
   try {
-    const { password } = req.body;
-    if (!password) return res.status(400).json({ error: 'Password is required' });
-    const u = await db.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
-    if (!u.rows[0] || !(await bcrypt.compare(password, u.rows[0].password_hash)))
-      return res.status(403).json({ error: 'Incorrect password' });
+    const all = await db.query('SELECT * FROM sims');
+    await Promise.all(all.rows.map(row =>
+      saveToRecycleBin('sims', 'sims', row, row.phone_number, req.user.id)
+    ));
     const r = await db.query('DELETE FROM sims RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All SIMs', `Deleted all ${r.rowCount} SIM cards`);
     res.json({ deleted: r.rowCount });
@@ -167,6 +186,7 @@ router.delete('/:id', requireAuth, perm('sims','delete'), async (req, res) => {
   try {
     const r = await db.query('DELETE FROM sims WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await saveToRecycleBin('sims', 'sims', r.rows[0], r.rows[0].phone_number, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].phone_number, 'Deleted SIM');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
