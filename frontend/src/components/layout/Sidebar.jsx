@@ -1,13 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Monitor, Network, Smartphone, CreditCard, Cloud,
   Users, BarChart3, UserCog, ChevronRight, Layers, Plus, FileDown,
   FileUp, Trash2, PanelLeftClose, PanelLeftOpen, ScrollText,
+  Package, ClipboardList, PackageCheck,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../contexts/AuthContext'
+import { api } from '../../lib/api'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -72,6 +74,37 @@ const NAV = [
     ],
   },
 ]
+
+function StockNavItem({ item, collapsed, badge }) {
+  const location = useLocation()
+  const navigate  = useNavigate()
+  const isActive  = location.pathname.startsWith(item.path)
+  const Icon = item.icon
+  return (
+    <button
+      onClick={() => navigate(item.path)}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative',
+        isActive
+          ? 'bg-brand-500/15 text-brand-500 dark:text-brand-400'
+          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/70',
+      )}
+    >
+      {isActive && <span className="absolute left-0 w-0.5 h-5 bg-brand-500 rounded-r" />}
+      <Icon size={16} className="flex-shrink-0" />
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-left truncate">{item.label}</span>
+          {badge > 0 && (
+            <span className="text-[10px] bg-brand-500 text-white px-1.5 py-0.5 rounded-full font-semibold">
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+  )
+}
 
 function NavItem({ item, collapsed, canPerm }) {
   const location = useLocation()
@@ -164,9 +197,25 @@ function NavItem({ item, collapsed, canPerm }) {
   )
 }
 
+const STOCK_NAV = [
+  { id: 'inventory',   label: 'Inventory Stock', icon: Package,       path: '/inventory' },
+  { id: 'requests',    label: 'Requests',         icon: ClipboardList, path: '/requests' },
+  { id: 'assignments', label: 'Assignments',      icon: PackageCheck,  path: '/assignments' },
+]
+
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, canPerm } = useAuth()
   const isSA = user?.role === 'super_admin'
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    if (!user) return
+    api.get('/api/requests/count').then(r => setPendingCount(r.count || 0)).catch(() => {})
+    const interval = setInterval(() => {
+      api.get('/api/requests/count').then(r => setPendingCount(r.count || 0)).catch(() => {})
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [user])
 
   return (
     <aside className={cn(
@@ -198,6 +247,13 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
         {NAV.slice(1, 7).filter(item => canPerm(item.id, 'read')).map(item => (
           <NavItem key={item.id} item={item} collapsed={collapsed} canPerm={canPerm} />
+        ))}
+
+        {!collapsed && (
+          <p className="px-3 pt-3 pb-2 text-[10px] font-semibold tracking-widest text-zinc-400 dark:text-zinc-600 uppercase">Stock & Requests</p>
+        )}
+        {STOCK_NAV.map(item => (
+          <StockNavItem key={item.id} item={item} collapsed={collapsed} badge={item.id === 'requests' ? pendingCount : 0} />
         ))}
 
         {!collapsed && (

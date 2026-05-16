@@ -118,31 +118,31 @@ export default function ActivityLog() {
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800">
                 {['Time', 'User', 'Action', 'Module', 'Record', 'Details', 'IP'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-zinc-500">Loading…</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-zinc-500">Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-zinc-500">No events found</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-zinc-500">No events found</td></tr>
               ) : filtered.map(l => (
                 <tr key={l.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-4 py-2.5 text-zinc-500 text-xs whitespace-nowrap">{fmt(l.created_at)}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">{fmt(l.created_at)}</td>
+                  <td className="px-3 py-2">
                     <div className="text-xs text-zinc-700 dark:text-zinc-300 font-medium">{l.user_name || <span className="text-zinc-400">—</span>}</div>
                     <div className="text-[10px] text-zinc-400 dark:text-zinc-600">{l.user_email || 'Unknown'}</div>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${ACTION_STYLES[l.action] || 'bg-zinc-700/50 text-zinc-400'}`}>
                       {l.action?.replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400">{MODULE_LABELS[l.table_name] || l.table_name || '—'}</td>
-                  <td className="px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 max-w-[140px] truncate" title={l.record_label}>{l.record_label || '—'}</td>
-                  <td className="px-4 py-2.5 text-xs text-zinc-500 max-w-[180px] truncate" title={l.details}>{l.details || '—'}</td>
-                  <td className="px-4 py-2.5 text-xs text-zinc-400 dark:text-zinc-600 font-mono">{l.ip_address || '—'}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{MODULE_LABELS[l.table_name] || l.table_name || '—'}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 max-w-[140px] truncate" title={l.record_label}>{l.record_label || '—'}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-500 max-w-[180px] truncate" title={l.details}>{l.details || '—'}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-600 font-mono">{l.ip_address || '—'}</td>
                 </tr>
               ))}
             </tbody>

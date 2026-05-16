@@ -14,6 +14,9 @@ import Employees from './pages/Employees'
 import Reports from './pages/Reports'
 import UserManagement from './pages/UserManagement'
 import ActivityLog from './pages/ActivityLog'
+import Inventory from './pages/Inventory'
+import Requests from './pages/Requests'
+import Assignments from './pages/Assignments'
 
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -38,9 +41,12 @@ function AppRoutes() {
         <Route path="sims"      element={<SIMCards />} />
         <Route path="gws"       element={<CloudIDs />} />
         <Route path="employees" element={<Employees />} />
-        <Route path="reports"   element={<Reports />} />
-        <Route path="users"     element={<UserManagement />} />
-        <Route path="logs"      element={<ActivityLog />} />
+        <Route path="reports"     element={<Reports />} />
+        <Route path="users"       element={<UserManagement />} />
+        <Route path="logs"        element={<ActivityLog />} />
+        <Route path="inventory"   element={<Inventory />} />
+        <Route path="requests"    element={<Requests />} />
+        <Route path="assignments" element={<Assignments />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

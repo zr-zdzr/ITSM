@@ -38,6 +38,9 @@ app.use('/api/users',     require('./routes/users'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/reports',      require('./routes/reports'));
 app.use('/api/recycle-bin',  require('./routes/recycle-bin'));
+app.use('/api/inventory',    require('./routes/inventory').router);
+app.use('/api/requests',     require('./routes/requests'));
+app.use('/api/assignments',  require('./routes/assignments'));
 app.get('/api/health',  (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -79,6 +82,172 @@ async function runMigrations() {
       expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days'
     )
   `);
+
+  // ── INVENTORY / REQUESTS / ASSIGNMENTS ──────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_categories (
+      id          SERIAL PRIMARY KEY,
+      parent_id   INTEGER REFERENCES inv_categories(id) ON DELETE SET NULL,
+      name        VARCHAR(100) NOT NULL,
+      description TEXT,
+      icon        VARCHAR(50) DEFAULT 'package',
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      is_active   BOOLEAN NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_items (
+      id            SERIAL PRIMARY KEY,
+      category_id   INTEGER REFERENCES inv_categories(id) ON DELETE SET NULL,
+      name          VARCHAR(200) NOT NULL,
+      description   TEXT,
+      model         VARCHAR(200),
+      manufacturer  VARCHAR(200),
+      sku           VARCHAR(100),
+      tracking_type VARCHAR(30) NOT NULL DEFAULT 'quantity'
+                    CHECK (tracking_type IN ('quantity','quantity_returnable')),
+      unit          VARCHAR(20) NOT NULL DEFAULT 'pcs',
+      is_active     BOOLEAN NOT NULL DEFAULT true,
+      created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_stock (
+      id             SERIAL PRIMARY KEY,
+      item_id        INTEGER NOT NULL REFERENCES inv_items(id) ON DELETE CASCADE,
+      qty_available  INTEGER NOT NULL DEFAULT 0 CHECK (qty_available >= 0),
+      qty_assigned   INTEGER NOT NULL DEFAULT 0,
+      qty_reserved   INTEGER NOT NULL DEFAULT 0,
+      qty_damaged    INTEGER NOT NULL DEFAULT 0,
+      reorder_level  INTEGER NOT NULL DEFAULT 5,
+      reorder_qty    INTEGER NOT NULL DEFAULT 10,
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(item_id)
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_adjustments (
+      id             SERIAL PRIMARY KEY,
+      item_id        INTEGER NOT NULL REFERENCES inv_items(id),
+      type           VARCHAR(30) NOT NULL,
+      qty_change     INTEGER NOT NULL,
+      reference_type VARCHAR(50),
+      reference_id   INTEGER,
+      notes          TEXT,
+      performed_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE SEQUENCE IF NOT EXISTS inv_req_seq START 1;
+    CREATE TABLE IF NOT EXISTS inv_requests (
+      id           SERIAL PRIMARY KEY,
+      req_number   VARCHAR(30) UNIQUE NOT NULL,
+      requester_id INTEGER NOT NULL REFERENCES users(id),
+      priority     VARCHAR(20) NOT NULL DEFAULT 'normal'
+                   CHECK (priority IN ('low','normal','high','urgent')),
+      status       VARCHAR(30) NOT NULL DEFAULT 'submitted'
+                   CHECK (status IN ('submitted','in_review','approved','partially_approved','rejected','fulfilled','cancelled')),
+      reason       TEXT,
+      required_by  DATE,
+      reviewed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      reviewed_at  TIMESTAMPTZ,
+      review_notes TEXT,
+      fulfilled_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      fulfilled_at TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_request_items (
+      id               SERIAL PRIMARY KEY,
+      request_id       INTEGER NOT NULL REFERENCES inv_requests(id) ON DELETE CASCADE,
+      item_id          INTEGER NOT NULL REFERENCES inv_items(id),
+      qty_requested    INTEGER NOT NULL DEFAULT 1,
+      qty_approved     INTEGER NOT NULL DEFAULT 0,
+      item_status      VARCHAR(30) NOT NULL DEFAULT 'pending'
+                       CHECK (item_status IN ('pending','approved','rejected')),
+      rejection_reason TEXT,
+      notes            TEXT
+    )
+  `);
+  await db.query(`
+    CREATE SEQUENCE IF NOT EXISTS inv_asn_seq START 1;
+    CREATE TABLE IF NOT EXISTS inv_assignments (
+      id                   SERIAL PRIMARY KEY,
+      asn_number           VARCHAR(30) UNIQUE NOT NULL,
+      request_id           INTEGER REFERENCES inv_requests(id) ON DELETE SET NULL,
+      assignee_id          INTEGER NOT NULL REFERENCES employees(id),
+      assigned_by          INTEGER NOT NULL REFERENCES users(id),
+      status               VARCHAR(30) NOT NULL DEFAULT 'active'
+                           CHECK (status IN ('active','partially_returned','fully_returned')),
+      assigned_date        DATE NOT NULL DEFAULT CURRENT_DATE,
+      expected_return_date DATE,
+      notes                TEXT,
+      created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_assignment_items (
+      id               SERIAL PRIMARY KEY,
+      assignment_id    INTEGER NOT NULL REFERENCES inv_assignments(id) ON DELETE CASCADE,
+      item_id          INTEGER NOT NULL REFERENCES inv_items(id),
+      qty              INTEGER NOT NULL DEFAULT 1,
+      status           VARCHAR(30) NOT NULL DEFAULT 'active'
+                       CHECK (status IN ('active','returned','damaged','lost')),
+      returned_at      TIMESTAMPTZ,
+      return_condition VARCHAR(20),
+      notes            TEXT
+    )
+  `);
+  await db.query(`
+    CREATE SEQUENCE IF NOT EXISTS inv_ret_seq START 1;
+    CREATE TABLE IF NOT EXISTS inv_returns (
+      id            SERIAL PRIMARY KEY,
+      ret_number    VARCHAR(30) UNIQUE NOT NULL,
+      assignment_id INTEGER NOT NULL REFERENCES inv_assignments(id),
+      returned_by   INTEGER NOT NULL REFERENCES employees(id),
+      received_by   INTEGER NOT NULL REFERENCES users(id),
+      return_date   DATE NOT NULL DEFAULT CURRENT_DATE,
+      notes         TEXT,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_return_items (
+      id                 SERIAL PRIMARY KEY,
+      return_id          INTEGER NOT NULL REFERENCES inv_returns(id) ON DELETE CASCADE,
+      assignment_item_id INTEGER NOT NULL REFERENCES inv_assignment_items(id),
+      qty                INTEGER NOT NULL DEFAULT 1,
+      condition          VARCHAR(20) NOT NULL DEFAULT 'good'
+                         CHECK (condition IN ('good','damaged','lost')),
+      back_to_stock      BOOLEAN NOT NULL DEFAULT true,
+      notes              TEXT
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_alerts (
+      id              SERIAL PRIMARY KEY,
+      item_id         INTEGER NOT NULL REFERENCES inv_items(id) ON DELETE CASCADE,
+      alert_type      VARCHAR(30) NOT NULL,
+      threshold_value INTEGER,
+      current_value   INTEGER,
+      is_resolved     BOOLEAN NOT NULL DEFAULT false,
+      resolved_at     TIMESTAMPTZ,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_stock_item   ON inv_stock(item_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_req_status   ON inv_requests(status)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_req_user     ON inv_requests(requester_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_asn_status   ON inv_assignments(status)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_asn_employee ON inv_assignments(assignee_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_alerts_res   ON inv_alerts(is_resolved)`);
 }
 
 const PORT = process.env.PORT || 3000;
