@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   Monitor, Network, Smartphone, CreditCard, Cloud, Users,
   TrendingUp, Activity, Clock, ScrollText, Cpu, MapPin, Package, ChevronDown,
-  ClipboardList, PackageCheck, AlertTriangle as AlertTriangleIcon,
+  ClipboardList, PackageCheck, AlertTriangle as AlertTriangleIcon, ArrowRight,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { useNavigate } from 'react-router-dom'
 import StatsCard from '../components/ui/StatsCard'
+import Badge from '../components/ui/Badge'
 import { api } from '../lib/api'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -61,6 +63,73 @@ function StatPills({ items }) {
   )
 }
 
+// ── Lazy row fetcher ─────────────────────────────────────
+function useLazyRows(apiPath, open) {
+  const [rows, setRows] = useState([])
+  const [fetching, setFetching] = useState(false)
+  const fetched = useRef(false)
+  useEffect(() => {
+    if (!open || fetched.current) return
+    fetched.current = true
+    setFetching(true)
+    api.get(apiPath)
+      .then(d => setRows(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setFetching(false))
+  }, [open, apiPath])
+  return { rows, fetching }
+}
+
+// ── Mini data table ───────────────────────────────────────
+const LIMIT = 12
+function MiniTable({ columns, rows, fetching, path, navigate }) {
+  const visible = rows.slice(0, LIMIT)
+  if (fetching) return (
+    <div className="space-y-1.5 mt-3">
+      {[1,2,3].map(i => <div key={i} className="h-8 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />)}
+    </div>
+  )
+  if (!rows.length) return (
+    <p className="text-xs text-zinc-400 mt-3 text-center py-3">No records found</p>
+  )
+  return (
+    <div className="mt-3 border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-100 dark:border-zinc-800">
+              {columns.map(c => (
+                <th key={c.key} className="px-3 py-2 text-left font-semibold text-zinc-500 uppercase tracking-wider text-[10px] whitespace-nowrap">
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((row, i) => (
+              <tr key={row.id ?? i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                {columns.map(c => (
+                  <td key={c.key} className="px-3 py-2 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
+                    {c.render ? c.render(row[c.key], row) : (row[c.key] ?? <span className="text-zinc-400">—</span>)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > LIMIT && (
+        <button
+          onClick={() => navigate(path)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-brand-500 dark:text-brand-400 hover:bg-brand-500/5 transition-colors border-t border-zinc-100 dark:border-zinc-800"
+        >
+          View all {rows.length} records <ArrowRight size={12} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Accordion section card ────────────────────────────────
 function AccordionSection({ id, open, onToggle, icon: Icon, iconColor, title, badge, delay, loading, children }) {
   return (
@@ -101,10 +170,20 @@ function AccordionSection({ id, open, onToggle, icon: Icon, iconColor, title, ba
 }
 
 // ── Systems content ───────────────────────────────────────
-function SystemsContent({ data }) {
+function SystemsContent({ data, open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/systems', open)
   if (!data) return null
   const { assignment, byLocation, byGeneration, byType } = data
   const typeRows = (byType || []).map(r => ({ ...r, type: r.type === 'System' ? 'PC / Desktop' : r.type }))
+  const cols = [
+    { key: 'asset_tag',         label: 'Asset Tag' },
+    { key: 'type',              label: 'Type' },
+    { key: 'manufacturer',      label: 'Brand / Model', render: (_, r) => `${r.manufacturer||''} ${r.model||''}`.trim() || '—' },
+    { key: 'serial_number',     label: 'Serial No.' },
+    { key: 'status',            label: 'Status', render: v => <Badge status={v}>{v||'—'}</Badge> },
+    { key: 'assigned_user_name',label: 'Assigned To', render: v => v || <span className="text-zinc-400">Unassigned</span> },
+    { key: 'department',        label: 'Dept.' },
+  ]
   return (
     <>
       <StatPills items={[
@@ -113,7 +192,8 @@ function SystemsContent({ data }) {
         { label: 'Damaged',   value: assignment?.damaged,        bg: 'bg-red-500/10',     color: 'text-red-500 dark:text-red-400' },
         { label: 'Total',     value: assignment?.total,          bg: 'bg-zinc-100 dark:bg-zinc-800', color: 'text-zinc-700 dark:text-zinc-300' },
       ]} />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-1">
+      <MiniTable columns={cols} rows={rows} fetching={fetching} path="/systems" navigate={navigate} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3 border-t border-zinc-100 dark:border-zinc-800">
         <div>
           <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Monitor size={10} /> Type</p>
           <div className="space-y-1">
@@ -139,10 +219,19 @@ function SystemsContent({ data }) {
 }
 
 // ── Mobiles content ───────────────────────────────────────
-function MobilesContent({ data }) {
+function MobilesContent({ data, open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/mobiles', open)
   if (!data) return null
   const { assignment, byLocation, byOS, byPurpose } = data
   const purposeLabel = { personal: 'Personal', qa_testing: 'QA Testing', service: 'Service', Unknown: 'Unknown' }
+  const cols = [
+    { key: 'asset_tag',         label: 'Asset Tag' },
+    { key: 'brand',             label: 'Brand / Model', render: (_, r) => `${r.brand||''} ${r.model||''}`.trim() || '—' },
+    { key: 'serial_number',     label: 'Serial No.' },
+    { key: 'imei1',             label: 'IMEI' },
+    { key: 'status',            label: 'Status', render: v => <Badge status={v}>{v||'—'}</Badge> },
+    { key: 'assigned_user_name',label: 'Assigned To', render: v => v || <span className="text-zinc-400">Unassigned</span> },
+  ]
   return (
     <>
       <StatPills items={[
@@ -151,7 +240,8 @@ function MobilesContent({ data }) {
         { label: 'Damaged',   value: assignment?.damaged,        bg: 'bg-red-500/10',     color: 'text-red-500 dark:text-red-400' },
         { label: 'Total',     value: assignment?.total,          bg: 'bg-zinc-100 dark:bg-zinc-800', color: 'text-zinc-700 dark:text-zinc-300' },
       ]} />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-1">
+      <MiniTable columns={cols} rows={rows} fetching={fetching} path="/mobiles" navigate={navigate} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3 border-t border-zinc-100 dark:border-zinc-800">
         <div>
           <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Smartphone size={10} /> Platform</p>
           <div className="space-y-1">
@@ -184,9 +274,18 @@ function MobilesContent({ data }) {
 }
 
 // ── SIMs content ──────────────────────────────────────────
-function SIMsContent({ data }) {
+function SIMsContent({ data, open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/sims', open)
   if (!data) return null
   const { assignment, byLocation, byPackage, byVendor } = data
+  const cols = [
+    { key: 'phone_number',      label: 'Phone #' },
+    { key: 'vendor',            label: 'Vendor' },
+    { key: 'package_name',      label: 'Package' },
+    { key: 'status',            label: 'Status', render: v => <Badge status={v}>{v||'—'}</Badge> },
+    { key: 'assigned_user_name',label: 'Assigned To', render: v => v || <span className="text-zinc-400">Unassigned</span> },
+    { key: 'monthly_rate',      label: 'Rate/Mo', render: v => v ? `PKR ${Number(v).toLocaleString()}` : '—' },
+  ]
   return (
     <>
       <StatPills items={[
@@ -195,7 +294,8 @@ function SIMsContent({ data }) {
         { label: 'Inventory', value: assignment?.in_inventory, bg: 'bg-brand-500/10',  color: 'text-brand-500 dark:text-brand-400' },
         { label: 'Total',     value: assignment?.total,        bg: 'bg-zinc-100 dark:bg-zinc-800', color: 'text-zinc-700 dark:text-zinc-300' },
       ]} />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-1">
+      <MiniTable columns={cols} rows={rows} fetching={fetching} path="/sims" navigate={navigate} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-3 border-t border-zinc-100 dark:border-zinc-800">
         <div>
           <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><CreditCard size={10} /> Vendor</p>
           <div className="space-y-1">
@@ -221,20 +321,32 @@ function SIMsContent({ data }) {
 }
 
 // ── Employees content ─────────────────────────────────────
-function EmployeesContent({ data }) {
+function EmployeesContent({ data, open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/employees', open)
   if (!data) return null
   const { byLocation, byDepartment } = data
+  const cols = [
+    { key: 'display_name', label: 'Name', render: (v, r) => v || `${r.first_name||''} ${r.last_name||''}`.trim() || '—' },
+    { key: 'designation',  label: 'Title' },
+    { key: 'department',   label: 'Department' },
+    { key: 'email',        label: 'Email' },
+    { key: 'location',     label: 'Location' },
+    { key: 'status',       label: 'Status', render: v => <Badge status={v}>{v||'—'}</Badge> },
+  ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-1">
-      <div>
-        <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><MapPin size={10} /> By Location</p>
-        <BarList rows={byLocation} keyField="location" colorClass="bg-amber-500" />
+    <>
+      <MiniTable columns={cols} rows={rows} fetching={fetching} path="/employees" navigate={navigate} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+        <div>
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><MapPin size={10} /> By Location</p>
+          <BarList rows={byLocation} keyField="location" colorClass="bg-amber-500" />
+        </div>
+        <div>
+          <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Users size={10} /> By Department</p>
+          <BarList rows={byDepartment} keyField="department" colorClass="bg-brand-500" />
+        </div>
       </div>
-      <div>
-        <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Users size={10} /> By Department</p>
-        <BarList rows={byDepartment} keyField="department" colorClass="bg-brand-500" />
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -310,9 +422,33 @@ function Activity24h({ logs, loading }) {
   )
 }
 
+// ── Network content ───────────────────────────────────────
+function NetworkContent({ open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/network', open)
+  const cols = [
+    { key: 'asset_tag',   label: 'Asset Tag' },
+    { key: 'device_type', label: 'Type' },
+    { key: 'brand',       label: 'Brand / Model', render: (_, r) => `${r.brand||''} ${r.model||''}`.trim() || '—' },
+    { key: 'ip_address',  label: 'IP Address' },
+    { key: 'mac_address', label: 'MAC Address' },
+    { key: 'location',    label: 'Location' },
+    { key: 'status',      label: 'Status', render: v => <Badge status={v}>{v||'—'}</Badge> },
+  ]
+  return <MiniTable columns={cols} rows={rows} fetching={fetching} path="/network" navigate={navigate} />
+}
+
 // ── Inventory section content ─────────────────────────────
-function InventoryContent({ stats }) {
+function InventoryContent({ stats, open, navigate }) {
+  const { rows, fetching } = useLazyRows('/api/inventory/items', open)
   if (!stats) return null
+  const cols = [
+    { key: 'name',          label: 'Item' },
+    { key: 'category_name', label: 'Category' },
+    { key: 'sku',           label: 'SKU' },
+    { key: 'qty_available', label: 'Available', render: v => <span className={cn('font-semibold', Number(v)===0 ? 'text-red-500' : Number(v) <= 5 ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400')}>{v??0}</span> },
+    { key: 'qty_assigned',  label: 'Assigned' },
+    { key: 'stock_status',  label: 'Stock', render: v => <Badge status={v === 'out_of_stock' ? 'retired' : v === 'low_stock' ? 'repair' : 'available'}>{(v||'').replace(/_/g,' ')}</Badge> },
+  ]
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -344,6 +480,7 @@ function InventoryContent({ stats }) {
           )}
         </div>
       )}
+      <MiniTable columns={cols} rows={rows} fetching={fetching} path="/inventory" navigate={navigate} />
     </div>
   )
 }
@@ -357,6 +494,7 @@ export default function Dashboard() {
   const [openSection, setOpenSection] = useState(null)
   const { toast } = useToast()
   const { canPerm } = useAuth()
+  const navigate = useNavigate()
 
   function toggle(id) { setOpenSection(o => o === id ? null : id) }
 
@@ -412,7 +550,15 @@ export default function Dashboard() {
         <AccordionSection id="systems" open={openSection === 'systems'} onToggle={() => toggle('systems')}
           icon={Monitor} iconColor="text-brand-500 dark:text-brand-400" title="Systems"
           badge={systemsTotal} delay={0.05} loading={loading}>
-          <SystemsContent data={data?.systems} />
+          <SystemsContent data={data?.systems} open={openSection === 'systems'} navigate={navigate} />
+        </AccordionSection>
+      )}
+
+      {canPerm('network', 'read') && (
+        <AccordionSection id="network" open={openSection === 'network'} onToggle={() => toggle('network')}
+          icon={Network} iconColor="text-sky-600 dark:text-sky-400" title="Network Devices"
+          badge={networkTotal} delay={0.065} loading={loading}>
+          <NetworkContent open={openSection === 'network'} navigate={navigate} />
         </AccordionSection>
       )}
 
@@ -420,7 +566,7 @@ export default function Dashboard() {
         <AccordionSection id="mobiles" open={openSection === 'mobiles'} onToggle={() => toggle('mobiles')}
           icon={Smartphone} iconColor="text-emerald-600 dark:text-emerald-400" title="Mobile Devices"
           badge={mobilesTotal} delay={0.08} loading={loading}>
-          <MobilesContent data={data?.mobiles} />
+          <MobilesContent data={data?.mobiles} open={openSection === 'mobiles'} navigate={navigate} />
         </AccordionSection>
       )}
 
@@ -428,7 +574,7 @@ export default function Dashboard() {
         <AccordionSection id="sims" open={openSection === 'sims'} onToggle={() => toggle('sims')}
           icon={CreditCard} iconColor="text-purple-600 dark:text-purple-400" title="SIM Cards"
           badge={simsTotal} delay={0.11} loading={loading}>
-          <SIMsContent data={data?.sims} />
+          <SIMsContent data={data?.sims} open={openSection === 'sims'} navigate={navigate} />
         </AccordionSection>
       )}
 
@@ -436,7 +582,7 @@ export default function Dashboard() {
         <AccordionSection id="employees" open={openSection === 'employees'} onToggle={() => toggle('employees')}
           icon={Users} iconColor="text-amber-600 dark:text-amber-400" title="Employees"
           badge={employeesTotal} delay={0.14} loading={loading}>
-          <EmployeesContent data={data?.employees} />
+          <EmployeesContent data={data?.employees} open={openSection === 'employees'} navigate={navigate} />
         </AccordionSection>
       )}
 
@@ -445,7 +591,7 @@ export default function Dashboard() {
           icon={Package} iconColor="text-teal-600 dark:text-teal-400" title="Inventory Stock"
           badge={invStats.pending_requests > 0 ? `${invStats.pending_requests} pending` : invStats.total_items}
           delay={0.17} loading={loading}>
-          <InventoryContent stats={invStats} />
+          <InventoryContent stats={invStats} open={openSection === 'inventory'} navigate={navigate} />
         </AccordionSection>
       )}
 
