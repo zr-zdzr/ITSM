@@ -2,6 +2,7 @@ import React from 'react'
 import ModulePage from './ModulePage'
 import Badge from '../components/ui/Badge'
 import MaintenanceLog from '../components/ui/MaintenanceLog'
+import { genAssetTag } from '../lib/utils'
 
 const config = {
   title: 'Mobile Device',
@@ -9,16 +10,20 @@ const config = {
   apiPath: '/api/mobiles',
   exportFile: 'mobiles-export.csv',
   searchPlaceholder: 'Search by brand, model, serial, IMEI…',
-  qrData: row => ({
-    label: row.asset_tag || `${row.brand||''} ${row.model||''}`.trim() || 'Mobile Device',
-    value: `Tag:${row.asset_tag||''}\nBrand:${row.brand||''}\nModel:${row.model||''}\nSN:${row.serial_number||''}\nIMEI:${row.imei1||''}`,
-    details: [
-      (row.brand || row.model) && `${row.brand||''} ${row.model||''}`.trim(),
-      row.serial_number && `S/N: ${row.serial_number}`,
-      row.imei1 && `IMEI: ${row.imei1}`,
-      row.status && `Status: ${row.status}`,
-    ].filter(Boolean),
-  }),
+  qrData: row => {
+    const tag = row.asset_tag || genAssetTag(row.purchase_date, 'ID') || `${row.brand||''} ${row.model||''}`.trim() || 'Mobile Device'
+    return {
+      label: tag,
+      value: `Tag:${tag}\nBrand:${row.brand||''}\nModel:${row.model||''}\nSN:${row.serial_number||''}\nIMEI:${row.imei1||''}\nAssigned:${row.assigned_user_name||'Unassigned'}`,
+      details: [
+        (row.brand || row.model) && `${row.brand||''} ${row.model||''}`.trim(),
+        row.serial_number && `S/N: ${row.serial_number}`,
+        row.imei1 && `IMEI: ${row.imei1}`,
+        row.assigned_user_name && `Assigned To: ${row.assigned_user_name}`,
+        row.status && `Status: ${row.status}`,
+      ].filter(Boolean),
+    }
+  },
   columns: [
     { key: 'asset_tag',    label: 'Asset Tag',  sortable: true },
     { key: 'brand',        label: 'Brand',      sortable: true },
@@ -26,7 +31,7 @@ const config = {
     { key: 'serial_number',label: 'Serial No.' },
     { key: 'imei1',        label: 'IMEI 1' },
     { key: 'status',       label: 'Status', render: v => <Badge status={v}>{v || '—'}</Badge> },
-    { key: 'assigned_to_name', label: 'Assigned To' },
+    { key: 'assigned_user_name', label: 'Assigned To' },
   ],
   fields: [
     { name: 'brand',        label: 'Brand',         type: 'text', required: true, placeholder: 'Samsung, Apple…' },

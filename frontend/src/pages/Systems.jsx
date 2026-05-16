@@ -1,7 +1,7 @@
 import React from 'react'
 import ModulePage from './ModulePage'
 import Badge from '../components/ui/Badge'
-import { fmtDate } from '../lib/utils'
+import { fmtDate, genAssetTag } from '../lib/utils'
 import MaintenanceLog from '../components/ui/MaintenanceLog'
 
 const config = {
@@ -10,16 +10,20 @@ const config = {
   apiPath: '/api/systems',
   exportFile: 'systems-export.csv',
   searchPlaceholder: 'Search by tag, serial, brand, model…',
-  qrData: row => ({
-    label: row.asset_tag || row.serial_number || 'System',
-    value: `Tag:${row.asset_tag||''}\nType:${row.type||''}\nBrand:${row.manufacturer||''}\nModel:${row.model||''}\nSN:${row.serial_number||''}`,
-    details: [
-      row.type && `Type: ${row.type}`,
-      (row.manufacturer || row.model) && `${row.manufacturer||''} ${row.model||''}`.trim(),
-      row.serial_number && `S/N: ${row.serial_number}`,
-      row.status && `Status: ${row.status}`,
-    ].filter(Boolean),
-  }),
+  qrData: row => {
+    const tag = row.asset_tag || genAssetTag(row.purchase_date, 'ID') || row.serial_number || 'System'
+    return {
+      label: tag,
+      value: `Tag:${tag}\nType:${row.type||''}\nBrand:${row.manufacturer||''}\nModel:${row.model||''}\nSN:${row.serial_number||''}\nAssigned:${row.assigned_user_name||'Unassigned'}`,
+      details: [
+        row.type && `Type: ${row.type}`,
+        (row.manufacturer || row.model) && `${row.manufacturer||''} ${row.model||''}`.trim(),
+        row.serial_number && `S/N: ${row.serial_number}`,
+        row.assigned_user_name && `Assigned To: ${row.assigned_user_name}`,
+        row.status && `Status: ${row.status}`,
+      ].filter(Boolean),
+    }
+  },
   columns: [
     { key: 'asset_tag',    label: 'Asset Tag',   sortable: true },
     { key: 'type',         label: 'Type',        sortable: true },
@@ -27,7 +31,7 @@ const config = {
     { key: 'model',        label: 'Model' },
     { key: 'serial_number',label: 'Serial No.' },
     { key: 'status',       label: 'Status',      render: v => <Badge status={v}>{v || '—'}</Badge> },
-    { key: 'assigned_to_name', label: 'Assigned To' },
+    { key: 'assigned_user_name', label: 'Assigned To' },
     { key: 'department',   label: 'Department' },
   ],
   fields: [

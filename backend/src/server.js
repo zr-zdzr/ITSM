@@ -268,6 +268,8 @@ async function runMigrations() {
     )
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`);
+  await db.query(`CREATE SEQUENCE IF NOT EXISTS network_asset_seq START 1`);
+  await db.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS asset_tag VARCHAR(50)`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS vendors (
       id           SERIAL PRIMARY KEY,

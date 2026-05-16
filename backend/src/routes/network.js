@@ -22,6 +22,21 @@ function normalizeRow(raw) {
   return out;
 }
 
+const MONTH_LETTER = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+async function genNetTag(purchase_date) {
+  if (purchase_date) {
+    const d = new Date(purchase_date);
+    const base = `${d.getDate()}${MONTH_LETTER[d.getMonth()]}${String(d.getFullYear()).slice(-2)}ID`;
+    const { rows } = await db.query(
+      "SELECT COUNT(*) n FROM network_devices WHERE asset_tag LIKE $1", [`${base}%`]
+    );
+    const n = Number(rows[0].n);
+    return n === 0 ? base : `${base}-${n + 1}`;
+  }
+  const r = await db.query("SELECT nextval('network_asset_seq') AS n");
+  return `IT-NET-${String(r.rows[0].n).padStart(4,'0')}`;
+}
+
 // ── LIST ──────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -53,7 +68,7 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 router.get('/export/csv', requireAuth, async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT device_type, brand, model, serial_number, ip_address, mac_address,
+      SELECT asset_tag, device_type, brand, model, serial_number, ip_address, mac_address,
              vlan, firmware_version, rack_location, location, status,
              warranty_expiry, purchase_date, vendor, notes
       FROM network_devices ORDER BY created_at DESC`);
@@ -72,10 +87,11 @@ router.post('/import/csv', requireAuth, perm('network','create'), upload.single(
     for (const raw of records) {
       const d = normalizeRow(raw);
       try {
+        const tag = d.asset_tag || await genNetTag(d.purchase_date);
         await db.query(
-          `INSERT INTO network_devices (device_type,brand,model,serial_number,ip_address,mac_address,vlan,firmware_version,rack_location,location,status,warranty_expiry,purchase_date,vendor,notes)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) ON CONFLICT DO NOTHING`,
-          [d.device_type||'Switch', d.brand||null, d.model||null, d.serial_number||null,
+          `INSERT INTO network_devices (asset_tag,device_type,brand,model,serial_number,ip_address,mac_address,vlan,firmware_version,rack_location,location,status,warranty_expiry,purchase_date,vendor,notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT DO NOTHING`,
+          [tag, d.device_type||'Switch', d.brand||null, d.model||null, d.serial_number||null,
            d.ip_address||null, d.mac_address||null, d.vlan||null, d.firmware_version||null,
            d.rack_location||null, d.location||null, d.status||'in_use',
            d.warranty_expiry||null, d.purchase_date||null, d.vendor||null, d.notes||null]
@@ -114,15 +130,16 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, perm('network','create'), async (req, res) => {
   try {
     const d = req.body;
+    const tag = d.asset_tag || await genNetTag(d.purchase_date);
     const r = await db.query(`
-      INSERT INTO network_devices (device_type,brand,model,serial_number,ip_address,mac_address,vlan,firmware_version,rack_location,location,status,warranty_expiry,purchase_date,vendor,notes)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [d.device_type, d.brand||null, d.model||null, d.serial_number||null, d.ip_address||null,
+      INSERT INTO network_devices (asset_tag,device_type,brand,model,serial_number,ip_address,mac_address,vlan,firmware_version,rack_location,location,status,warranty_expiry,purchase_date,vendor,notes)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+      [tag, d.device_type, d.brand||null, d.model||null, d.serial_number||null, d.ip_address||null,
        d.mac_address||null, d.vlan||null, d.firmware_version||null, d.rack_location||null,
        d.location||null, d.status||'in_use', d.warranty_expiry||null, d.purchase_date||null,
        d.vendor||null, d.notes||null]
     );
-    await log(req.user.id, 'created', r.rows[0].id, `${d.brand} ${d.model}`, `Created ${d.device_type}`);
+    await log(req.user.id, 'created', r.rows[0].id, tag, `Created ${d.device_type}`);
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -132,17 +149,17 @@ router.put('/:id', requireAuth, perm('network','update'), async (req, res) => {
   try {
     const d = req.body;
     const r = await db.query(`
-      UPDATE network_devices SET device_type=$1,brand=$2,model=$3,serial_number=$4,ip_address=$5,
-        mac_address=$6,vlan=$7,firmware_version=$8,rack_location=$9,location=$10,
-        status=$11,warranty_expiry=$12,purchase_date=$13,vendor=$14,notes=$15
-      WHERE id=$16 RETURNING *`,
-      [d.device_type, d.brand||null, d.model||null, d.serial_number||null, d.ip_address||null,
+      UPDATE network_devices SET asset_tag=$1,device_type=$2,brand=$3,model=$4,serial_number=$5,ip_address=$6,
+        mac_address=$7,vlan=$8,firmware_version=$9,rack_location=$10,location=$11,
+        status=$12,warranty_expiry=$13,purchase_date=$14,vendor=$15,notes=$16
+      WHERE id=$17 RETURNING *`,
+      [d.asset_tag||null, d.device_type, d.brand||null, d.model||null, d.serial_number||null, d.ip_address||null,
        d.mac_address||null, d.vlan||null, d.firmware_version||null, d.rack_location||null,
        d.location||null, d.status||'in_use', d.warranty_expiry||null, d.purchase_date||null,
        d.vendor||null, d.notes||null, req.params.id]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await log(req.user.id, 'updated', r.rows[0].id, `${d.brand} ${d.model}`, 'Updated network device');
+    await log(req.user.id, 'updated', r.rows[0].id, d.asset_tag || `${d.brand} ${d.model}`, 'Updated network device');
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
