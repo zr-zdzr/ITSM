@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileDown, AlertTriangle, Package, Users, Monitor, Smartphone,
   CreditCard, ChevronDown, Search, Building2, Wrench, FileText, BarChart3,
+  PackageCheck, Network,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useToast } from '../contexts/ToastContext'
@@ -99,13 +100,15 @@ function ExportBtn({ label, icon: Icon = FileDown, onClick, variant = 'secondary
 
 // ── Tab bar ───────────────────────────────────────────────
 const TABS = [
-  { id: 'employee-assets', label: 'Employee Assets', icon: Users },
-  { id: 'warranty',        label: 'Warranty',        icon: AlertTriangle },
-  { id: 'unassigned',      label: 'Unassigned',      icon: Package },
-  { id: 'damage',          label: 'Damage & Repair',  icon: Wrench },
-  { id: 'department',      label: 'Department Summary',icon: Building2 },
-  { id: 'sim-costs',       label: 'SIM Costs',        icon: CreditCard },
-  { id: 'full-export',     label: 'Full Export',      icon: FileText },
+  { id: 'employee-assets', label: 'Employee Assets',    icon: Users },
+  { id: 'warranty',        label: 'Warranty',           icon: AlertTriangle },
+  { id: 'unassigned',      label: 'Unassigned',         icon: Package },
+  { id: 'damage',          label: 'Damage & Repair',    icon: Wrench },
+  { id: 'department',      label: 'Department Summary', icon: Building2 },
+  { id: 'inv-stock',       label: 'Inventory Stock',    icon: Network },
+  { id: 'inv-assignments', label: 'Inv. Assignments',   icon: PackageCheck },
+  { id: 'sim-costs',       label: 'SIM Costs',          icon: CreditCard },
+  { id: 'full-export',     label: 'Full Export',        icon: FileText },
 ]
 
 // ── EMPLOYEE ASSETS TAB ───────────────────────────────────
@@ -320,11 +323,18 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
 }
 
 // ── WARRANTY TAB ──────────────────────────────────────────
+const WARRANTY_CAT_STYLE = {
+  System:  'bg-brand-500/10 text-brand-500 dark:text-brand-400',
+  Mobile:  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  Network: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+}
+
 function WarrantyTab({ toast }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [catFilter, setCatFilter] = useState('')
 
   useEffect(() => {
     api.get('/api/reports/warranty').then(setRows).catch(e => toast(e.message, 'error')).finally(() => setLoading(false))
@@ -335,20 +345,21 @@ function WarrantyTab({ toast }) {
     if (filter === 'expired') out = out.filter(r => Number(r.days_remaining) < 0)
     else if (filter === '30') out = out.filter(r => Number(r.days_remaining) >= 0 && Number(r.days_remaining) <= 30)
     else if (filter === '90') out = out.filter(r => Number(r.days_remaining) >= 0 && Number(r.days_remaining) <= 90)
+    if (catFilter) out = out.filter(r => r.category === catFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
-      out = out.filter(r => [r.asset_tag, r.manufacturer, r.model, r.assigned_user_name].some(v => v?.toLowerCase().includes(q)))
+      out = out.filter(r => [r.asset_tag, r.manufacturer, r.model, r.assigned_user_name, r.type].some(v => v?.toLowerCase().includes(q)))
     }
     return out
-  }, [rows, filter, search])
+  }, [rows, filter, catFilter, search])
 
   function csvExport() { api.download('/api/reports/warranty/csv', 'warranty-report.csv').catch(e => toast(e.message, 'error')) }
 
   async function pdfExport() {
-    const head = ['Asset Tag', 'Type', 'Brand', 'Model', 'Warranty Expiry', 'Days Remaining', 'Status', 'Assigned To']
+    const head = ['Category', 'Asset Tag', 'Type', 'Brand', 'Model', 'Warranty Expiry', 'Days Left', 'Status', 'Assigned To']
     const body = filtered.map(r => [
-      r.asset_tag || '', r.type || '', r.manufacturer || '', r.model || '',
-      fmtDate(r.warranty_expiry), String(r.days_remaining ?? ''), r.status || '', r.assigned_user_name || 'Inventory',
+      r.category || '', r.asset_tag || '', r.type || '', r.manufacturer || '', r.model || '',
+      fmtDate(r.warranty_expiry), String(r.days_remaining ?? ''), r.status || '', r.assigned_user_name || 'N/A',
     ])
     await exportPDF('Warranty Report', head, body)
   }
@@ -361,12 +372,14 @@ function WarrantyTab({ toast }) {
     return 'text-zinc-600 dark:text-zinc-400'
   }
 
+  const cats = [...new Set(rows.map(r => r.category).filter(Boolean))]
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap justify-between">
         <FilterBar search={search} onSearch={setSearch}>
-          <Select value={filter} onChange={setFilter} options={['expired','30','90']}
-            placeholder="All warranties" />
+          <Select value={catFilter} onChange={setCatFilter} options={cats} placeholder="All categories" />
+          <Select value={filter} onChange={setFilter} options={['expired','30','90']} placeholder="All warranties" />
         </FilterBar>
         <div className="flex gap-2">
           <ExportBtn label="CSV" onClick={csvExport} />
@@ -377,21 +390,24 @@ function WarrantyTab({ toast }) {
       <div className="card overflow-hidden"><div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th>
+            <Th>Category</Th><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th>
             <Th>Warranty Expiry</Th><Th>Days Left</Th><Th>Status</Th><Th>Assigned To</Th>
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : filtered.length === 0 ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">No records</td></tr>
+            {loading ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">Loading…</td></tr>
+            : filtered.length === 0 ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">No records</td></tr>
             : filtered.map((r, i) => (
               <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                <td className="px-3 py-2.5">
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', WARRANTY_CAT_STYLE[r.category] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>{r.category}</span>
+                </td>
                 <Td mono>{r.asset_tag}</Td><Td>{r.type}</Td><Td dim>{r.manufacturer}</Td><Td dim>{r.model}</Td>
                 <td className="px-3 py-2.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(r.warranty_expiry)}</td>
                 <td className={cn('px-3 py-2.5 text-xs font-bold', warningColor(r.days_remaining))}>
                   {Number(r.days_remaining) < 0 ? `${Math.abs(r.days_remaining)}d expired` : `${r.days_remaining}d`}
                 </td>
                 <td className="px-3 py-2.5"><StatusBadge v={r.status} /></td>
-                <Td dim>{r.assigned_user_name || 'Inventory'}</Td>
+                <Td dim>{r.assigned_user_name || '—'}</Td>
               </tr>
             ))}
           </tbody>
@@ -672,6 +688,213 @@ function SIMCostsTab({ toast }) {
   )
 }
 
+// ── INVENTORY STOCK TAB ───────────────────────────────────
+const STOCK_STATUS_STYLE = {
+  in_stock:     'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  low_stock:    'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  out_of_stock: 'bg-red-500/10 text-red-500 dark:text-red-400',
+}
+
+function InvStockTab({ toast }) {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  useEffect(() => {
+    api.get('/api/inventory/items').then(setRows).catch(e => toast(e.message, 'error')).finally(() => setLoading(false))
+  }, [])
+
+  const filtered = useMemo(() => {
+    let out = rows
+    if (statusFilter) out = out.filter(r => r.stock_status === statusFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      out = out.filter(r => [r.name, r.category_name, r.sku, r.model].some(v => v?.toLowerCase().includes(q)))
+    }
+    return out
+  }, [rows, search, statusFilter])
+
+  const totals = useMemo(() => ({
+    available: rows.reduce((s, r) => s + Number(r.qty_available || 0), 0),
+    assigned:  rows.reduce((s, r) => s + Number(r.qty_assigned || 0), 0),
+    damaged:   rows.reduce((s, r) => s + Number(r.qty_damaged || 0), 0),
+    low:       rows.filter(r => r.stock_status === 'low_stock').length,
+    out:       rows.filter(r => r.stock_status === 'out_of_stock').length,
+  }), [rows])
+
+  async function pdfExport() {
+    const head = ['Item', 'Category', 'SKU', 'Available', 'Assigned', 'Damaged', 'Reorder At', 'Status']
+    const body = filtered.map(r => [
+      r.name || '', r.category_name || '', r.sku || '',
+      String(r.qty_available ?? 0), String(r.qty_assigned ?? 0), String(r.qty_damaged ?? 0),
+      String(r.reorder_level ?? 0), r.stock_status?.replace('_', ' ') || '',
+    ])
+    await exportPDF('Inventory Stock Report', head, body)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap justify-between">
+        <FilterBar search={search} onSearch={setSearch}>
+          <Select value={statusFilter} onChange={setStatusFilter}
+            options={['in_stock', 'low_stock', 'out_of_stock']} placeholder="All stock levels" />
+        </FilterBar>
+        <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+      </div>
+
+      {/* Summary pills */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        {[
+          { label: 'Available', value: totals.available, cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
+          { label: 'Assigned',  value: totals.assigned,  cls: 'text-sky-600 dark:text-sky-400 bg-sky-500/10' },
+          { label: 'Damaged',   value: totals.damaged,   cls: 'text-red-500 bg-red-500/10' },
+          { label: 'Low Stock', value: totals.low,        cls: 'text-amber-600 dark:text-amber-400 bg-amber-500/10' },
+          { label: 'Out of Stock', value: totals.out,    cls: 'text-red-500 bg-red-500/10' },
+        ].map((p, i) => (
+          <span key={i} className={cn('px-2.5 py-1.5 rounded-lg font-semibold', p.cls)}>
+            {p.value} <span className="font-normal opacity-80">{p.label}</span>
+          </span>
+        ))}
+      </div>
+
+      <p className="text-xs text-zinc-500">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+      <div className="card overflow-hidden"><div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <Th>Item</Th><Th>Category</Th><Th>SKU</Th>
+            <Th>Available</Th><Th>Assigned</Th><Th>Damaged</Th><Th>Reorder At</Th><Th>Status</Th>
+          </tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">Loading…</td></tr>
+            : filtered.length === 0 ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">No items found</td></tr>
+            : filtered.map((r, i) => (
+              <tr key={i} className={cn('border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors',
+                r.stock_status === 'out_of_stock' && 'bg-red-500/5',
+                r.stock_status === 'low_stock' && 'bg-amber-500/5')}>
+                <td className="px-3 py-2.5">
+                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{r.name}</div>
+                  {r.model && <div className="text-[10px] text-zinc-400">{r.model}</div>}
+                </td>
+                <Td dim>{r.category_name || '—'}</Td>
+                <Td mono>{r.sku || '—'}</Td>
+                <td className={cn('px-3 py-2.5 text-xs font-bold',
+                  r.qty_available === 0 ? 'text-red-500 dark:text-red-400' :
+                  r.qty_available <= r.reorder_level ? 'text-amber-600 dark:text-amber-400' :
+                  'text-emerald-600 dark:text-emerald-400')}>{r.qty_available ?? 0}</td>
+                <Td>{r.qty_assigned ?? 0}</Td>
+                <Td dim>{r.qty_damaged ?? 0}</Td>
+                <Td dim>{r.reorder_level ?? 0}</Td>
+                <td className="px-3 py-2.5">
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
+                    STOCK_STATUS_STYLE[r.stock_status] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
+                    {r.stock_status?.replace(/_/g, ' ')}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div></div>
+    </div>
+  )
+}
+
+// ── INV. ASSIGNMENTS TAB ──────────────────────────────────
+const ASN_STATUS_STYLE = {
+  active:              'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  partially_returned:  'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  fully_returned:      'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500',
+}
+
+function InvAssignmentsTab({ toast }) {
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  async function load() {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (statusFilter) params.set('status', statusFilter)
+    try {
+      const data = await api.get(`/api/assignments?${params}`)
+      setRows(data)
+    } catch (e) { toast(e.message, 'error') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [statusFilter])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return rows
+    const q = search.toLowerCase()
+    return rows.filter(r =>
+      [r.asn_number, r.assignee_name, r.department, r.assigned_by_name].some(v => v?.toLowerCase().includes(q))
+    )
+  }, [rows, search])
+
+  async function pdfExport() {
+    const head = ['ASN #', 'Employee', 'Department', 'Assigned By', 'Assigned Date', 'Return By', 'Status']
+    const body = filtered.map(r => [
+      r.asn_number || '', r.assignee_name || '', r.department || '',
+      r.assigned_by_name || '', fmtDate(r.assigned_date), fmtDate(r.expected_return_date),
+      r.status?.replace(/_/g, ' ') || '',
+    ])
+    await exportPDF('Inventory Assignments Report', head, body)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap justify-between">
+        <FilterBar search={search} onSearch={setSearch}>
+          <Select value={statusFilter} onChange={setStatusFilter}
+            options={['active', 'partially_returned', 'fully_returned']} placeholder="Active only" />
+        </FilterBar>
+        <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+      </div>
+      <p className="text-xs text-zinc-500">{filtered.length} assignment{filtered.length !== 1 ? 's' : ''}</p>
+      <div className="card overflow-hidden"><div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <Th>ASN #</Th><Th>Employee</Th><Th>Department</Th><Th>Assigned By</Th>
+            <Th>Date</Th><Th>Return By</Th><Th>Status</Th>
+          </tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} className="py-12 text-center text-zinc-400">Loading…</td></tr>
+            : filtered.length === 0 ? <tr><td colSpan={7} className="py-12 text-center text-zinc-400">No assignments found</td></tr>
+            : filtered.map((r, i) => (
+              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
+                <Td mono>{r.asn_number}</Td>
+                <td className="px-3 py-2.5">
+                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{r.assignee_name}</div>
+                  {r.designation && <div className="text-[10px] text-zinc-400">{r.designation}</div>}
+                </td>
+                <Td dim>{r.department || '—'}</Td>
+                <Td dim>{r.assigned_by_name}</Td>
+                <td className="px-3 py-2.5 text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">{fmtDate(r.assigned_date)}</td>
+                <td className="px-3 py-2.5 text-xs whitespace-nowrap">
+                  {r.expected_return_date
+                    ? <span className={cn(new Date(r.expected_return_date) < new Date() && r.status === 'active' ? 'text-red-500 font-medium' : 'text-zinc-400')}>
+                        {fmtDate(r.expected_return_date)}
+                      </span>
+                    : <span className="text-zinc-300 dark:text-zinc-600">—</span>}
+                </td>
+                <td className="px-3 py-2.5">
+                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
+                    ASN_STATUS_STYLE[r.status] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
+                    {r.status?.replace(/_/g, ' ')}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div></div>
+    </div>
+  )
+}
+
 // ── FULL EXPORT TAB ───────────────────────────────────────
 function FullExportTab({ toast }) {
   const exports = [
@@ -749,6 +972,8 @@ export default function Reports() {
           {tab === 'unassigned'      && <UnassignedTab toast={toast} />}
           {tab === 'damage'          && <DamageTab toast={toast} />}
           {tab === 'department'      && <DepartmentTab toast={toast} />}
+          {tab === 'inv-stock'       && <InvStockTab toast={toast} />}
+          {tab === 'inv-assignments' && <InvAssignmentsTab toast={toast} />}
           {tab === 'sim-costs'       && <SIMCostsTab toast={toast} />}
           {tab === 'full-export'     && <FullExportTab toast={toast} />}
         </motion.div>

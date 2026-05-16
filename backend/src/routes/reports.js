@@ -18,8 +18,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       db.query("SELECT COALESCE(license,'Not Assigned') AS license, COUNT(*) n FROM gws_accounts GROUP BY license"),
       db.query('SELECT account_type, COUNT(*) n FROM gws_accounts GROUP BY account_type'),
       db.query('SELECT role, COUNT(*) n FROM users GROUP BY role'),
-      db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry < NOW()"),
-      db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry BETWEEN NOW() AND NOW() + INTERVAL '90 days'"),
+      db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry < NOW() UNION ALL SELECT COUNT(*) n FROM mobiles WHERE warranty_expiry < NOW() UNION ALL SELECT COUNT(*) n FROM network_devices WHERE warranty_expiry < NOW()"),
+      db.query("SELECT COUNT(*) n FROM systems WHERE warranty_expiry BETWEEN NOW() AND NOW() + INTERVAL '90 days' UNION ALL SELECT COUNT(*) n FROM mobiles WHERE warranty_expiry BETWEEN NOW() AND NOW() + INTERVAL '90 days' UNION ALL SELECT COUNT(*) n FROM network_devices WHERE warranty_expiry BETWEEN NOW() AND NOW() + INTERVAL '90 days'"),
       db.query(`SELECT a.id, a.action, a.table_name, a.record_label, a.details, a.ip_address, a.created_at, u.name AS user_name, u.email AS user_email FROM activity_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.created_at >= NOW() - INTERVAL '24 hours' ORDER BY a.created_at DESC LIMIT 100`),
       // Systems
       db.query(`SELECT
@@ -66,8 +66,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       gwsLicense:      gwsLic.rows,
       gwsType:         gwsTyp.rows,
       users:           usr.rows,
-      warrantyExpired: Number(warExp.rows[0].n),
-      warrantySoon:    Number(warSoon.rows[0].n),
+      warrantyExpired: warExp.rows.reduce((s, r) => s + Number(r.n), 0),
+      warrantySoon:    warSoon.rows.reduce((s, r) => s + Number(r.n), 0),
       activity24h:     act24h.rows,
       systems: {
         assignment: sysAssignment.rows[0],
@@ -191,13 +191,25 @@ router.get('/employee-assets/csv', requireAuth, async (req, res) => {
 router.get('/warranty/csv', requireAuth, async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT s.asset_tag, s.type, s.manufacturer, s.model, s.serial_number,
-             s.status, s.condition, s.location,
-             s.warranty_expiry, (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
+      SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
+             s.serial_number, s.status, s.warranty_expiry,
+             (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
              (e.first_name||' '||e.last_name) AS assigned_to
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
       WHERE s.warranty_expiry IS NOT NULL
-      ORDER BY s.warranty_expiry ASC`);
+      UNION ALL
+      SELECT 'Mobile', m.asset_tag, 'Mobile', m.manufacturer, m.model,
+             m.serial_number, m.status, m.warranty_expiry,
+             (m.warranty_expiry::date - CURRENT_DATE),
+             (e.first_name||' '||e.last_name)
+      FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
+      WHERE m.warranty_expiry IS NOT NULL
+      UNION ALL
+      SELECT 'Network', nd.serial_number, nd.device_type, nd.brand, nd.model,
+             nd.serial_number, nd.status, nd.warranty_expiry,
+             (nd.warranty_expiry::date - CURRENT_DATE), NULL
+      FROM network_devices nd WHERE nd.warranty_expiry IS NOT NULL
+      ORDER BY warranty_expiry ASC`);
     const csv = stringify(r.rows, { header: true });
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=warranty-report.csv');
@@ -306,11 +318,27 @@ router.get('/department-summary', requireAuth, async (req, res) => {
 router.get('/warranty', requireAuth, async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT s.*, (e.first_name || ' ' || e.last_name) AS assigned_user_name,
-             (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining
+      SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
+             s.serial_number, s.warranty_expiry, s.status,
+             (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
+             (e.first_name || ' ' || e.last_name) AS assigned_user_name
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
       WHERE s.warranty_expiry IS NOT NULL
-      ORDER BY s.warranty_expiry ASC`);
+      UNION ALL
+      SELECT 'Mobile' AS category, m.asset_tag, 'Mobile' AS type, m.manufacturer, m.model,
+             m.serial_number, m.warranty_expiry, m.status,
+             (m.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
+             (e.first_name || ' ' || e.last_name) AS assigned_user_name
+      FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
+      WHERE m.warranty_expiry IS NOT NULL
+      UNION ALL
+      SELECT 'Network' AS category, nd.serial_number AS asset_tag, nd.device_type AS type,
+             nd.brand AS manufacturer, nd.model, nd.serial_number, nd.warranty_expiry,
+             nd.status, (nd.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
+             NULL AS assigned_user_name
+      FROM network_devices nd
+      WHERE nd.warranty_expiry IS NOT NULL
+      ORDER BY warranty_expiry ASC`);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
