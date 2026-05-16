@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, RotateCcw, User, Package } from 'lucide-react'
+import { Plus, RefreshCw, RotateCcw, User, Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -121,6 +121,13 @@ export default function Assignments() {
     finally { setSaving(false) }
   }
 
+  const PAGE_SIZE = 25
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(assignments.length / PAGE_SIZE))
+  const displayAssignments = assignments.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  React.useEffect(() => { setPage(1) }, [statusFilter, empFilter])
+
   function updateReturnItem(i, k, v) { setReturnItems(c => c.map((item, idx) => idx === i ? { ...item, [k]: v } : item)) }
   function addCartItem() { setDirectCart(c => [...c, { item_id: '', qty: 1 }]) }
   function removeCartItem(i) { setDirectCart(c => c.filter((_, idx) => idx !== i)) }
@@ -187,7 +194,7 @@ export default function Assignments() {
                 </tr>
               </thead>
               <tbody>
-                {assignments.map(asn => (
+                {displayAssignments.map(asn => (
                   <tr key={asn.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
                     <td className="px-3 py-2.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100">{asn.asn_number}</td>
                     <td className="px-3 py-2.5">
@@ -230,6 +237,44 @@ export default function Assignments() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-zinc-500">
+          <span>{assignments.length} total · page {page} of {totalPages}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+              <ChevronLeft size={13} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p =>
+              p === 1 || p === totalPages || Math.abs(p - page) <= 1
+            ).reduce((acc, p, idx, arr) => {
+              if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…')
+              acc.push(p)
+              return acc
+            }, []).map((p, i) =>
+              p === '…'
+                ? <span key={`ellipsis-${i}`} className="px-1">…</span>
+                : <button key={p} onClick={() => setPage(p)}
+                    className={cn('w-7 h-7 rounded border text-xs font-medium transition-colors',
+                      p === page
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                        : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                    {p}
+                  </button>
+            )}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       <Modal open={!!detailAsn} onClose={() => setDetailAsn(null)} title={`Assignment — ${detailAsn?.asn_number}`}>

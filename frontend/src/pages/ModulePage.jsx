@@ -12,7 +12,7 @@ import Badge from '../components/ui/Badge'
 const EMPTY = {}
 
 export default function ModulePage({ config }) {
-  const { apiPath, module: mod, columns, fields, title, exportFile, searchPlaceholder } = config
+  const { apiPath, module: mod, columns, fields, title, exportFile, searchPlaceholder, viewExtra } = config
   const { canPerm } = useAuth()
   const { toast } = useToast()
 
@@ -230,18 +230,25 @@ export default function ModulePage({ config }) {
       {/* ── View Modal ── */}
       <Modal open={!!viewRow} onClose={() => setViewRow(null)} title={`${title} Details`} size="md">
         {viewRow && (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-            {fields.map(f => (
-              <div key={f.name} className={f.fullWidth ? 'col-span-2' : ''}>
-                <dt className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider">{f.label}</dt>
-                <dd className="text-sm text-zinc-200 mt-1">
-                  {f.name === 'status'
-                    ? <Badge status={viewRow[f.name]}>{viewRow[f.name] || '—'}</Badge>
-                    : viewRow[f.name] || <span className="text-zinc-600">—</span>}
-                </dd>
+          <>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+              {fields.map(f => (
+                <div key={f.name} className={f.fullWidth ? 'col-span-2' : ''}>
+                  <dt className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider">{f.label}</dt>
+                  <dd className="text-sm text-zinc-200 mt-1">
+                    {f.name === 'status'
+                      ? <Badge status={viewRow[f.name]}>{viewRow[f.name] || '—'}</Badge>
+                      : viewRow[f.name] || <span className="text-zinc-600">—</span>}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {viewExtra && (
+              <div className="mt-5 pt-4 border-t border-zinc-800">
+                {viewExtra(viewRow)}
               </div>
-            ))}
-          </dl>
+            )}
+          </>
         )}
         <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
           <button className="btn-secondary" onClick={() => setViewRow(null)}>Close</button>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   Monitor, Network, Smartphone, CreditCard, Cloud, Users,
   TrendingUp, Activity, Clock, ScrollText, Cpu, MapPin, Package, ChevronDown,
+  ClipboardList, PackageCheck, AlertTriangle as AlertTriangleIcon,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -309,10 +310,49 @@ function Activity24h({ logs, loading }) {
   )
 }
 
+// ── Inventory section content ─────────────────────────────
+function InventoryContent({ stats }) {
+  if (!stats) return null
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Items in Catalog', value: stats.total_items,     color: 'text-brand-500 dark:text-brand-400',   bg: 'bg-brand-500/10' },
+          { label: 'Available Stock',  value: stats.total_available, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10' },
+          { label: 'Currently Assigned', value: stats.total_assigned, color: 'text-sky-600 dark:text-sky-400',       bg: 'bg-sky-500/10' },
+          { label: 'Pending Requests', value: stats.pending_requests, color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10' },
+        ].map((s, i) => (
+          <div key={i} className={`flex flex-col gap-0.5 px-3 py-2.5 rounded-lg ${s.bg}`}>
+            <span className={`text-xl font-bold ${s.color}`}>{s.value ?? 0}</span>
+            <span className={`text-xs ${s.color} opacity-80`}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+      {(stats.low_stock > 0 || stats.out_of_stock > 0) && (
+        <div className="flex items-center gap-4 text-sm">
+          {stats.out_of_stock > 0 && (
+            <span className="flex items-center gap-1.5 text-red-500">
+              <AlertTriangleIcon size={13} />
+              <strong>{stats.out_of_stock}</strong> item{stats.out_of_stock !== 1 ? 's' : ''} out of stock
+            </span>
+          )}
+          {stats.low_stock > 0 && (
+            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+              <AlertTriangleIcon size={13} />
+              <strong>{stats.low_stock}</strong> item{stats.low_stock !== 1 ? 's' : ''} low on stock
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Dashboard ────────────────────────────────────────
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [empCount, setEmpCount] = useState(null)
+  const [invStats, setInvStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [openSection, setOpenSection] = useState(null)
   const { toast } = useToast()
@@ -325,9 +365,11 @@ export default function Dashboard() {
     Promise.all([
       api.get('/api/reports/dashboard'),
       api.get('/api/employees').catch(() => []),
-    ]).then(([dash, emps]) => {
+      canPerm('inventory', 'read') ? api.get('/api/inventory/stats').catch(() => null) : Promise.resolve(null),
+    ]).then(([dash, emps, inv]) => {
       setData(dash)
       setEmpCount(Array.isArray(emps) ? emps.length : null)
+      setInvStats(inv)
     }).catch(e => toast(e.message, 'error'))
     .finally(() => setLoading(false))
   }
@@ -398,10 +440,19 @@ export default function Dashboard() {
         </AccordionSection>
       )}
 
+      {canPerm('inventory', 'read') && invStats && (
+        <AccordionSection id="inventory" open={openSection === 'inventory'} onToggle={() => toggle('inventory')}
+          icon={Package} iconColor="text-teal-600 dark:text-teal-400" title="Inventory Stock"
+          badge={invStats.pending_requests > 0 ? `${invStats.pending_requests} pending` : invStats.total_items}
+          delay={0.17} loading={loading}>
+          <InventoryContent stats={invStats} />
+        </AccordionSection>
+      )}
+
       {/* Network chart + 24h log side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {canPerm('network', 'read') && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }} className="card p-5">
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20 }} className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp size={14} className="text-sky-500 dark:text-sky-400" />
               <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Network Devices by Type</h3>

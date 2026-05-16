@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, CheckCircle2, XCircle, ClipboardList, Send, Clock } from 'lucide-react'
+import { Plus, RefreshCw, CheckCircle2, XCircle, ClipboardList, Send, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -167,7 +167,14 @@ export default function Requests() {
   function removeCartItem(i) { setCartItems(c => c.filter((_, idx) => idx !== i)) }
   function updateCartItem(i, k, v) { setCartItems(c => c.map((item, idx) => idx === i ? { ...item, [k]: v } : item)) }
 
-  const displayList = tab === 'queue' ? requests : tab === 'all' ? allRequests : myRequests
+  const PAGE_SIZE = 25
+  const [page, setPage] = useState(1)
+  const fullList = tab === 'queue' ? requests : tab === 'all' ? allRequests : myRequests
+  const displayList = fullList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(fullList.length / PAGE_SIZE))
+
+  // Reset page when tab changes
+  React.useEffect(() => { setPage(1) }, [tab])
 
   const InputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30'
 
@@ -273,6 +280,44 @@ export default function Requests() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-zinc-500">
+          <span>{fullList.length} total · page {page} of {totalPages}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+              <ChevronLeft size={13} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p =>
+              p === 1 || p === totalPages || Math.abs(p - page) <= 1
+            ).reduce((acc, p, idx, arr) => {
+              if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…')
+              acc.push(p)
+              return acc
+            }, []).map((p, i) =>
+              p === '…'
+                ? <span key={`ellipsis-${i}`} className="px-1">…</span>
+                : <button key={p} onClick={() => setPage(p)}
+                    className={cn('w-7 h-7 rounded border text-xs font-medium transition-colors',
+                      p === page
+                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                        : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                    {p}
+                  </button>
+            )}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+              <ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New Request Modal */}
       <Modal open={newModal} onClose={() => setNewModal(false)} title="Submit New Request">
