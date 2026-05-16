@@ -41,6 +41,9 @@ app.use('/api/recycle-bin',  require('./routes/recycle-bin'));
 app.use('/api/inventory',    require('./routes/inventory').router);
 app.use('/api/requests',     require('./routes/requests'));
 app.use('/api/assignments',  require('./routes/assignments'));
+app.use('/api/maintenance',  require('./routes/maintenance'));
+app.use('/api/search',       require('./routes/search'));
+app.use('/api/alerts',       require('./routes/alerts'));
 app.get('/api/health',  (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -248,6 +251,21 @@ async function runMigrations() {
   await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_asn_status   ON inv_assignments(status)`);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_asn_employee ON inv_assignments(assignee_id)`);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_inv_alerts_res   ON inv_alerts(is_resolved)`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS maintenance_log (
+      id           SERIAL PRIMARY KEY,
+      asset_type   VARCHAR(20) NOT NULL,
+      asset_id     INTEGER NOT NULL,
+      event_type   VARCHAR(50) NOT NULL,
+      event_date   DATE NOT NULL DEFAULT CURRENT_DATE,
+      performed_by VARCHAR(100),
+      cost_pkr     NUMERIC(10,2),
+      notes        TEXT,
+      logged_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`);
 }
 
 const PORT = process.env.PORT || 3000;

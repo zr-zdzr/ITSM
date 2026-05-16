@@ -2,6 +2,7 @@ import React from 'react'
 import ModulePage from './ModulePage'
 import Badge from '../components/ui/Badge'
 import { fmtDate } from '../lib/utils'
+import MaintenanceLog from '../components/ui/MaintenanceLog'
 
 const config = {
   title: 'System',
@@ -49,6 +50,7 @@ const config = {
     { name: 'purpose',        label: 'Purpose',        type: 'text', placeholder: 'Daily use, Development…' },
     { name: 'notes',          label: 'Notes',          type: 'textarea', fullWidth: true },
   ],
+  viewExtra: (row) => <MaintenanceLog row={row} assetType="system" />,
 }
 
 export default function Systems() { return <ModulePage config={config} /> }

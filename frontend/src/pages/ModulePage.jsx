@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, FileUp, FileDown, Trash2, Pencil, Eye, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { Plus, FileUp, FileDown, Trash2, Pencil, Eye, AlertTriangle, CheckCircle2, XCircle, QrCode } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,11 +8,12 @@ import DataTable from '../components/ui/DataTable'
 import Modal from '../components/ui/Modal'
 import DynamicForm from '../components/ui/DynamicForm'
 import Badge from '../components/ui/Badge'
+import QRModal from '../components/ui/QRModal'
 
 const EMPTY = {}
 
 export default function ModulePage({ config }) {
-  const { apiPath, module: mod, columns, fields, title, exportFile, searchPlaceholder, viewExtra } = config
+  const { apiPath, module: mod, columns, fields, title, exportFile, searchPlaceholder, viewExtra, qrData } = config
   const { canPerm } = useAuth()
   const { toast } = useToast()
 
@@ -26,6 +27,7 @@ export default function ModulePage({ config }) {
   const [editRow, setEditRow]               = useState(null)
   const [viewRow, setViewRow]               = useState(null)
   const [confirmDelete, setConfirmDelete]   = useState(null)
+  const [qrRow, setQrRow]                           = useState(null)
   const [confirmDeleteAll, setConfirmDeleteAll]         = useState(false)
   const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
   const [saving, setSaving]                 = useState(false)
@@ -153,6 +155,12 @@ export default function ModulePage({ config }) {
             className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
             <Eye size={13} />
           </button>
+          {qrData && (
+            <button onClick={() => setQrRow(row)} title="QR Code"
+              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
+              <QrCode size={13} />
+            </button>
+          )}
           {canUpdate && (
             <button onClick={() => openEdit(row)} title="Edit"
               className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
@@ -250,13 +258,22 @@ export default function ModulePage({ config }) {
             )}
           </>
         )}
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
-          <button className="btn-secondary" onClick={() => setViewRow(null)}>Close</button>
-          {canUpdate && (
-            <button className="btn-primary" onClick={() => { openEdit(viewRow); setViewRow(null) }}>
-              <Pencil size={13} /> Edit
-            </button>
-          )}
+        <div className="flex justify-between gap-2 mt-5 pt-4 border-t border-zinc-800">
+          <div>
+            {qrData && (
+              <button className="btn-secondary" onClick={() => { setQrRow(viewRow); setViewRow(null) }}>
+                <QrCode size={13} /> QR Code
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button className="btn-secondary" onClick={() => setViewRow(null)}>Close</button>
+            {canUpdate && (
+              <button className="btn-primary" onClick={() => { openEdit(viewRow); setViewRow(null) }}>
+                <Pencil size={13} /> Edit
+              </button>
+            )}
+          </div>
         </div>
       </Modal>
 
@@ -352,6 +369,11 @@ export default function ModulePage({ config }) {
           </button>
         </div>
       </Modal>
+
+      {/* ── QR Modal ── */}
+      {qrData && qrRow && (
+        <QRModal open={!!qrRow} onClose={() => setQrRow(null)} {...qrData(qrRow)} />
+      )}
 
       {/* ── Delete All confirm ── */}
       <Modal open={confirmDeleteAll} onClose={() => setConfirmDeleteAll(false)} title="Delete All Records" size="sm">

@@ -1,6 +1,7 @@
 import React from 'react'
 import ModulePage from './ModulePage'
 import Badge from '../components/ui/Badge'
+import MaintenanceLog from '../components/ui/MaintenanceLog'
 
 const config = {
   title: 'Mobile Device',
@@ -42,6 +43,7 @@ const config = {
     { name: 'purchase_date',label: 'Purchase Date', type: 'date' },
     { name: 'notes',        label: 'Notes',         type: 'textarea', fullWidth: true },
   ],
+  viewExtra: (row) => <MaintenanceLog row={row} assetType="mobile" />,
 }
 
 export default function MobileDevices() { return <ModulePage config={config} /> }
