@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Plus, FileUp, FileDown, Trash2, Pencil, Eye, AlertTriangle, CheckCircle2, XCircle, QrCode } from 'lucide-react'
+import { Plus, FileUp, FileDown, Trash2, Pencil, Eye, AlertTriangle, CheckCircle2, XCircle, QrCode, Layers } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
@@ -30,6 +30,9 @@ export default function ModulePage({ config }) {
   const [qrRow, setQrRow]                           = useState(null)
   const [confirmDeleteAll, setConfirmDeleteAll]         = useState(false)
   const [confirmDeleteSelected, setConfirmDeleteSelected] = useState(false)
+  const [bulkEditModal, setBulkEditModal]   = useState(false)
+  const [bulkVals, setBulkVals]             = useState({})
+  const [bulkSaving, setBulkSaving]         = useState(false)
   const [saving, setSaving]                 = useState(false)
   const [formVals, setFormVals]             = useState(EMPTY)
   const [selectedIds, setSelectedIds]       = useState(new Set())
@@ -113,6 +116,26 @@ export default function ModulePage({ config }) {
     } catch (e) { toast(e.message, 'error') }
   }
 
+  const TABLE_MAP = {
+    systems: 'systems', network: 'network_devices', mobiles: 'mobiles',
+    sims: 'sims', gws: 'gws_accounts', employees: 'employees', vendors: 'vendors',
+  }
+
+  async function saveBulk() {
+    const updates = {}
+    for (const [k, v] of Object.entries(bulkVals)) { if (v) updates[k] = v }
+    if (Object.keys(updates).length === 0) return toast('Select at least one field to update', 'error')
+    setBulkSaving(true)
+    try {
+      await api.patch('/api/bulk', { table: TABLE_MAP[mod] || mod, ids: [...selectedIds], updates })
+      toast(`${selectedIds.size} record${selectedIds.size > 1 ? 's' : ''} updated`, 'success')
+      setBulkEditModal(false)
+      setBulkVals({})
+      await load()
+    } catch (e) { toast(e.message, 'error') }
+    finally { setBulkSaving(false) }
+  }
+
   function handleExport() {
     api.download(`${apiPath}/export/csv`, exportFile || `${mod}-export.csv`)
       .catch(e => toast(e.message, 'error'))
@@ -189,6 +212,11 @@ export default function ModulePage({ config }) {
           )}
         </span>
 
+        {canUpdate && selectedIds.size > 0 && (
+          <button className="btn-secondary" onClick={() => { setBulkVals({}); setBulkEditModal(true) }}>
+            <Layers size={14} /> Bulk Edit {selectedIds.size}
+          </button>
+        )}
         {canDelete && selectedIds.size > 0 && (
           <button className="btn-danger" onClick={() => setConfirmDeleteSelected(true)}>
             <Trash2 size={14} /> Delete {selectedIds.size} Selected
@@ -366,6 +394,50 @@ export default function ModulePage({ config }) {
           <button className="btn-secondary" onClick={() => setConfirmDeleteSelected(false)}>Cancel</button>
           <button className="btn-base bg-red-500 hover:bg-red-600 text-white" onClick={deleteSelected}>
             Delete {selectedIds.size} Record{selectedIds.size > 1 ? 's' : ''}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Bulk Edit Modal ── */}
+      <Modal open={bulkEditModal} onClose={() => setBulkEditModal(false)} title={`Bulk Edit ${selectedIds.size} Records`} size="sm">
+        <p className="text-xs text-zinc-500 mb-4">Only filled fields will be updated. Leave blank to keep existing values.</p>
+        <div className="space-y-3">
+          {fields.filter(f => ['status','condition','department','location','notes'].includes(f.name)).map(f => (
+            <div key={f.name}>
+              <label className="block text-xs font-semibold text-zinc-400 mb-1">{f.label}</label>
+              {f.type === 'select' ? (
+                <select
+                  value={bulkVals[f.name] || ''}
+                  onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-brand-500"
+                >
+                  <option value="">— keep existing —</option>
+                  {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : f.type === 'textarea' ? (
+                <textarea
+                  rows={2}
+                  placeholder="Leave blank to keep existing"
+                  value={bulkVals[f.name] || ''}
+                  onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-brand-500 resize-none"
+                />
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Leave blank to keep existing"
+                  value={bulkVals[f.name] || ''}
+                  onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-brand-500"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
+          <button className="btn-secondary" onClick={() => setBulkEditModal(false)}>Cancel</button>
+          <button className="btn-primary" onClick={saveBulk} disabled={bulkSaving}>
+            {bulkSaving ? 'Saving…' : `Update ${selectedIds.size} Records`}
           </button>
         </div>
       </Modal>

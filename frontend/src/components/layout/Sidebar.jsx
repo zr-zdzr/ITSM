@@ -3,10 +3,11 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, Monitor, Network, Smartphone, CreditCard, Cloud,
-  Users, BarChart3, UserCog, ChevronRight, Layers, Plus, FileDown,
+  Users, BarChart3, UserCog, ChevronRight, Plus, FileDown,
   FileUp, Trash2, PanelLeftClose, PanelLeftOpen, ScrollText,
-  Package, ClipboardList, PackageCheck,
+  Package, ClipboardList, PackageCheck, Store,
 } from 'lucide-react'
+import BykeaB from '../ui/BykeaB'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../contexts/AuthContext'
 import { api } from '../../lib/api'
@@ -224,9 +225,7 @@ export default function Sidebar({ collapsed, onToggle }) {
     )}>
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 h-14 border-b border-zinc-200 dark:border-zinc-800 flex-shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center flex-shrink-0">
-          <Layers size={14} className="text-white" />
-        </div>
+        <BykeaB size={28} color="#00AA2F" className="flex-shrink-0" />
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-tight">ITMS</div>
@@ -261,6 +260,19 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
         {canPerm('reports', 'read') && (
           <NavItem item={NAV[7]} collapsed={collapsed} canPerm={canPerm} />
+        )}
+
+        {canPerm('vendors', 'read') && (
+          <>
+            {!collapsed && (
+              <p className="px-3 pt-3 pb-2 text-[10px] font-semibold tracking-widest text-zinc-400 dark:text-zinc-600 uppercase">Procurement</p>
+            )}
+            <StockNavItem
+              item={{ id: 'vendors', label: 'Vendors', icon: Store, path: '/vendors' }}
+              collapsed={collapsed}
+              badge={0}
+            />
+          </>
         )}
 
         {isSA && (

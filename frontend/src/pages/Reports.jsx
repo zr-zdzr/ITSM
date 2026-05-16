@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileDown, AlertTriangle, Package, Users, Monitor, Smartphone,
   CreditCard, ChevronDown, Search, Building2, Wrench, FileText, BarChart3,
-  PackageCheck, Network,
+  PackageCheck, Network, DollarSign,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useToast } from '../contexts/ToastContext'
@@ -108,6 +108,7 @@ const TABS = [
   { id: 'inv-stock',       label: 'Inventory Stock',    icon: Network },
   { id: 'inv-assignments', label: 'Inv. Assignments',   icon: PackageCheck },
   { id: 'sim-costs',       label: 'SIM Costs',          icon: CreditCard },
+  { id: 'cost-analytics',  label: 'Cost Analytics',     icon: DollarSign },
   { id: 'full-export',     label: 'Full Export',        icon: FileText },
 ]
 
@@ -895,6 +896,135 @@ function InvAssignmentsTab({ toast }) {
   )
 }
 
+// ── COST ANALYTICS TAB ───────────────────────────────────
+function CostAnalyticsTab({ toast }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api.get('/api/reports/cost-analytics')
+      .then(setData)
+      .catch(e => toast(e.message, 'error'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  function fmtPKR(v) {
+    const n = Number(v || 0)
+    if (n >= 1_000_000) return `PKR ${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000)     return `PKR ${(n / 1_000).toFixed(1)}K`
+    return `PKR ${n.toLocaleString()}`
+  }
+
+  if (loading) return <div className="py-16 text-center text-zinc-400 text-sm">Loading…</div>
+  if (!data)   return null
+
+  const totalMaint = data.maintenanceByType.reduce((s, r) => s + Number(r.total_cost || 0), 0)
+
+  const TYPE_COLOR = {
+    system:  'bg-brand-500/10 text-brand-500',
+    mobile:  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    network: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="card p-4 space-y-1">
+          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Total Maintenance Spend</p>
+          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(totalMaint)}</p>
+          <p className="text-xs text-zinc-400">all time</p>
+        </div>
+        <div className="card p-4 space-y-1">
+          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">SIM Monthly Cost</p>
+          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(data.simMonthlyTotal)}</p>
+          <p className="text-xs text-zinc-400">active SIMs / month</p>
+        </div>
+        <div className="card p-4 space-y-1">
+          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Est. Annual SIM Cost</p>
+          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(data.simMonthlyTotal * 12)}</p>
+          <p className="text-xs text-zinc-400">projected</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Maintenance by asset type */}
+        <div className="card p-4 space-y-3">
+          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Maintenance Cost by Asset Type</p>
+          {data.maintenanceByType.length === 0
+            ? <p className="text-xs text-zinc-400 py-4 text-center">No maintenance costs recorded</p>
+            : data.maintenanceByType.map((r, i) => {
+                const pct = totalMaint > 0 ? (Number(r.total_cost) / totalMaint) * 100 : 0
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
+                        TYPE_COLOR[r.asset_type] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
+                        {r.asset_type}
+                      </span>
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{fmtPKR(r.total_cost)}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div className="h-full bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[10px] text-zinc-400">{r.events} event{r.events !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
+                  </div>
+                )
+              })
+          }
+        </div>
+
+        {/* SIM costs by vendor */}
+        <div className="card p-4 space-y-3">
+          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">SIM Monthly Cost by Vendor</p>
+          {data.simByVendor.length === 0
+            ? <p className="text-xs text-zinc-400 py-4 text-center">No active SIMs with monthly rates</p>
+            : data.simByVendor.map((r, i) => {
+                const pct = data.simMonthlyTotal > 0
+                  ? (Number(r.monthly_total) / data.simMonthlyTotal) * 100 : 0
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-zinc-700 dark:text-zinc-300 font-medium">{r.vendor || 'Unknown'}</span>
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{fmtPKR(r.monthly_total)}/mo</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[10px] text-zinc-400">{r.sim_count} SIM{r.sim_count !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
+                  </div>
+                )
+              })
+          }
+        </div>
+      </div>
+
+      {/* Maintenance by month table */}
+      {data.maintenanceByMonth.length > 0 && (
+        <div className="card p-4 space-y-3">
+          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Monthly Maintenance Spend (Last 12 Months)</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <Th>Month</Th><Th>Events</Th><Th>Total Spend</Th>
+              </tr></thead>
+              <tbody>
+                {data.maintenanceByMonth.map((r, i) => (
+                  <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+                    <Td mono>{r.month}</Td>
+                    <Td>{r.events}</Td>
+                    <td className="px-3 py-2.5 text-xs font-semibold text-brand-600 dark:text-brand-400">{fmtPKR(r.total_cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── FULL EXPORT TAB ───────────────────────────────────────
 function FullExportTab({ toast }) {
   const exports = [
@@ -975,6 +1105,7 @@ export default function Reports() {
           {tab === 'inv-stock'       && <InvStockTab toast={toast} />}
           {tab === 'inv-assignments' && <InvAssignmentsTab toast={toast} />}
           {tab === 'sim-costs'       && <SIMCostsTab toast={toast} />}
+          {tab === 'cost-analytics'  && <CostAnalyticsTab toast={toast} />}
           {tab === 'full-export'     && <FullExportTab toast={toast} />}
         </motion.div>
       </AnimatePresence>

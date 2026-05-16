@@ -440,6 +440,44 @@ router.get('/by-asset-tag', requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── COST ANALYTICS ────────────────────────────────────────
+router.get('/cost-analytics', requireAuth, async (req, res) => {
+  try {
+    const [byType, byMonth, simByVendor, simTotal] = await Promise.all([
+      // Maintenance costs by asset type
+      db.query(`
+        SELECT asset_type, SUM(cost_pkr) total_cost, COUNT(*) events
+        FROM maintenance_log
+        WHERE cost_pkr IS NOT NULL AND cost_pkr > 0
+        GROUP BY asset_type ORDER BY total_cost DESC
+      `),
+      // Maintenance costs by month (last 12 months)
+      db.query(`
+        SELECT to_char(event_date, 'YYYY-MM') AS month,
+               SUM(cost_pkr) total_cost, COUNT(*) events
+        FROM maintenance_log
+        WHERE cost_pkr IS NOT NULL AND cost_pkr > 0
+          AND event_date >= NOW() - INTERVAL '12 months'
+        GROUP BY month ORDER BY month
+      `),
+      // Active SIM monthly costs by vendor
+      db.query(`
+        SELECT vendor, COUNT(*) sim_count, SUM(monthly_rate) monthly_total
+        FROM sims WHERE status='active' AND monthly_rate IS NOT NULL
+        GROUP BY vendor ORDER BY monthly_total DESC
+      `),
+      // Total SIM monthly cost
+      db.query(`SELECT COALESCE(SUM(monthly_rate), 0) AS total FROM sims WHERE status='active'`),
+    ]);
+    res.json({
+      maintenanceByType: byType.rows,
+      maintenanceByMonth: byMonth.rows,
+      simByVendor: simByVendor.rows,
+      simMonthlyTotal: Number(simTotal.rows[0]?.total || 0),
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── ELOG (Activity / Access Log) ──────────────────────────
 router.get('/elog', requireAuth, async (req, res) => {
   try {

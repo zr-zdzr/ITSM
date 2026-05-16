@@ -19,6 +19,7 @@ export const api = {
   get:  (path)        => req('GET',    path),
   post: (path, body)  => req('POST',   path, body),
   put:  (path, body)  => req('PUT',    path, body),
+  patch: (path, body) => req('PATCH',  path, body),
   del:  (path, body)  => req('DELETE', path, body),
   download: (path, filename) =>
     req('GET', path).then(blob => {

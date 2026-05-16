@@ -44,6 +44,8 @@ app.use('/api/assignments',  require('./routes/assignments'));
 app.use('/api/maintenance',  require('./routes/maintenance'));
 app.use('/api/search',       require('./routes/search'));
 app.use('/api/alerts',       require('./routes/alerts'));
+app.use('/api/bulk',         require('./routes/bulk'));
+app.use('/api/vendors',      require('./routes/vendors'));
 app.get('/api/health',  (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -266,6 +268,22 @@ async function runMigrations() {
     )
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS vendors (
+      id           SERIAL PRIMARY KEY,
+      name         VARCHAR(200) NOT NULL,
+      contact      VARCHAR(100),
+      email        VARCHAR(150),
+      phone        VARCHAR(50),
+      website      VARCHAR(255),
+      category     VARCHAR(100),
+      address      TEXT,
+      notes        TEXT,
+      created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 }
 
 const PORT = process.env.PORT || 3000;

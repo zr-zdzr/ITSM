@@ -17,6 +17,7 @@ import ActivityLog from './pages/ActivityLog'
 import Inventory from './pages/Inventory'
 import Requests from './pages/Requests'
 import Assignments from './pages/Assignments'
+import Vendors from './pages/Vendors'
 
 function Guard({ children }) {
   const { user, loading } = useAuth()
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="inventory"   element={<Inventory />} />
         <Route path="requests"    element={<Requests />} />
         <Route path="assignments" element={<Assignments />} />
+        <Route path="vendors"     element={<Vendors />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

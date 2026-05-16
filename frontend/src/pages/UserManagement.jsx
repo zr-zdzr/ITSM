@@ -21,6 +21,7 @@ const MODULES = [
   { id: 'employees', label: 'Employees' },
   { id: 'reports',   label: 'Reports' },
   { id: 'inventory', label: 'Inventory / Requests' },
+  { id: 'vendors',   label: 'Vendors' },
 ]
 const CRUDS = ['create','read','update','delete']
 
