@@ -252,7 +252,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         {!collapsed && (
           <p className="px-3 pt-3 pb-2 text-[10px] font-semibold tracking-widest text-zinc-400 dark:text-zinc-600 uppercase">Stock & Requests</p>
         )}
-        {STOCK_NAV.map(item => (
+        {STOCK_NAV.filter(item => canPerm('inventory', 'read') || item.id === 'requests').map(item => (
           <StockNavItem key={item.id} item={item} collapsed={collapsed} badge={item.id === 'requests' ? pendingCount : 0} />
         ))}
 

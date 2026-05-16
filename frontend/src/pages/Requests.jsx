@@ -35,6 +35,7 @@ export default function Requests() {
   const [tab, setTab]               = useState(isIT ? 'queue' : 'mine')
   const [requests, setRequests]     = useState([])
   const [myRequests, setMyRequests] = useState([])
+  const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading]       = useState(true)
   const [items, setItems]           = useState([])    // catalog for new request
   const [employees, setEmployees]   = useState([])
@@ -60,12 +61,19 @@ export default function Requests() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const promises = []
-      if (isIT) promises.push(api.get('/api/requests/queue'))
-      promises.push(api.get('/api/requests?mine=true'))
-      const [queue, mine] = isIT ? await Promise.all(promises) : [[], await promises[0]]
-      if (isIT) setRequests(queue)
-      setMyRequests(mine)
+      if (isIT) {
+        const [queue, mine, all] = await Promise.all([
+          api.get('/api/requests/queue'),
+          api.get('/api/requests?mine=true'),
+          api.get('/api/requests'),
+        ])
+        setRequests(queue)
+        setMyRequests(mine)
+        setAllRequests(all)
+      } else {
+        const mine = await api.get('/api/requests?mine=true')
+        setMyRequests(mine)
+      }
     } catch (e) { toast(e.message, 'error') }
     finally { setLoading(false) }
   }, [isIT])
@@ -159,7 +167,7 @@ export default function Requests() {
   function removeCartItem(i) { setCartItems(c => c.filter((_, idx) => idx !== i)) }
   function updateCartItem(i, k, v) { setCartItems(c => c.map((item, idx) => idx === i ? { ...item, [k]: v } : item)) }
 
-  const displayList = tab === 'queue' ? requests : myRequests
+  const displayList = tab === 'queue' ? requests : tab === 'all' ? allRequests : myRequests
 
   const InputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30'
 

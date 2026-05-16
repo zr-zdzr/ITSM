@@ -20,6 +20,7 @@ const MODULES = [
   { id: 'gws',       label: 'Cloud IDs' },
   { id: 'employees', label: 'Employees' },
   { id: 'reports',   label: 'Reports' },
+  { id: 'inventory', label: 'Inventory / Requests' },
 ]
 const CRUDS = ['create','read','update','delete']
 

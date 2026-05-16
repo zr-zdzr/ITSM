@@ -8,16 +8,19 @@ import Modal from '../ui/Modal'
 import RecycleBinModal from '../ui/RecycleBinModal'
 
 const TITLES = {
-  '/':          { title: 'Dashboard',        sub: 'IT inventory overview' },
-  '/systems':   { title: 'Systems',          sub: 'Laptop, desktop & server inventory' },
-  '/network':   { title: 'Network Devices',  sub: 'Switches, routers, firewalls' },
-  '/mobiles':   { title: 'Mobile Devices',   sub: 'Company mobile device inventory' },
-  '/sims':      { title: 'SIM Cards',        sub: 'SIM card management' },
-  '/gws':       { title: 'Cloud IDs',        sub: 'Cloud account management' },
-  '/employees': { title: 'Employees',        sub: 'Company employee directory' },
-  '/reports':   { title: 'Reports',          sub: 'Analytics and exports' },
-  '/users':     { title: 'User Management',  sub: 'System access control' },
-  '/logs':      { title: 'Activity Log',     sub: 'Portal event history' },
+  '/':            { title: 'Dashboard',        sub: 'IT inventory overview' },
+  '/systems':     { title: 'Systems',          sub: 'Laptop, desktop & server inventory' },
+  '/network':     { title: 'Network Devices',  sub: 'Switches, routers, firewalls' },
+  '/mobiles':     { title: 'Mobile Devices',   sub: 'Company mobile device inventory' },
+  '/sims':        { title: 'SIM Cards',        sub: 'SIM card management' },
+  '/gws':         { title: 'Cloud IDs',        sub: 'Cloud account management' },
+  '/employees':   { title: 'Employees',        sub: 'Company employee directory' },
+  '/reports':     { title: 'Reports',          sub: 'Analytics and exports' },
+  '/users':       { title: 'User Management',  sub: 'System access control' },
+  '/logs':        { title: 'Activity Log',     sub: 'Portal event history' },
+  '/inventory':   { title: 'Inventory Stock',  sub: 'Consumables & returnable item stock' },
+  '/requests':    { title: 'Requests',         sub: 'Item requests, approvals & fulfillment' },
+  '/assignments': { title: 'Assignments',      sub: 'Assigned items & return tracking' },
 }
 
 export default function Header({ onRefresh }) {

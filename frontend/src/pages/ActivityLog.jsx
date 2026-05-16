@@ -18,11 +18,29 @@ const ACTION_STYLES = {
   imported:        'bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20',
   password_changed:'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
   password_reset:  'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
+  // Inventory / Requests / Assignments
+  STOCK_ADJUST:    'bg-teal-500/10 text-teal-400 ring-1 ring-teal-500/20',
+  CREATE:          'bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/20',
+  REVIEW:          'bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20',
+  FULFILL:         'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
+  RETURN:          'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20',
+  ASSIGN:          'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
+  CANCEL:          'bg-zinc-700/50 text-zinc-400 ring-1 ring-zinc-600/30',
+  DELETE:          'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
 }
 
 const MODULE_LABELS = {
-  auth: 'Auth', users: 'Users', systems: 'Systems', network_devices: 'Network',
-  mobiles: 'Mobiles', sims: 'SIMs', gws_accounts: 'Cloud IDs', employees: 'Employees',
+  auth:            'Auth',
+  users:           'Users',
+  systems:         'Systems',
+  network_devices: 'Network',
+  mobiles:         'Mobiles',
+  sims:            'SIMs',
+  gws_accounts:    'Cloud IDs',
+  employees:       'Employees',
+  inventory:       'Inventory',
+  inv_requests:    'Requests',
+  inv_assignments: 'Assignments',
 }
 
 function fmt(ts) {
