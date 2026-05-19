@@ -46,6 +46,8 @@ app.use('/api/search',       require('./routes/search'));
 app.use('/api/alerts',       require('./routes/alerts'));
 app.use('/api/bulk',         require('./routes/bulk'));
 app.use('/api/vendors',      require('./routes/vendors'));
+app.use('/api/chat',         require('./routes/chat'));
+app.use('/api/seed',         require('./routes/seed'));
 app.get('/api/health',  (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -268,6 +270,17 @@ async function runMigrations() {
     )
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`);
+  // ── Employees: migrate to single full_name field ─────────
+  await db.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS full_name VARCHAR(50)`);
+  await db.query(`
+    UPDATE employees
+    SET full_name = LEFT(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), 50)
+    WHERE full_name IS NULL OR full_name = ''
+  `);
+  await db.query(`UPDATE employees SET full_name = 'Unknown' WHERE full_name IS NULL OR TRIM(full_name) = ''`);
+  await db.query(`ALTER TABLE employees ALTER COLUMN full_name SET NOT NULL`);
+  await db.query(`ALTER TABLE employees ALTER COLUMN first_name DROP NOT NULL`);
+  await db.query(`ALTER TABLE employees ALTER COLUMN last_name  DROP NOT NULL`);
   await db.query(`CREATE SEQUENCE IF NOT EXISTS network_asset_seq START 1`);
   await db.query(`ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS asset_tag VARCHAR(50)`);
   await db.query(`
@@ -286,6 +299,41 @@ async function runMigrations() {
       updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // ── Systems table enhancements ───────────────────────────
+  await db.query(`ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_assigned_type_check`);
+  await db.query(`ALTER TABLE systems ADD CONSTRAINT systems_assigned_type_check CHECK (assigned_type IN ('user','employee','wfh','inventory','damaged'))`);
+  await db.query(`ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_type_check`);
+  await db.query(`ALTER TABLE systems ADD CONSTRAINT systems_type_check CHECK (type IN ('Laptop','System','Server','PC','Workstation','Other Device'))`);
+  await db.query(`ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_status_check`);
+  await db.query(`ALTER TABLE systems ADD CONSTRAINT systems_status_check CHECK (status IN ('in_use','available','assigned','repair','retired','lost'))`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS brand_type VARCHAR(20)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS cpu_cores VARCHAR(50)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS cpu2 VARCHAR(200)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS cpu2_cores VARCHAR(50)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram1_slot VARCHAR(20)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram1_serial VARCHAR(100)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram2_slot VARCHAR(20)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram2_serial VARCHAR(100)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram3_slot VARCHAR(20)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram3_serial VARCHAR(100)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram4_slot VARCHAR(20)`);
+  await db.query(`ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram4_serial VARCHAR(100)`);
+  // ── SIMs table enhancements ─────────────────────────────
+  await db.query(`ALTER TABLE sims ADD COLUMN IF NOT EXISTS sim_type   VARCHAR(20)`);
+  await db.query(`ALTER TABLE sims ADD COLUMN IF NOT EXISTS location   VARCHAR(100)`);
+  await db.query(`ALTER TABLE sims ADD COLUMN IF NOT EXISTS department VARCHAR(100)`);
+  await db.query(`ALTER TABLE sims ADD COLUMN IF NOT EXISTS purpose    VARCHAR(20)`);
+  await db.query(`ALTER TABLE sims DROP CONSTRAINT IF EXISTS sims_assigned_type_check`);
+  await db.query(`ALTER TABLE sims ADD CONSTRAINT sims_assigned_type_check CHECK (assigned_type IN ('user','employee','wfh','service','inventory'))`);
+  await db.query(`ALTER TABLE sims DROP CONSTRAINT IF EXISTS sims_status_check`);
+  await db.query(`ALTER TABLE sims ADD CONSTRAINT sims_status_check CHECK (status IN ('active','suspended'))`);
+  // ── Mobiles table enhancements ───────────────────────────
+  await db.query(`ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS type VARCHAR(20)`);
+  await db.query(`ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS location VARCHAR(100)`);
+  await db.query(`ALTER TABLE mobiles DROP CONSTRAINT IF EXISTS mobiles_assigned_type_check`);
+  await db.query(`ALTER TABLE mobiles ADD CONSTRAINT mobiles_assigned_type_check CHECK (assigned_type IN ('user','employee','wfh','inventory','damaged'))`);
+  await db.query(`ALTER TABLE mobiles DROP CONSTRAINT IF EXISTS mobiles_purpose_check`);
+  await db.query(`ALTER TABLE mobiles ADD CONSTRAINT mobiles_purpose_check CHECK (purpose IS NULL OR purpose IN ('official','service','personal','qa_testing'))`);
 }
 
 const PORT = process.env.PORT || 3000;

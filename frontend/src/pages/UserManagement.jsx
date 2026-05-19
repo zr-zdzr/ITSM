@@ -8,8 +8,8 @@ import Modal from '../components/ui/Modal'
 import { Navigate } from 'react-router-dom'
 
 const ROLE_COLORS = {
-  super_admin: 'bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20',
-  user:        'bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/20',
+  super_admin: { bg: 'rgba(244,63,94,0.1)',  color: '#fb7185' },
+  user:        { bg: 'rgba(0,170,47,0.1)',   color: '#4ade80' },
 }
 
 const MODULES = [
@@ -31,6 +31,9 @@ function emptyPerms() {
   return p
 }
 
+const inp = "form-control form-control-sm"
+const sel = "form-select form-select-sm"
+
 export default function UserManagement() {
   const { user: me } = useAuth()
   const { toast } = useToast()
@@ -42,8 +45,7 @@ export default function UserManagement() {
   const [employees, setEmployees] = useState([])
   const [saving, setSaving] = useState(false)
 
-  // Permissions editor
-  const [permTarget, setPermTarget] = useState(null)   // user object
+  const [permTarget, setPermTarget] = useState(null)
   const [perms, setPerms] = useState(emptyPerms())
   const [permSaving, setPermSaving] = useState(false)
 
@@ -52,10 +54,7 @@ export default function UserManagement() {
   async function load() {
     setLoading(true)
     try {
-      const [userList, permsList] = await Promise.all([
-        api.get('/api/users'),
-        Promise.resolve([]),
-      ])
+      const userList = await api.get('/api/users')
       setUsers(userList)
     }
     catch (e) { toast(e.message, 'error') }
@@ -77,7 +76,6 @@ export default function UserManagement() {
       setAddModal(false)
       setForm({ employee_id: '', role: 'user', password: '' })
       await load()
-      // refresh available employees
       api.get('/api/users/employees/available').then(setEmployees).catch(() => {})
     } catch (e) { toast(e.message, 'error') }
     finally { setSaving(false) }
@@ -122,138 +120,150 @@ export default function UserManagement() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-zinc-500">{users.length} portal user{users.length !== 1 ? 's' : ''}</p>
-        <button className="btn-primary" onClick={() => setAddModal(true)}>
+    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="d-flex flex-column gap-4">
+      <div className="d-flex align-items-center justify-content-between">
+        <p className="small text-secondary mb-0">{users.length} portal user{users.length !== 1 ? 's' : ''}</p>
+        <button className="btn btn-primary btn-sm d-flex align-items-center gap-2" onClick={() => setAddModal(true)}>
           <UserPlus size={14} /> Add User
         </button>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="itms-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+              <tr>
                 {['Name','Email','Role','Modules with Access',''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide">{h}</th>
+                  <th key={h} className="text-uppercase text-secondary" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-zinc-500">Loading…</td></tr>
+                <tr><td colSpan={5} className="text-center text-secondary py-5">Loading…</td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-zinc-500">No users found</td></tr>
-              ) : users.map(u => (
-                <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-4 py-3 text-zinc-800 dark:text-zinc-200 font-medium">{u.name}</td>
-                  <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 text-xs">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[u.role] || ROLE_COLORS.user}`}>
-                      {u.role?.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {u.role === 'super_admin' ? (
-                      <span className="text-xs text-zinc-500">All modules (full access)</span>
-                    ) : u.permissions ? (
-                      <div className="flex flex-wrap gap-1">
-                        {Object.keys(u.permissions).filter(k => u.permissions[k].can_read).map(k => (
-                          <span key={k} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{k}</span>
-                        ))}
-                        {Object.keys(u.permissions).every(k => !u.permissions[k].can_read) && (
-                          <span className="text-xs text-zinc-600">No access</span>
+                <tr><td colSpan={5} className="text-center text-secondary py-5">No users found</td></tr>
+              ) : users.map(u => {
+                const rs = ROLE_COLORS[u.role] || ROLE_COLORS.user
+                return (
+                  <tr key={u.id}>
+                    <td className="fw-medium align-middle">{u.name}</td>
+                    <td className="small text-secondary align-middle">{u.email}</td>
+                    <td className="align-middle">
+                      <span className="badge rounded-pill px-2 py-1" style={{ background: rs.bg, color: rs.color, fontSize: '11px' }}>
+                        {u.role?.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="align-middle">
+                      {u.role === 'super_admin' ? (
+                        <span className="small text-secondary">All modules (full access)</span>
+                      ) : u.permissions ? (
+                        <div className="d-flex flex-wrap gap-1">
+                          {Object.keys(u.permissions).filter(k => u.permissions[k].can_read).map(k => (
+                            <span key={k} className="badge bg-secondary bg-opacity-25 text-secondary" style={{ fontSize: '10px' }}>{k}</span>
+                          ))}
+                          {Object.keys(u.permissions).every(k => !u.permissions[k].can_read) && (
+                            <span className="small text-secondary">No access</span>
+                          )}
+                        </div>
+                      ) : <span className="small text-secondary">—</span>}
+                    </td>
+                    <td className="align-middle text-end">
+                      <div className="d-flex align-items-center gap-1 justify-content-end">
+                        {u.role !== 'super_admin' && (
+                          <button onClick={() => openPerms(u)} title="Edit Permissions"
+                            className="btn btn-link text-secondary p-1"
+                            style={{ lineHeight: 1 }}
+                            onMouseEnter={e => e.currentTarget.style.color = 'var(--brand)'}
+                            onMouseLeave={e => e.currentTarget.style.color = ''}>
+                            <Shield size={13} />
+                          </button>
+                        )}
+                        {u.id !== me?.id && (
+                          <button onClick={() => setDelTarget(u)}
+                            className="btn btn-link text-secondary p-1"
+                            style={{ lineHeight: 1 }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+                            onMouseLeave={e => e.currentTarget.style.color = ''}>
+                            <Trash2 size={13} />
+                          </button>
                         )}
                       </div>
-                    ) : <span className="text-xs text-zinc-600">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      {u.role !== 'super_admin' && (
-                        <button onClick={() => openPerms(u)} title="Edit Permissions"
-                          className="p-1.5 rounded hover:bg-brand-500/15 text-zinc-500 hover:text-brand-400 transition-colors">
-                          <Shield size={13} />
-                        </button>
-                      )}
-                      {u.id !== me?.id && (
-                        <button onClick={() => setDelTarget(u)}
-                          className="p-1.5 rounded hover:bg-red-500/15 text-zinc-500 hover:text-red-400 transition-colors">
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ── Add User Modal ── */}
+      {/* Add User Modal */}
       <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Portal User" size="sm">
-        <div className="space-y-3">
+        <div className="d-flex flex-column gap-3">
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Employee<span className="text-red-400 ml-0.5">*</span></label>
-            <select value={form.employee_id} onChange={e => setForm(p => ({ ...p, employee_id: e.target.value }))} className="input-base">
+            <label className="form-label small fw-medium mb-1">Employee<span className="text-danger ms-1">*</span></label>
+            <select value={form.employee_id} onChange={e => setForm(p => ({ ...p, employee_id: e.target.value }))} className={sel}>
               <option value="">— Select employee —</option>
               {employees.map(e => (
-                <option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.designation}</option>
+                <option key={e.id} value={e.id}>{e.full_name} — {e.designation}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Password<span className="text-red-400 ml-0.5">*</span></label>
+            <label className="form-label small fw-medium mb-1">Password<span className="text-danger ms-1">*</span></label>
             <input
               type="password"
               value={form.password}
               onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-              className="input-base"
+              className={inp}
               placeholder="Min. 6 characters"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 mb-1.5">Role</label>
-            <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className="input-base">
+            <label className="form-label small fw-medium mb-1">Role</label>
+            <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className={sel}>
               <option value="user">User</option>
               <option value="super_admin">Super Admin (full access)</option>
             </select>
           </div>
         </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-secondary" onClick={() => setAddModal(false)}>Cancel</button>
-          <button className="btn-primary" onClick={addUser} disabled={saving}>
+        <div className="d-flex justify-content-end gap-2 mt-4">
+          <button className="btn btn-secondary btn-sm" onClick={() => setAddModal(false)}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={addUser} disabled={saving}>
             {saving ? 'Creating…' : 'Create User'}
           </button>
         </div>
       </Modal>
 
-      {/* ── Permissions Modal ── */}
+      {/* Permissions Modal */}
       <Modal open={!!permTarget} onClose={() => setPermTarget(null)} title={`Permissions — ${permTarget?.name}`} size="lg">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide w-40">Module</th>
+              <tr>
+                <th className="text-uppercase text-secondary" style={{ fontSize: '11px', width: 160 }}>Module</th>
                 {CRUDS.map(c => (
-                  <th key={c} className="px-3 py-2.5 text-center text-xs font-semibold text-zinc-500 uppercase tracking-wide">{c}</th>
+                  <th key={c} className="text-uppercase text-secondary text-center" style={{ fontSize: '11px' }}>{c}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {MODULES.map(m => (
-                <tr key={m.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-3 py-3 text-zinc-700 dark:text-zinc-300 font-medium">{m.label}</td>
+                <tr key={m.id}>
+                  <td className="fw-medium align-middle">{m.label}</td>
                   {CRUDS.map(action => (
-                    <td key={action} className="px-3 py-3 text-center">
+                    <td key={action} className="text-center align-middle">
                       <button
                         onClick={() => togglePerm(m.id, action)}
-                        className={`w-5 h-5 rounded flex items-center justify-center mx-auto transition-colors ${
-                          perms[m.id]?.[`can_${action}`]
-                            ? 'bg-brand-500 text-white hover:bg-brand-600'
-                            : 'bg-zinc-800 border border-zinc-700 text-transparent hover:border-zinc-500'
-                        }`}
+                        className="d-flex align-items-center justify-content-center mx-auto rounded-2 border-0"
+                        style={{
+                          width: 20, height: 20,
+                          background: perms[m.id]?.[`can_${action}`] ? 'var(--brand)' : 'rgba(113,113,122,0.2)',
+                          color: perms[m.id]?.[`can_${action}`] ? '#fff' : 'transparent',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s',
+                        }}
                       >
                         <Check size={11} />
                       </button>
@@ -264,23 +274,23 @@ export default function UserManagement() {
             </tbody>
           </table>
         </div>
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
-          <button className="btn-secondary" onClick={() => setPermTarget(null)}>Cancel</button>
-          <button className="btn-primary" onClick={savePerms} disabled={permSaving}>
+        <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button className="btn btn-secondary btn-sm" onClick={() => setPermTarget(null)}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={savePerms} disabled={permSaving}>
             {permSaving ? 'Saving…' : 'Save Permissions'}
           </button>
         </div>
       </Modal>
 
-      {/* ── Delete confirm ── */}
+      {/* Delete confirm */}
       <Modal open={!!delTarget} onClose={() => setDelTarget(null)} title="Remove User" size="sm">
-        <div className="flex gap-3">
-          <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-zinc-300">Remove <strong className="text-zinc-100">{delTarget?.name}</strong> from portal access?</p>
+        <div className="d-flex gap-3">
+          <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
+          <p className="small mb-0">Remove <strong>{delTarget?.name}</strong> from portal access?</p>
         </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-secondary" onClick={() => setDelTarget(null)}>Cancel</button>
-          <button className="btn-base bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteUser(delTarget)}>Remove</button>
+        <div className="d-flex justify-content-end gap-2 mt-4">
+          <button className="btn btn-secondary btn-sm" onClick={() => setDelTarget(null)}>Cancel</button>
+          <button className="btn btn-danger btn-sm" onClick={() => deleteUser(delTarget)}>Remove</button>
         </div>
       </Modal>
     </motion.div>

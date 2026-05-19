@@ -49,10 +49,10 @@ router.get('/', requireAuth, async (req, res) => {
       UNION ALL
 
       SELECT 'employees', '/employees', id::text,
-             CONCAT(first_name, ' ', last_name) AS label,
+             full_name AS label,
              CONCAT_WS(' · ', designation, department, email) AS sub
       FROM employees
-      WHERE first_name ILIKE $1 OR last_name ILIKE $1 OR email ILIKE $1 OR designation ILIKE $1 OR department ILIKE $1
+      WHERE full_name ILIKE $1 OR email ILIKE $1 OR designation ILIKE $1 OR department ILIKE $1
 
       UNION ALL
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, RotateCcw, User, Package, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, RotateCcw, Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -7,15 +7,13 @@ import Modal from '../components/ui/Modal'
 import { cn } from '../lib/utils'
 
 const STATUS_BADGE = {
-  active:              'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  partially_returned:  'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  fully_returned:      'bg-zinc-500/15 text-zinc-500',
+  active:              { bg: 'rgba(34,197,94,0.15)',   color: '#4ade80' },
+  partially_returned:  { bg: 'rgba(245,158,11,0.15)',  color: '#fbbf24' },
+  fully_returned:      { bg: 'rgba(113,113,122,0.15)', color: '#a1a1aa' },
 }
-const COND_BADGE = {
-  good:    'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  damaged: 'bg-red-500/15 text-red-500',
-  lost:    'bg-zinc-500/15 text-zinc-500',
-}
+
+const inp = "form-control form-control-sm"
+const sel = "form-select form-select-sm"
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -35,16 +33,14 @@ export default function Assignments() {
   const [statusFilter, setStatusFilter] = useState('')
 
   const [detailAsn, setDetailAsn]   = useState(null)
-  const [returnModal, setReturnModal] = useState(null) // assignment
+  const [returnModal, setReturnModal] = useState(null)
   const [directModal, setDirectModal] = useState(false)
   const [saving, setSaving]           = useState(false)
 
-  // Return form: [{ assignment_item_id, qty, condition }]
   const [returnItems, setReturnItems]   = useState([])
   const [returnNotes, setReturnNotes]   = useState('')
   const [returnEmpId, setReturnEmpId]   = useState('')
 
-  // Direct assign form
   const [directForm, setDirectForm] = useState({ assignee_id: '', expected_return_date: '', notes: '' })
   const [directCart, setDirectCart] = useState([{ item_id: '', qty: 1 }])
 
@@ -133,23 +129,20 @@ export default function Assignments() {
   function removeCartItem(i) { setDirectCart(c => c.filter((_, idx) => idx !== i)) }
   function updateCartItem(i, k, v) { setDirectCart(c => c.map((item, idx) => idx === i ? { ...item, [k]: v } : item)) }
 
-  const InputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30'
-
   return (
-    <div className="p-6 space-y-5">
+    <div className="d-flex flex-column gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="d-flex align-items-center justify-content-between">
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Assignments</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Assigned items, returns and tracking</p>
+          <h5 className="fw-bold mb-1">Assignments</h5>
+          <p className="small text-secondary mb-0">Assigned items, returns and tracking</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-            <RefreshCw size={15} />
+        <div className="d-flex align-items-center gap-2">
+          <button onClick={load} className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, padding: 0 }}>
+            <RefreshCw size={14} />
           </button>
           {canEdit && (
-            <button onClick={() => setDirectModal(true)}
-              className="px-3 py-2 text-sm rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium flex items-center gap-1.5 transition-colors">
+            <button onClick={() => setDirectModal(true)} className="btn btn-primary btn-sm d-flex align-items-center gap-1">
               <Plus size={14} /> Direct Assign
             </button>
           )}
@@ -157,14 +150,12 @@ export default function Assignments() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <select value={empFilter} onChange={e => setEmpFilter(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+      <div className="d-flex align-items-center gap-3 flex-wrap">
+        <select value={empFilter} onChange={e => setEmpFilter(e.target.value)} className={sel} style={{ width: 'auto' }}>
           <option value="">All Employees</option>
-          {employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+          {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
         </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={sel} style={{ width: 'auto' }}>
           <option value="">Active only</option>
           <option value="active">Active</option>
           <option value="partially_returned">Partially Returned</option>
@@ -172,66 +163,67 @@ export default function Assignments() {
         </select>
         {(empFilter || statusFilter) && (
           <button onClick={() => { setEmpFilter(''); setStatusFilter('') }}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline">Clear</button>
+            className="btn btn-link btn-sm text-secondary p-0">Clear</button>
         )}
-        <span className="text-xs text-zinc-400 ml-auto">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</span>
+        <span className="small text-secondary ms-auto">{assignments.length} assignment{assignments.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Assignments Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+      <div className="itms-card overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-zinc-500 text-sm">Loading…</div>
+          <div className="text-center text-secondary py-5 small">Loading…</div>
         ) : assignments.length === 0 ? (
-          <div className="py-16 text-center text-zinc-500 text-sm">No assignments found</div>
+          <div className="text-center text-secondary py-5 small">No assignments found</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="table-responsive">
+            <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <tr>
                   {['Assignment', 'Employee', 'Department', 'Assigned By', 'Date', 'Return By', 'Status', ''].map(h => (
-                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-uppercase text-secondary text-nowrap" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {displayAssignments.map(asn => (
-                  <tr key={asn.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                    <td className="px-3 py-2.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100">{asn.asn_number}</td>
-                    <td className="px-3 py-2.5">
-                      <div className="font-medium text-zinc-900 dark:text-zinc-100">{asn.assignee_name}</div>
-                      <div className="text-xs text-zinc-400">{asn.designation}</div>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-zinc-500">{asn.department || '—'}</td>
-                    <td className="px-3 py-2.5 text-xs text-zinc-500">{asn.assigned_by_name}</td>
-                    <td className="px-3 py-2.5 text-xs text-zinc-500 whitespace-nowrap">{fmtDate(asn.assigned_date)}</td>
-                    <td className="px-3 py-2.5 text-xs text-zinc-500 whitespace-nowrap">
-                      {asn.expected_return_date
-                        ? <span className={cn(new Date(asn.expected_return_date) < new Date() && asn.status === 'active' ? 'text-red-500 font-medium' : '')}>
-                            {fmtDate(asn.expected_return_date)}
-                          </span>
-                        : '—'}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium', STATUS_BADGE[asn.status] || '')}>
-                        {asn.status?.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => openDetail(asn)}
-                          className="px-2 py-1 text-xs rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap">
-                          View
-                        </button>
-                        {canEdit && asn.status !== 'fully_returned' && (
-                          <button onClick={async () => { const full = await api.get(`/api/assignments/${asn.id}`); openReturn(full) }}
-                            className="px-2 py-1 text-xs rounded border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors whitespace-nowrap flex items-center gap-1">
-                            <RotateCcw size={11} /> Return
+                {displayAssignments.map(asn => {
+                  const ss = STATUS_BADGE[asn.status] || {}
+                  const overdue = asn.expected_return_date && new Date(asn.expected_return_date) < new Date() && asn.status === 'active'
+                  return (
+                    <tr key={asn.id}>
+                      <td className="font-monospace small fw-semibold align-middle">{asn.asn_number}</td>
+                      <td className="align-middle">
+                        <div className="fw-medium">{asn.assignee_name}</div>
+                        <div className="small text-secondary">{asn.designation}</div>
+                      </td>
+                      <td className="small text-secondary align-middle">{asn.department || '—'}</td>
+                      <td className="small text-secondary align-middle">{asn.assigned_by_name}</td>
+                      <td className="small text-secondary align-middle text-nowrap">{fmtDate(asn.assigned_date)}</td>
+                      <td className="small align-middle text-nowrap" style={{ color: overdue ? '#f87171' : undefined }}>
+                        {asn.expected_return_date ? fmtDate(asn.expected_return_date) : '—'}
+                      </td>
+                      <td className="align-middle">
+                        <span className="badge rounded-pill px-2 py-1" style={{ background: ss.bg, color: ss.color, fontSize: '11px' }}>
+                          {asn.status?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="align-middle">
+                        <div className="d-flex align-items-center gap-1">
+                          <button onClick={() => openDetail(asn)}
+                            className="btn btn-outline-secondary btn-sm px-2 py-1 text-nowrap" style={{ fontSize: '0.75rem' }}>
+                            View
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {canEdit && asn.status !== 'fully_returned' && (
+                            <button onClick={async () => { const full = await api.get(`/api/assignments/${asn.id}`); openReturn(full) }}
+                              className="btn btn-sm px-2 py-1 d-flex align-items-center gap-1 text-nowrap"
+                              style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontSize: '0.75rem' }}>
+                              <RotateCcw size={11} /> Return
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -240,13 +232,11 @@ export default function Assignments() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-zinc-500">
+        <div className="d-flex align-items-center justify-content-between small text-secondary">
           <span>{assignments.length} total · page {page} of {totalPages}</span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+          <div className="d-flex align-items-center gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="btn btn-outline-secondary btn-sm p-1" style={{ lineHeight: 1 }}>
               <ChevronLeft size={13} />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p =>
@@ -259,17 +249,13 @@ export default function Assignments() {
               p === '…'
                 ? <span key={`ellipsis-${i}`} className="px-1">…</span>
                 : <button key={p} onClick={() => setPage(p)}
-                    className={cn('w-7 h-7 rounded border text-xs font-medium transition-colors',
-                      p === page
-                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                        : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                    className={cn('btn btn-sm', p === page ? 'btn-primary' : 'btn-outline-secondary')}
+                    style={{ width: 28, height: 28, padding: 0, fontSize: '0.75rem' }}>
                     {p}
                   </button>
             )}
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="btn btn-outline-secondary btn-sm p-1" style={{ lineHeight: 1 }}>
               <ChevronRight size={13} />
             </button>
           </div>
@@ -278,91 +264,95 @@ export default function Assignments() {
 
       {/* Detail Modal */}
       <Modal open={!!detailAsn} onClose={() => setDetailAsn(null)} title={`Assignment — ${detailAsn?.asn_number}`}>
-        {detailAsn && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-zinc-400 text-xs">Employee</span><p className="font-medium text-zinc-900 dark:text-zinc-100">{detailAsn.assignee_name}</p></div>
-              <div><span className="text-zinc-400 text-xs">Status</span>
-                <p><span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATUS_BADGE[detailAsn.status] || '')}>{detailAsn.status?.replace('_', ' ')}</span></p>
+        {detailAsn && (() => {
+          const ss = STATUS_BADGE[detailAsn.status] || {}
+          return (
+            <div className="d-flex flex-column gap-3">
+              <div className="row g-3 small">
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Employee</span><p className="fw-medium mb-0">{detailAsn.assignee_name}</p></div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Status</span>
+                  <p className="mb-0"><span className="badge px-2 py-1" style={{ background: ss.bg, color: ss.color, fontSize: '11px' }}>{detailAsn.status?.replace('_', ' ')}</span></p>
+                </div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Department</span><p className="mb-0">{detailAsn.department || '—'}</p></div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Assigned By</span><p className="mb-0">{detailAsn.assigned_by_name}</p></div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Assigned Date</span><p className="mb-0">{fmtDate(detailAsn.assigned_date)}</p></div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Return By</span><p className="mb-0">{fmtDate(detailAsn.expected_return_date)}</p></div>
+                {detailAsn.notes && <div className="col-12"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Notes</span><p className="mb-0">{detailAsn.notes}</p></div>}
               </div>
-              <div><span className="text-zinc-400 text-xs">Department</span><p className="text-zinc-700 dark:text-zinc-300">{detailAsn.department || '—'}</p></div>
-              <div><span className="text-zinc-400 text-xs">Assigned By</span><p className="text-zinc-700 dark:text-zinc-300">{detailAsn.assigned_by_name}</p></div>
-              <div><span className="text-zinc-400 text-xs">Assigned Date</span><p className="text-zinc-700 dark:text-zinc-300">{fmtDate(detailAsn.assigned_date)}</p></div>
-              <div><span className="text-zinc-400 text-xs">Return By</span><p className="text-zinc-700 dark:text-zinc-300">{fmtDate(detailAsn.expected_return_date)}</p></div>
-              {detailAsn.notes && <div className="col-span-2"><span className="text-zinc-400 text-xs">Notes</span><p className="text-zinc-700 dark:text-zinc-300">{detailAsn.notes}</p></div>}
+              <div>
+                <p className="small fw-semibold text-secondary text-uppercase mb-2" style={{ letterSpacing: '0.08em' }}>Items</p>
+                <div className="d-flex flex-column gap-1">
+                  {detailAsn.items?.map(item => {
+                    const itemColor = item.status === 'active' ? '#4ade80' : item.status === 'returned' ? '#a1a1aa' : '#f87171'
+                    const itemBg = item.status === 'active' ? 'rgba(34,197,94,0.15)' : item.status === 'returned' ? 'rgba(113,113,122,0.15)' : 'rgba(239,68,68,0.15)'
+                    return (
+                      <div key={item.id} className="d-flex align-items-center justify-content-between py-2 border-bottom small">
+                        <div>
+                          <span className="fw-medium">{item.item_name}</span>
+                          <span className="text-secondary ms-2">× {item.qty} {item.unit}</span>
+                        </div>
+                        <span className="badge px-2 py-1" style={{ background: itemBg, color: itemColor, fontSize: '11px' }}>
+                          {item.status} {item.return_condition ? `· ${item.return_condition}` : ''}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              {canEdit && detailAsn.status !== 'fully_returned' && (
+                <div className="d-flex justify-content-end pt-1">
+                  <button onClick={openReturnFromDetail}
+                    className="btn btn-warning btn-sm d-flex align-items-center gap-1">
+                    <RotateCcw size={13} /> Process Return
+                  </button>
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Items</p>
-              <div className="space-y-1.5">
-                {detailAsn.items?.map(item => (
-                  <div key={item.id} className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800 text-sm">
-                    <div>
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">{item.item_name}</span>
-                      <span className="text-zinc-400 text-xs ml-2">× {item.qty} {item.unit}</span>
-                    </div>
-                    <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium',
-                      item.status === 'active' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                      : item.status === 'returned' ? 'bg-zinc-500/15 text-zinc-500'
-                      : 'bg-red-500/15 text-red-500')}>
-                      {item.status} {item.return_condition ? `· ${item.return_condition}` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {canEdit && detailAsn.status !== 'fully_returned' && (
-              <div className="flex justify-end pt-2">
-                <button onClick={openReturnFromDetail}
-                  className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium flex items-center gap-1.5 transition-colors">
-                  <RotateCcw size={13} /> Process Return
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          )
+        })()}
       </Modal>
 
       {/* Return Modal */}
       <Modal open={!!returnModal} onClose={() => setReturnModal(null)} title={`Process Return — ${returnModal?.asn_number}`}>
         {returnModal && (
-          <div className="space-y-4">
+          <div className="d-flex flex-column gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Returned By *</label>
-              <select value={returnEmpId} onChange={e => setReturnEmpId(e.target.value)} className={InputCls}>
+              <label className="form-label small fw-medium mb-1">Returned By *</label>
+              <select value={returnEmpId} onChange={e => setReturnEmpId(e.target.value)} className={sel}>
                 <option value="">Select employee…</option>
-                {employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>)}
+                {employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
               </select>
             </div>
             <div>
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Items Being Returned</p>
+              <p className="small fw-semibold text-secondary text-uppercase mb-2" style={{ letterSpacing: '0.08em' }}>Items Being Returned</p>
               {returnItems.length === 0 ? (
-                <p className="text-sm text-zinc-400">No active items to return</p>
+                <p className="small text-secondary mb-0">No active items to return</p>
               ) : (
-                <div className="space-y-3">
+                <div className="d-flex flex-column gap-2">
                   {returnItems.map((item, idx) => (
-                    <div key={idx} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{item.item_name}</span>
-                        <span className="text-xs text-zinc-400">Qty: {item.qty} {item.unit}</span>
+                    <div key={idx} className="rounded-3 p-3 d-flex flex-column gap-2" style={{ border: '1px solid var(--bs-border-color)' }}>
+                      <div className="d-flex align-items-center justify-content-between">
+                        <span className="fw-medium small">{item.item_name}</span>
+                        <span className="small text-secondary">Qty: {item.qty} {item.unit}</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-medium text-zinc-500">Condition:</label>
-                        {['good', 'damaged', 'lost'].map(c => (
-                          <label key={c} className="flex items-center gap-1 text-xs cursor-pointer">
-                            <input type="radio" name={`cond-${idx}`} value={c}
-                              checked={item.condition === c}
-                              onChange={() => updateReturnItem(idx, 'condition', c)}
-                              className={c === 'good' ? 'accent-emerald-500' : c === 'damaged' ? 'accent-amber-500' : 'accent-zinc-500'} />
-                            <span className={cn('font-medium capitalize',
-                              c === 'good' ? 'text-emerald-600 dark:text-emerald-400'
-                              : c === 'damaged' ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-zinc-500')}>{c}</span>
-                          </label>
-                        ))}
+                      <div className="d-flex align-items-center gap-3 flex-wrap">
+                        <span className="small fw-medium text-secondary">Condition:</span>
+                        {['good', 'damaged', 'lost'].map(c => {
+                          const condColor = c === 'good' ? '#4ade80' : c === 'damaged' ? '#fbbf24' : '#a1a1aa'
+                          return (
+                            <label key={c} className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
+                              <input type="radio" name={`cond-${idx}`} value={c}
+                                checked={item.condition === c}
+                                onChange={() => updateReturnItem(idx, 'condition', c)}
+                                style={{ accentColor: condColor }} />
+                              <span className="fw-medium text-capitalize" style={{ color: condColor }}>{c}</span>
+                            </label>
+                          )
+                        })}
                       </div>
                       {item.condition !== 'good' && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          {item.condition === 'damaged' ? '⚠ Will be marked damaged, not returned to stock' : '⚠ Will be marked as lost'}
+                        <p className="small mb-0" style={{ color: '#fbbf24' }}>
+                          {item.condition === 'damaged' ? 'Will be marked damaged, not returned to stock' : 'Will be marked as lost'}
                         </p>
                       )}
                     </div>
@@ -371,15 +361,14 @@ export default function Assignments() {
               )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Notes</label>
+              <label className="form-label small fw-medium mb-1">Notes</label>
               <input value={returnNotes} onChange={e => setReturnNotes(e.target.value)}
-                placeholder="Return notes…" className={InputCls} />
+                placeholder="Return notes…" className={inp} />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setReturnModal(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
+            <div className="d-flex justify-content-end gap-2 pt-1">
+              <button onClick={() => setReturnModal(null)} className="btn btn-secondary btn-sm">Cancel</button>
               <button onClick={submitReturn} disabled={saving || !returnEmpId || returnItems.length === 0}
-                className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 transition-colors">
+                className="btn btn-warning btn-sm d-flex align-items-center gap-1">
                 <RotateCcw size={13} /> {saving ? 'Processing…' : 'Confirm Return'}
               </button>
             </div>
@@ -389,53 +378,51 @@ export default function Assignments() {
 
       {/* Direct Assign Modal */}
       <Modal open={directModal} onClose={() => setDirectModal(false)} title="Direct Assignment">
-        <div className="space-y-4">
+        <div className="d-flex flex-column gap-3">
           <div>
-            <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Assign To *</label>
-            <select value={directForm.assignee_id} onChange={e => setDirectForm(f => ({ ...f, assignee_id: e.target.value }))} className={InputCls}>
+            <label className="form-label small fw-medium mb-1">Assign To *</label>
+            <select value={directForm.assignee_id} onChange={e => setDirectForm(f => ({ ...f, assignee_id: e.target.value }))} className={sel}>
               <option value="">Select employee…</option>
-              {employees.map(e => <option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.department}</option>)}
+              {employees.map(e => <option key={e.id} value={e.id}>{e.full_name} — {e.department}</option>)}
             </select>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Items</label>
-              <button onClick={addCartItem} className="text-xs text-brand-500 hover:text-brand-600 font-medium">+ Add item</button>
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <label className="small fw-semibold text-secondary text-uppercase" style={{ letterSpacing: '0.08em' }}>Items</label>
+              <button onClick={addCartItem} className="btn btn-link btn-sm p-0" style={{ color: 'var(--brand)' }}>+ Add item</button>
             </div>
-            <div className="space-y-2">
+            <div className="d-flex flex-column gap-2">
               {directCart.map((ci, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select value={ci.item_id} onChange={e => updateCartItem(idx, 'item_id', e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                <div key={idx} className="d-flex align-items-center gap-2">
+                  <select value={ci.item_id} onChange={e => updateCartItem(idx, 'item_id', e.target.value)} className={cn(sel, 'flex-grow-1')}>
                     <option value="">Select item…</option>
                     {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.qty_available ?? 0} avail.)</option>)}
                   </select>
                   <input type="number" min="1" value={ci.qty} onChange={e => updateCartItem(idx, 'qty', parseInt(e.target.value) || 1)}
-                    className="w-20 px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+                    className={inp} style={{ width: 80 }} />
                   {directCart.length > 1 && (
-                    <button onClick={() => removeCartItem(idx)} className="text-red-400 hover:text-red-600 text-lg leading-none">×</button>
+                    <button onClick={() => removeCartItem(idx)} className="btn btn-link text-danger p-1" style={{ fontSize: '1rem', lineHeight: 1 }}>×</button>
                   )}
                 </div>
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Expected Return</label>
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-medium mb-1">Expected Return</label>
               <input type="date" value={directForm.expected_return_date}
-                onChange={e => setDirectForm(f => ({ ...f, expected_return_date: e.target.value }))} className={InputCls} />
+                onChange={e => setDirectForm(f => ({ ...f, expected_return_date: e.target.value }))} className={inp} />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Notes</label>
+            <div className="col-md-6">
+              <label className="form-label small fw-medium mb-1">Notes</label>
               <input value={directForm.notes} onChange={e => setDirectForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Optional" className={InputCls} />
+                placeholder="Optional" className={inp} />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setDirectModal(false)}
-              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
+          <div className="d-flex justify-content-end gap-2 pt-1">
+            <button onClick={() => setDirectModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
             <button onClick={submitDirect} disabled={saving || !directForm.assignee_id}
-              className="px-4 py-2 text-sm rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 transition-colors">
+              className="btn btn-primary btn-sm d-flex align-items-center gap-1">
               <Package size={13} /> {saving ? 'Assigning…' : 'Create Assignment'}
             </button>
           </div>

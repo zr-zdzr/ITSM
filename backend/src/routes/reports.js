@@ -11,7 +11,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       sysAssignment, sysLocation, sysGeneration, sysType,
       mobAssignment, mobLocation, mobOS, mobPurpose,
       simAssignment, simLocation, simPackage, simVendor,
-      empTotal, empByLocation, empByDept,
+      empTotal, empByLocation, empByDept, empByType,
     ] = await Promise.all([
       db.query('SELECT device_type, COUNT(*) n FROM network_devices GROUP BY device_type'),
       db.query('SELECT status, COUNT(*) n FROM gws_accounts GROUP BY status'),
@@ -23,9 +23,11 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       db.query(`SELECT a.id, a.action, a.table_name, a.record_label, a.details, a.ip_address, a.created_at, u.name AS user_name, u.email AS user_email FROM activity_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.created_at >= NOW() - INTERVAL '24 hours' ORDER BY a.created_at DESC LIMIT 100`),
       // Systems
       db.query(`SELECT
-        COUNT(*) FILTER (WHERE assigned_type='user') AS assigned_users,
+        COUNT(*) FILTER (WHERE assigned_type IN ('employee','user')) AS employees,
+        COUNT(*) FILTER (WHERE assigned_type='wfh') AS wfh,
         COUNT(*) FILTER (WHERE assigned_type='inventory') AS in_inventory,
-        COUNT(*) FILTER (WHERE condition='Damaged') AS damaged,
+        COUNT(*) FILTER (WHERE assigned_type='damaged') AS damaged,
+        COUNT(*) FILTER (WHERE assigned_type IN ('employee','user','wfh')) AS assigned_users,
         COUNT(*) AS total
         FROM systems`),
       db.query(`SELECT COALESCE(location,'Unknown') AS location, COUNT(*) n FROM systems GROUP BY location ORDER BY n DESC`),
@@ -33,32 +35,32 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       db.query(`SELECT type, COUNT(*) n FROM systems GROUP BY type ORDER BY n DESC`),
       // Mobiles
       db.query(`SELECT
-        COUNT(*) FILTER (WHERE assigned_type='user') AS assigned_users,
+        COUNT(*) FILTER (WHERE assigned_type IN ('employee','user')) AS employees,
+        COUNT(*) FILTER (WHERE assigned_type='wfh') AS wfh,
         COUNT(*) FILTER (WHERE assigned_type='inventory') AS in_inventory,
-        COUNT(*) FILTER (WHERE condition='Damaged') AS damaged,
+        COUNT(*) FILTER (WHERE assigned_type='damaged') AS damaged,
+        COUNT(*) FILTER (WHERE assigned_type IN ('employee','user','wfh')) AS assigned_users,
         COUNT(*) AS total
         FROM mobiles`),
-      db.query(`SELECT COALESCE(e.location,'Unknown') AS location, COUNT(*) n
-        FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
-        GROUP BY e.location ORDER BY n DESC`),
+      db.query(`SELECT COALESCE(location,'Unknown') AS location, COUNT(*) n FROM mobiles GROUP BY location ORDER BY n DESC`),
       db.query(`SELECT COALESCE(os,'Unknown') AS os, COUNT(*) n FROM mobiles GROUP BY os ORDER BY n DESC`),
       db.query(`SELECT COALESCE(purpose,'Unknown') AS purpose, COUNT(*) n FROM mobiles GROUP BY purpose ORDER BY n DESC`),
       // SIMs
       db.query(`SELECT
-        COUNT(*) FILTER (WHERE assigned_type='user') AS for_users,
+        COUNT(*) FILTER (WHERE assigned_type IN ('employee','user')) AS employees,
+        COUNT(*) FILTER (WHERE assigned_type='wfh') AS wfh,
         COUNT(*) FILTER (WHERE assigned_type='service') AS for_services,
-        COUNT(*) FILTER (WHERE assigned_type='inventory') AS in_inventory,
         COUNT(*) AS total
         FROM sims`),
-      db.query(`SELECT COALESCE(e.location,'Unknown') AS location, COUNT(*) n
-        FROM sims s LEFT JOIN employees e ON e.id=s.assigned_user_id
-        GROUP BY e.location ORDER BY n DESC`),
+      db.query(`SELECT COALESCE(s.location,'Unknown') AS location, COUNT(*) n
+        FROM sims s GROUP BY s.location ORDER BY n DESC`),
       db.query(`SELECT COALESCE(package_name,'Unassigned') AS package_name, COUNT(*) n FROM sims GROUP BY package_name ORDER BY n DESC`),
       db.query(`SELECT vendor, COUNT(*) n FROM sims GROUP BY vendor ORDER BY n DESC`),
       // Employees
       db.query(`SELECT COUNT(*) total, COUNT(*) FILTER (WHERE is_active=true) active FROM employees`),
       db.query(`SELECT COALESCE(location,'Unknown') AS location, COUNT(*) n FROM employees WHERE is_active=true GROUP BY location ORDER BY n DESC`),
       db.query(`SELECT COALESCE(department,'Unknown') AS department, COUNT(*) n FROM employees WHERE is_active=true GROUP BY department ORDER BY n DESC`),
+      db.query(`SELECT COALESCE(employment_type,'Unknown') AS type, COUNT(*) n FROM employees WHERE is_active=true GROUP BY employment_type ORDER BY n DESC`),
     ]);
     res.json({
       networkDevices:  net.rows,
@@ -92,6 +94,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         active: Number(empTotal.rows[0]?.active || 0),
         byLocation: empByLocation.rows,
         byDepartment: empByDept.rows,
+        byType: empByType.rows,
       },
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -109,7 +112,7 @@ router.get('/employee-assets', requireAuth, async (req, res) => {
 
     const r = await db.query(`
       SELECT
-        e.id, e.first_name, e.last_name, e.email,
+        e.id, e.full_name, e.email,
         e.department, e.designation, e.location, e.employment_type,
         COALESCE((
           SELECT json_agg(json_build_object(
@@ -136,7 +139,7 @@ router.get('/employee-assets', requireAuth, async (req, res) => {
         ), '[]'::json) AS sims
       FROM employees e
       ${where}
-      ORDER BY e.first_name, e.last_name`, params);
+      ORDER BY e.full_name`, params);
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -153,7 +156,7 @@ router.get('/employee-assets/csv', requireAuth, async (req, res) => {
 
     const r = await db.query(`
       SELECT
-        (e.first_name||' '||e.last_name) AS employee,
+        e.full_name AS employee,
         e.email, e.designation, e.department, e.location, e.employment_type,
         s.type AS asset_type, s.asset_tag, s.manufacturer, s.model,
         s.serial_number, s.generation, s.status, s.condition, s.location AS asset_location
@@ -162,7 +165,7 @@ router.get('/employee-assets/csv', requireAuth, async (req, res) => {
       ${where}
       UNION ALL
       SELECT
-        (e.first_name||' '||e.last_name),
+        e.full_name,
         e.email, e.designation, e.department, e.location, e.employment_type,
         'Mobile' AS asset_type, m.asset_tag, m.manufacturer, m.model,
         m.serial_number, NULL, m.status, m.condition, NULL
@@ -171,7 +174,7 @@ router.get('/employee-assets/csv', requireAuth, async (req, res) => {
       ${where.replace(/e\.(department|location)/g, 'e.$1')}
       UNION ALL
       SELECT
-        (e.first_name||' '||e.last_name),
+        e.full_name,
         e.email, e.designation, e.department, e.location, e.employment_type,
         'SIM Card' AS asset_type, NULL, si.vendor, si.package_name,
         si.phone_number, NULL, si.status, NULL, NULL
@@ -194,14 +197,14 @@ router.get('/warranty/csv', requireAuth, async (req, res) => {
       SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
              s.serial_number, s.status, s.warranty_expiry,
              (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
-             (e.first_name||' '||e.last_name) AS assigned_to
+             e.full_name AS assigned_to
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
       WHERE s.warranty_expiry IS NOT NULL
       UNION ALL
       SELECT 'Mobile', m.asset_tag, 'Mobile', m.manufacturer, m.model,
              m.serial_number, m.status, m.warranty_expiry,
              (m.warranty_expiry::date - CURRENT_DATE),
-             (e.first_name||' '||e.last_name)
+             e.full_name
       FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
       WHERE m.warranty_expiry IS NOT NULL
       UNION ALL
@@ -223,7 +226,7 @@ router.get('/sim-costs/csv', requireAuth, async (req, res) => {
     const r = await db.query(`
       SELECT si.vendor, si.phone_number, si.package_name, si.service_type,
              si.monthly_rate, si.status,
-             (e.first_name||' '||e.last_name) AS assigned_to, si.sim_holder
+             e.full_name AS assigned_to, si.sim_holder
       FROM sims si LEFT JOIN employees e ON e.id=si.assigned_user_id
       WHERE si.status='active'
       ORDER BY si.vendor, si.monthly_rate DESC`);
@@ -270,13 +273,13 @@ router.get('/damage', requireAuth, async (req, res) => {
     const [sys, mob] = await Promise.all([
       db.query(`SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
                        s.serial_number, s.status, s.condition, s.location, s.notes,
-                       (e.first_name||' '||e.last_name) AS assigned_to
+                       e.full_name AS assigned_to
                 FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
                 WHERE s.condition='Damaged' OR s.status IN ('repair','retired')
                 ORDER BY s.asset_tag`),
       db.query(`SELECT 'Mobile' AS category, m.asset_tag, m.os AS type, m.manufacturer, m.model,
                        m.serial_number, m.status, m.condition, NULL AS location, m.notes,
-                       (e.first_name||' '||e.last_name) AS assigned_to
+                       e.full_name AS assigned_to
                 FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
                 WHERE m.condition='Damaged' OR m.status IN ('repair','retired')
                 ORDER BY m.asset_tag`),
@@ -321,14 +324,14 @@ router.get('/warranty', requireAuth, async (req, res) => {
       SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
              s.serial_number, s.warranty_expiry, s.status,
              (s.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
-             (e.first_name || ' ' || e.last_name) AS assigned_user_name
+             e.full_name AS assigned_user_name
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
       WHERE s.warranty_expiry IS NOT NULL
       UNION ALL
       SELECT 'Mobile' AS category, m.asset_tag, 'Mobile' AS type, m.manufacturer, m.model,
              m.serial_number, m.warranty_expiry, m.status,
              (m.warranty_expiry::date - CURRENT_DATE) AS days_remaining,
-             (e.first_name || ' ' || e.last_name) AS assigned_user_name
+             e.full_name AS assigned_user_name
       FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
       WHERE m.warranty_expiry IS NOT NULL
       UNION ALL
@@ -347,9 +350,9 @@ router.get('/warranty', requireAuth, async (req, res) => {
 router.get('/assignments', requireAuth, async (req, res) => {
   try {
     const [sys, mob, sim] = await Promise.all([
-      db.query(`SELECT (e.first_name||' '||e.last_name) AS name,e.email,e.department, json_agg(json_build_object('type','System','label',s.serial_number,'status',s.status)) AS items FROM systems s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.first_name,e.last_name,e.email,e.department`),
-      db.query(`SELECT (e.first_name||' '||e.last_name) AS name,e.email,e.department, json_agg(json_build_object('type','Mobile','label',m.asset_tag,'model',m.manufacturer||' '||m.model,'status',m.status)) AS items FROM mobiles m JOIN employees e ON e.id=m.assigned_user_id GROUP BY e.id,e.first_name,e.last_name,e.email,e.department`),
-      db.query(`SELECT (e.first_name||' '||e.last_name) AS name,e.email,e.department, json_agg(json_build_object('type','SIM','label',s.phone_number,'vendor',s.vendor)) AS items FROM sims s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.first_name,e.last_name,e.email,e.department`),
+      db.query(`SELECT e.full_name AS name,e.email,e.department, json_agg(json_build_object('type','System','label',s.serial_number,'status',s.status)) AS items FROM systems s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.full_name,e.email,e.department`),
+      db.query(`SELECT e.full_name AS name,e.email,e.department, json_agg(json_build_object('type','Mobile','label',m.asset_tag,'model',m.manufacturer||' '||m.model,'status',m.status)) AS items FROM mobiles m JOIN employees e ON e.id=m.assigned_user_id GROUP BY e.id,e.full_name,e.email,e.department`),
+      db.query(`SELECT e.full_name AS name,e.email,e.department, json_agg(json_build_object('type','SIM','label',s.phone_number,'vendor',s.vendor)) AS items FROM sims s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.full_name,e.email,e.department`),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows, sims: sim.rows });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -425,13 +428,13 @@ router.get('/by-asset-tag', requireAuth, async (req, res) => {
     const [sys, mob] = await Promise.all([
       db.query(
         `SELECT s.asset_tag, s.type, s.manufacturer, s.model, s.serial_number, s.status, s.condition,
-                s.department, s.location, (e.first_name||' '||e.last_name) AS assigned_user_name
+                s.department, s.location, e.full_name AS assigned_user_name
          FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id
          WHERE s.asset_tag ILIKE $1 ORDER BY s.asset_tag`, [pattern]
       ),
       db.query(
         `SELECT m.asset_tag, m.manufacturer, m.model, m.serial_number, m.status, m.condition,
-                m.department, (e.first_name||' '||e.last_name) AS assigned_user_name
+                m.department, e.full_name AS assigned_user_name
          FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id
          WHERE m.asset_tag ILIKE $1 ORDER BY m.asset_tag`, [pattern]
       ),

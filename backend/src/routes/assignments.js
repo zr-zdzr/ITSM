@@ -12,7 +12,7 @@ async function log(userId, action, id, label, details) {
 
 const ASN_DETAIL_SQL = `
   SELECT a.*,
-         (e.first_name || ' ' || e.last_name) AS assignee_name,
+         e.full_name AS assignee_name,
          e.email AS assignee_email,
          e.department, e.designation,
          u.name AS assigned_by_name

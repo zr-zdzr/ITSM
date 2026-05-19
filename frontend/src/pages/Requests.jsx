@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw, CheckCircle2, XCircle, ClipboardList, Send, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, CheckCircle2, XCircle, Send, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -7,20 +7,23 @@ import Modal from '../components/ui/Modal'
 import { cn } from '../lib/utils'
 
 const PRIORITY_BADGE = {
-  urgent: 'bg-red-500/15 text-red-500',
-  high:   'bg-orange-500/15 text-orange-500',
-  normal: 'bg-blue-500/15 text-blue-500 dark:text-blue-400',
-  low:    'bg-zinc-500/15 text-zinc-500',
+  urgent: { bg: 'rgba(239,68,68,0.15)',  color: '#f87171' },
+  high:   { bg: 'rgba(249,115,22,0.15)', color: '#fb923c' },
+  normal: { bg: 'rgba(59,130,246,0.15)', color: '#7dd3fc' },
+  low:    { bg: 'rgba(113,113,122,0.15)',color: '#a1a1aa' },
 }
 const STATUS_BADGE = {
-  submitted:           'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  in_review:           'bg-purple-500/15 text-purple-600 dark:text-purple-400',
-  approved:            'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  partially_approved:  'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  rejected:            'bg-red-500/15 text-red-500',
-  fulfilled:           'bg-emerald-700/15 text-emerald-700 dark:text-emerald-300',
-  cancelled:           'bg-zinc-500/15 text-zinc-500',
+  submitted:           { bg: 'rgba(59,130,246,0.15)',  color: '#7dd3fc' },
+  in_review:           { bg: 'rgba(168,85,247,0.15)',  color: '#c4b5fd' },
+  approved:            { bg: 'rgba(34,197,94,0.15)',   color: '#4ade80' },
+  partially_approved:  { bg: 'rgba(245,158,11,0.15)',  color: '#fbbf24' },
+  rejected:            { bg: 'rgba(239,68,68,0.15)',   color: '#f87171' },
+  fulfilled:           { bg: 'rgba(4,120,87,0.15)',    color: '#6ee7b7' },
+  cancelled:           { bg: 'rgba(113,113,122,0.15)', color: '#a1a1aa' },
 }
+
+const inp = "form-control form-control-sm"
+const sel = "form-select form-select-sm"
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -37,25 +40,20 @@ export default function Requests() {
   const [myRequests, setMyRequests] = useState([])
   const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading]       = useState(true)
-  const [items, setItems]           = useState([])    // catalog for new request
+  const [items, setItems]           = useState([])
   const [employees, setEmployees]   = useState([])
 
-  // Modal states
   const [newModal, setNewModal]     = useState(false)
-  const [reviewModal, setReviewModal] = useState(null)  // request object
-  const [fulfillModal, setFulfillModal] = useState(null) // request object
-  const [detailModal, setDetailModal]  = useState(null)  // request object
+  const [reviewModal, setReviewModal] = useState(null)
+  const [fulfillModal, setFulfillModal] = useState(null)
+  const [detailModal, setDetailModal]  = useState(null)
   const [saving, setSaving]         = useState(false)
 
-  // New request form
   const [newForm, setNewForm] = useState({ priority: 'normal', reason: '', required_by: '' })
   const [cartItems, setCartItems] = useState([{ item_id: '', qty: 1, notes: '' }])
 
-  // Review form: { [request_item_id]: { action, qty_approved, rejection_reason } }
   const [reviewDecisions, setReviewDecisions] = useState({})
   const [reviewNotes, setReviewNotes]         = useState('')
-
-  // Fulfill form
   const [fulfillForm, setFulfillForm] = useState({ assignee_id: '', notes: '', expected_return_date: '' })
 
   const load = useCallback(async () => {
@@ -173,123 +171,136 @@ export default function Requests() {
   const displayList = fullList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const totalPages = Math.max(1, Math.ceil(fullList.length / PAGE_SIZE))
 
-  // Reset page when tab changes
   React.useEffect(() => { setPage(1) }, [tab])
 
-  const InputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30'
-
   return (
-    <div className="p-6 space-y-5">
+    <div className="d-flex flex-column gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="d-flex align-items-center justify-content-between">
         <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Requests</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Item requests, approvals and fulfillment</p>
+          <h5 className="fw-bold mb-1">Requests</h5>
+          <p className="small text-secondary mb-0">Item requests, approvals and fulfillment</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-            <RefreshCw size={15} />
+        <div className="d-flex align-items-center gap-2">
+          <button onClick={load} className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, padding: 0 }}>
+            <RefreshCw size={14} />
           </button>
-          <button onClick={() => setNewModal(true)}
-            className="px-3 py-2 text-sm rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium flex items-center gap-1.5 transition-colors">
+          <button onClick={() => setNewModal(true)} className="btn btn-primary btn-sm d-flex align-items-center gap-1">
             <Plus size={14} /> New Request
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg w-fit">
+      <div className="d-flex gap-1 p-1 rounded-3" style={{ background: 'rgba(113,113,122,0.15)', width: 'fit-content' }}>
         {isIT && (
           <button onClick={() => setTab('queue')}
-            className={cn('px-4 py-1.5 text-sm rounded-md font-medium transition-colors',
-              tab === 'queue' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+            className="btn btn-sm rounded-2 fw-medium"
+            style={{
+              background: tab === 'queue' ? 'var(--card-bg)' : 'transparent',
+              color: tab === 'queue' ? 'inherit' : '#71717a',
+              border: 'none',
+              boxShadow: tab === 'queue' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>
             Request Queue
-            {requests.length > 0 && <span className="ml-1.5 text-xs bg-brand-500 text-white px-1.5 py-0.5 rounded-full">{requests.length}</span>}
+            {requests.length > 0 && <span className="badge bg-primary ms-1 px-1 py-0" style={{ fontSize: '11px' }}>{requests.length}</span>}
           </button>
         )}
         <button onClick={() => setTab('mine')}
-          className={cn('px-4 py-1.5 text-sm rounded-md font-medium transition-colors',
-            tab === 'mine' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+          className="btn btn-sm rounded-2 fw-medium"
+          style={{
+            background: tab === 'mine' ? 'var(--card-bg)' : 'transparent',
+            color: tab === 'mine' ? 'inherit' : '#71717a',
+            border: 'none',
+            boxShadow: tab === 'mine' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+          }}>
           My Requests
         </button>
         {isIT && (
           <button onClick={() => setTab('all')}
-            className={cn('px-4 py-1.5 text-sm rounded-md font-medium transition-colors',
-              tab === 'all' ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300')}>
+            className="btn btn-sm rounded-2 fw-medium"
+            style={{
+              background: tab === 'all' ? 'var(--card-bg)' : 'transparent',
+              color: tab === 'all' ? 'inherit' : '#71717a',
+              border: 'none',
+              boxShadow: tab === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}>
             All Requests
           </button>
         )}
       </div>
 
       {/* Request List */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+      <div className="itms-card overflow-hidden">
         {loading ? (
-          <div className="py-16 text-center text-zinc-500 text-sm">Loading…</div>
+          <div className="text-center text-secondary py-5 small">Loading…</div>
         ) : displayList.length === 0 ? (
-          <div className="py-16 text-center text-zinc-500 text-sm">
+          <div className="text-center text-secondary py-5 small">
             {tab === 'queue' ? 'No pending requests' : 'No requests yet'}
           </div>
         ) : (
-          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {displayList.map(req => (
-              <div key={req.id} className="px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{req.req_number}</span>
-                      <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium', STATUS_BADGE[req.status] || '')}>
-                        {req.status?.replace('_', ' ')}
-                      </span>
-                      <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium', PRIORITY_BADGE[req.priority] || '')}>
-                        {req.priority}
-                      </span>
+          <div>
+            {displayList.map(req => {
+              const ss = STATUS_BADGE[req.status] || {}
+              const ps = PRIORITY_BADGE[req.priority] || {}
+              return (
+                <div key={req.id} className="px-3 py-3 border-bottom">
+                  <div className="d-flex align-items-start justify-content-between gap-3">
+                    <div className="min-w-0 flex-grow-1">
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <span className="font-monospace small fw-semibold">{req.req_number}</span>
+                        <span className="badge px-2 py-1" style={{ background: ss.bg, color: ss.color, fontSize: '11px' }}>
+                          {req.status?.replace('_', ' ')}
+                        </span>
+                        <span className="badge px-2 py-1" style={{ background: ps.bg, color: ps.color, fontSize: '11px' }}>
+                          {req.priority}
+                        </span>
+                      </div>
+                      <div className="small text-secondary mt-1">
+                        {req.requester_name}
+                        {req.reason && <span className="text-secondary ms-2">· {req.reason}</span>}
+                      </div>
+                      <div className="text-secondary mt-1" style={{ fontSize: '0.75rem' }}>{fmtDate(req.created_at)}</div>
                     </div>
-                    <div className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-                      {req.requester_name}
-                      {req.reason && <span className="text-zinc-400 ml-2">· {req.reason}</span>}
+                    <div className="d-flex align-items-center gap-1 flex-shrink-0">
+                      <button onClick={() => openDetail(req)}
+                        className="btn btn-outline-secondary btn-sm px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                        View
+                      </button>
+                      {isIT && ['submitted', 'in_review'].includes(req.status) && (
+                        <button onClick={() => openReview(req)}
+                          className="btn btn-primary btn-sm px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                          Review
+                        </button>
+                      )}
+                      {isIT && ['approved', 'partially_approved'].includes(req.status) && (
+                        <button onClick={() => { setFulfillModal(req); setFulfillForm({ assignee_id: '', notes: '', expected_return_date: '' }) }}
+                          className="btn btn-success btn-sm px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                          Fulfill
+                        </button>
+                      )}
+                      {['submitted', 'in_review'].includes(req.status) && (req.requester_id === user?.id || isIT) && (
+                        <button onClick={() => cancelRequest(req)}
+                          className="btn btn-outline-danger btn-sm px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                          Cancel
+                        </button>
+                      )}
                     </div>
-                    <div className="text-xs text-zinc-400 mt-0.5">{fmtDate(req.created_at)}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => openDetail(req)}
-                      className="px-2.5 py-1 text-xs rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-                      View
-                    </button>
-                    {isIT && ['submitted', 'in_review'].includes(req.status) && (
-                      <button onClick={() => openReview(req)}
-                        className="px-2.5 py-1 text-xs rounded bg-brand-500 hover:bg-brand-600 text-white font-medium transition-colors">
-                        Review
-                      </button>
-                    )}
-                    {isIT && ['approved', 'partially_approved'].includes(req.status) && (
-                      <button onClick={() => { setFulfillModal(req); setFulfillForm({ assignee_id: '', notes: '', expected_return_date: '' }) }}
-                        className="px-2.5 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors">
-                        Fulfill
-                      </button>
-                    )}
-                    {['submitted', 'in_review'].includes(req.status) && (req.requester_id === user?.id || isIT) && (
-                      <button onClick={() => cancelRequest(req)}
-                        className="px-2.5 py-1 text-xs rounded border border-red-200 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        Cancel
-                      </button>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs text-zinc-500">
+        <div className="d-flex align-items-center justify-content-between small text-secondary">
           <span>{fullList.length} total · page {page} of {totalPages}</span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+          <div className="d-flex align-items-center gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              className="btn btn-outline-secondary btn-sm p-1" style={{ lineHeight: 1 }}>
               <ChevronLeft size={13} />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p =>
@@ -302,17 +313,13 @@ export default function Requests() {
               p === '…'
                 ? <span key={`ellipsis-${i}`} className="px-1">…</span>
                 : <button key={p} onClick={() => setPage(p)}
-                    className={cn('w-7 h-7 rounded border text-xs font-medium transition-colors',
-                      p === page
-                        ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                        : 'border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800')}>
+                    className={cn('btn btn-sm', p === page ? 'btn-primary' : 'btn-outline-secondary')}
+                    style={{ width: 28, height: 28, padding: 0, fontSize: '0.75rem' }}>
                     {p}
                   </button>
             )}
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="p-1.5 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors">
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="btn btn-outline-secondary btn-sm p-1" style={{ lineHeight: 1 }}>
               <ChevronRight size={13} />
             </button>
           </div>
@@ -321,48 +328,46 @@ export default function Requests() {
 
       {/* New Request Modal */}
       <Modal open={newModal} onClose={() => setNewModal(false)} title="Submit New Request">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Priority</label>
-              <select value={newForm.priority} onChange={e => setNewForm(f => ({ ...f, priority: e.target.value }))} className={InputCls}>
+        <div className="d-flex flex-column gap-3">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-medium mb-1">Priority</label>
+              <select value={newForm.priority} onChange={e => setNewForm(f => ({ ...f, priority: e.target.value }))} className={sel}>
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Needed By</label>
-              <input type="date" value={newForm.required_by} onChange={e => setNewForm(f => ({ ...f, required_by: e.target.value }))} className={InputCls} />
+            <div className="col-md-6">
+              <label className="form-label small fw-medium mb-1">Needed By</label>
+              <input type="date" value={newForm.required_by} onChange={e => setNewForm(f => ({ ...f, required_by: e.target.value }))} className={inp} />
             </div>
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Business Reason</label>
+            <div className="col-12">
+              <label className="form-label small fw-medium mb-1">Business Reason</label>
               <input value={newForm.reason} onChange={e => setNewForm(f => ({ ...f, reason: e.target.value }))}
-                placeholder="Why do you need these items?"
-                className={InputCls} />
+                placeholder="Why do you need these items?" className={inp} />
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wide">Items</label>
-              <button onClick={addCartItem} className="text-xs text-brand-500 hover:text-brand-600 font-medium">+ Add item</button>
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <label className="small fw-semibold text-secondary text-uppercase" style={{ letterSpacing: '0.08em' }}>Items</label>
+              <button onClick={addCartItem} className="btn btn-link btn-sm p-0" style={{ color: 'var(--brand)' }}>+ Add item</button>
             </div>
-            <div className="space-y-2">
+            <div className="d-flex flex-column gap-2">
               {cartItems.map((ci, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <select value={ci.item_id} onChange={e => updateCartItem(idx, 'item_id', e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                <div key={idx} className="d-flex align-items-center gap-2">
+                  <select value={ci.item_id} onChange={e => updateCartItem(idx, 'item_id', e.target.value)} className={cn(sel, 'flex-grow-1')}>
                     <option value="">Select item…</option>
                     {items.map(i => (
                       <option key={i.id} value={i.id}>{i.name} ({i.qty_available ?? 0} available)</option>
                     ))}
                   </select>
                   <input type="number" min="1" value={ci.qty} onChange={e => updateCartItem(idx, 'qty', parseInt(e.target.value) || 1)}
-                    className="w-20 px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+                    className={inp} style={{ width: 80 }} />
                   {cartItems.length > 1 && (
-                    <button onClick={() => removeCartItem(idx)} className="text-red-400 hover:text-red-600 p-1">
+                    <button onClick={() => removeCartItem(idx)} className="btn btn-link text-danger p-1" style={{ lineHeight: 1 }}>
                       <XCircle size={15} />
                     </button>
                   )}
@@ -371,11 +376,9 @@ export default function Requests() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setNewModal(false)}
-              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
-            <button onClick={submitRequest} disabled={saving}
-              className="px-4 py-2 text-sm rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 transition-colors">
+          <div className="d-flex justify-content-end gap-2 pt-1">
+            <button onClick={() => setNewModal(false)} className="btn btn-secondary btn-sm">Cancel</button>
+            <button onClick={submitRequest} disabled={saving} className="btn btn-primary btn-sm d-flex align-items-center gap-1">
               <Send size={13} /> {saving ? 'Submitting…' : 'Submit Request'}
             </button>
           </div>
@@ -385,61 +388,60 @@ export default function Requests() {
       {/* Review Modal */}
       <Modal open={!!reviewModal} onClose={() => setReviewModal(null)} title={`Review — ${reviewModal?.req_number}`}>
         {reviewModal && (
-          <div className="space-y-4">
-            <div className="text-sm text-zinc-600 dark:text-zinc-400">
-              From <strong className="text-zinc-900 dark:text-zinc-100">{reviewModal.requester_name}</strong>
+          <div className="d-flex flex-column gap-3">
+            <div className="small text-secondary">
+              From <strong>{reviewModal.requester_name}</strong>
               {reviewModal.reason && <> · {reviewModal.reason}</>}
             </div>
-            <div className="space-y-3">
+            <div className="d-flex flex-column gap-3">
               {reviewModal.items?.map(ri => (
-                <div key={ri.id} className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{ri.item_name}</span>
-                    <span className="text-xs text-zinc-500">Requested: {ri.qty_requested} {ri.unit}</span>
+                <div key={ri.id} className="rounded-3 p-3 d-flex flex-column gap-2" style={{ border: '1px solid var(--bs-border-color)' }}>
+                  <div className="d-flex align-items-center justify-content-between">
+                    <span className="fw-medium small">{ri.item_name}</span>
+                    <span className="small text-secondary">Requested: {ri.qty_requested} {ri.unit}</span>
                   </div>
-                  <div className="text-xs text-zinc-400">Available: <strong className="text-zinc-600 dark:text-zinc-300">{ri.qty_available ?? '?'}</strong></div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <div className="small text-secondary">Available: <strong>{ri.qty_available ?? '?'}</strong></div>
+                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <label className="d-flex align-items-center gap-1 small" style={{ cursor: 'pointer' }}>
                       <input type="radio"
                         checked={reviewDecisions[ri.id]?.action === 'approved'}
                         onChange={() => setReviewDecisions(d => ({ ...d, [ri.id]: { ...d[ri.id], action: 'approved' } }))}
-                        className="accent-emerald-500" />
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Approve</span>
+                        style={{ accentColor: '#4ade80' }} />
+                      <span className="fw-medium" style={{ color: '#4ade80' }}>Approve</span>
                     </label>
                     {reviewDecisions[ri.id]?.action === 'approved' && (
                       <input type="number" min="1" max={ri.qty_requested}
                         value={reviewDecisions[ri.id]?.qty_approved ?? ri.qty_requested}
                         onChange={e => setReviewDecisions(d => ({ ...d, [ri.id]: { ...d[ri.id], qty_approved: parseInt(e.target.value) } }))}
-                        className="w-20 px-2 py-1 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-emerald-500/30" />
+                        className={inp} style={{ width: 80 }} />
                     )}
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer ml-2">
+                    <label className="d-flex align-items-center gap-1 small ms-2" style={{ cursor: 'pointer' }}>
                       <input type="radio"
                         checked={reviewDecisions[ri.id]?.action === 'rejected'}
                         onChange={() => setReviewDecisions(d => ({ ...d, [ri.id]: { ...d[ri.id], action: 'rejected' } }))}
-                        className="accent-red-500" />
-                      <span className="text-red-500 font-medium">Reject</span>
+                        style={{ accentColor: '#f87171' }} />
+                      <span className="fw-medium text-danger">Reject</span>
                     </label>
                   </div>
                   {reviewDecisions[ri.id]?.action === 'rejected' && (
                     <input value={reviewDecisions[ri.id]?.rejection_reason || ''}
                       onChange={e => setReviewDecisions(d => ({ ...d, [ri.id]: { ...d[ri.id], rejection_reason: e.target.value } }))}
                       placeholder="Reason for rejection…"
-                      className="w-full px-2 py-1 text-xs rounded border border-red-200 dark:border-red-900 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-red-500/30" />
+                      className={inp}
+                      style={{ borderColor: 'rgba(239,68,68,0.5)' }} />
                   )}
                 </div>
               ))}
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Review Notes</label>
+              <label className="form-label small fw-medium mb-1">Review Notes</label>
               <textarea value={reviewNotes} onChange={e => setReviewNotes(e.target.value)}
                 rows={2} placeholder="Optional notes for requester…"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 resize-none" />
+                className={inp} style={{ resize: 'none' }} />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setReviewModal(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
-              <button onClick={submitReview} disabled={saving}
-                className="px-4 py-2 text-sm rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 transition-colors">
+            <div className="d-flex justify-content-end gap-2 pt-1">
+              <button onClick={() => setReviewModal(null)} className="btn btn-secondary btn-sm">Cancel</button>
+              <button onClick={submitReview} disabled={saving} className="btn btn-primary btn-sm d-flex align-items-center gap-1">
                 <CheckCircle2 size={13} /> {saving ? 'Submitting…' : 'Submit Review'}
               </button>
             </div>
@@ -450,35 +452,32 @@ export default function Requests() {
       {/* Fulfill Modal */}
       <Modal open={!!fulfillModal} onClose={() => setFulfillModal(null)} title={`Fulfill — ${fulfillModal?.req_number}`}>
         {fulfillModal && (
-          <div className="space-y-4">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Select the employee to assign the approved items to.
-            </p>
+          <div className="d-flex flex-column gap-3">
+            <p className="small text-secondary mb-0">Select the employee to assign the approved items to.</p>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Assign To *</label>
-              <select value={fulfillForm.assignee_id} onChange={e => setFulfillForm(f => ({ ...f, assignee_id: e.target.value }))} className={InputCls}>
+              <label className="form-label small fw-medium mb-1">Assign To *</label>
+              <select value={fulfillForm.assignee_id} onChange={e => setFulfillForm(f => ({ ...f, assignee_id: e.target.value }))} className={sel}>
                 <option value="">Select employee…</option>
                 {employees.map(e => (
-                  <option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.department}</option>
+                  <option key={e.id} value={e.id}>{e.full_name} — {e.department}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Expected Return Date</label>
+              <label className="form-label small fw-medium mb-1">Expected Return Date</label>
               <input type="date" value={fulfillForm.expected_return_date}
-                onChange={e => setFulfillForm(f => ({ ...f, expected_return_date: e.target.value }))} className={InputCls} />
-              <p className="text-xs text-zinc-400 mt-1">Leave blank for consumable items</p>
+                onChange={e => setFulfillForm(f => ({ ...f, expected_return_date: e.target.value }))} className={inp} />
+              <p className="small text-secondary mt-1 mb-0">Leave blank for consumable items</p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Notes</label>
+              <label className="form-label small fw-medium mb-1">Notes</label>
               <input value={fulfillForm.notes} onChange={e => setFulfillForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Handover notes…" className={InputCls} />
+                placeholder="Handover notes…" className={inp} />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setFulfillModal(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancel</button>
+            <div className="d-flex justify-content-end gap-2 pt-1">
+              <button onClick={() => setFulfillModal(null)} className="btn btn-secondary btn-sm">Cancel</button>
               <button onClick={submitFulfill} disabled={saving || !fulfillForm.assignee_id}
-                className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-medium flex items-center gap-1.5 transition-colors">
+                className="btn btn-success btn-sm d-flex align-items-center gap-1">
                 <CheckCircle2 size={13} /> {saving ? 'Processing…' : 'Fulfill & Create Assignment'}
               </button>
             </div>
@@ -488,41 +487,48 @@ export default function Requests() {
 
       {/* Detail Modal */}
       <Modal open={!!detailModal} onClose={() => setDetailModal(null)} title={`Request — ${detailModal?.req_number}`}>
-        {detailModal && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><span className="text-zinc-400 text-xs">From</span><p className="font-medium text-zinc-900 dark:text-zinc-100">{detailModal.requester_name}</p></div>
-              <div><span className="text-zinc-400 text-xs">Status</span>
-                <p><span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', STATUS_BADGE[detailModal.status] || '')}>{detailModal.status?.replace('_', ' ')}</span></p>
+        {detailModal && (() => {
+          const ss = STATUS_BADGE[detailModal.status] || {}
+          const ps = PRIORITY_BADGE[detailModal.priority] || {}
+          return (
+            <div className="d-flex flex-column gap-3">
+              <div className="row g-3 small">
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>From</span><p className="fw-medium mb-0">{detailModal.requester_name}</p></div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Status</span>
+                  <p className="mb-0"><span className="badge px-2 py-1" style={{ background: ss.bg, color: ss.color, fontSize: '11px' }}>{detailModal.status?.replace('_', ' ')}</span></p>
+                </div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Priority</span>
+                  <p className="mb-0"><span className="badge px-2 py-1" style={{ background: ps.bg, color: ps.color, fontSize: '11px' }}>{detailModal.priority}</span></p>
+                </div>
+                <div className="col-6"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Submitted</span><p className="mb-0">{fmtDate(detailModal.created_at)}</p></div>
+                {detailModal.reason && <div className="col-12"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Reason</span><p className="mb-0">{detailModal.reason}</p></div>}
+                {detailModal.review_notes && <div className="col-12"><span className="text-secondary" style={{ fontSize: '0.75rem' }}>Review Notes</span><p className="mb-0">{detailModal.review_notes}</p></div>}
               </div>
-              <div><span className="text-zinc-400 text-xs">Priority</span>
-                <p><span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', PRIORITY_BADGE[detailModal.priority] || '')}>{detailModal.priority}</span></p>
-              </div>
-              <div><span className="text-zinc-400 text-xs">Submitted</span><p className="text-zinc-700 dark:text-zinc-300">{fmtDate(detailModal.created_at)}</p></div>
-              {detailModal.reason && <div className="col-span-2"><span className="text-zinc-400 text-xs">Reason</span><p className="text-zinc-700 dark:text-zinc-300">{detailModal.reason}</p></div>}
-              {detailModal.review_notes && <div className="col-span-2"><span className="text-zinc-400 text-xs">Review Notes</span><p className="text-zinc-700 dark:text-zinc-300">{detailModal.review_notes}</p></div>}
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">Items</p>
-              <div className="space-y-2">
-                {detailModal.items?.map(ri => (
-                  <div key={ri.id} className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 text-sm">
-                    <span className="text-zinc-800 dark:text-zinc-200">{ri.item_name}</span>
-                    <div className="text-right">
-                      <span className="text-zinc-500 text-xs">Requested: {ri.qty_requested}</span>
-                      {ri.item_status !== 'pending' && (
-                        <span className={cn('ml-2 text-xs px-1.5 py-0.5 rounded-full',
-                          ri.item_status === 'approved' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/15 text-red-500')}>
-                          {ri.item_status === 'approved' ? `Approved: ${ri.qty_approved}` : 'Rejected'}
-                        </span>
-                      )}
+              <div>
+                <p className="small fw-semibold text-secondary text-uppercase mb-2" style={{ letterSpacing: '0.08em' }}>Items</p>
+                <div className="d-flex flex-column gap-1">
+                  {detailModal.items?.map(ri => (
+                    <div key={ri.id} className="d-flex align-items-center justify-content-between py-2 border-bottom small">
+                      <span>{ri.item_name}</span>
+                      <div className="text-end">
+                        <span className="text-secondary">Requested: {ri.qty_requested}</span>
+                        {ri.item_status !== 'pending' && (
+                          <span className="badge px-2 py-1 ms-2" style={{
+                            background: ri.item_status === 'approved' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: ri.item_status === 'approved' ? '#4ade80' : '#f87171',
+                            fontSize: '11px',
+                          }}>
+                            {ri.item_status === 'approved' ? `Approved: ${ri.qty_approved}` : 'Rejected'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
     </div>
   )

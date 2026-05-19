@@ -26,7 +26,7 @@ async function exportPDF(title, head, body) {
     head: [head],
     body,
     styles: { fontSize: 8, cellPadding: 2.5 },
-    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    headStyles: { fillColor: [0, 170, 47], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 248, 252] },
     margin: { left: 14, right: 14 },
   })
@@ -40,17 +40,18 @@ function fmtDate(v) {
 
 // ── Status badge ──────────────────────────────────────────
 const STATUS_STYLE = {
-  in_use:    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  available: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  repair:    'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  retired:   'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500',
-  active:    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  inactive:  'bg-red-500/10 text-red-500 dark:text-red-400',
-  suspended: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  in_use:    { bg: 'rgba(34,197,94,0.1)',   color: '#4ade80' },
+  available: { bg: 'rgba(14,165,233,0.1)',  color: '#7dd3fc' },
+  repair:    { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24' },
+  retired:   { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' },
+  active:    { bg: 'rgba(34,197,94,0.1)',   color: '#4ade80' },
+  inactive:  { bg: 'rgba(239,68,68,0.1)',   color: '#f87171' },
+  suspended: { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24' },
 }
 function StatusBadge({ v }) {
+  const s = STATUS_STYLE[v] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
   return (
-    <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', STATUS_STYLE[v] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
+    <span className="badge px-1" style={{ background: s.bg, color: s.color, fontSize: '10px', fontWeight: 500 }}>
       {v?.replace('_', ' ') || '—'}
     </span>
   )
@@ -58,22 +59,21 @@ function StatusBadge({ v }) {
 
 // ── Th / Td helpers ───────────────────────────────────────
 const Th = ({ children }) => (
-  <th className="px-3 py-2.5 text-left text-[10px] font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap">{children}</th>
+  <th className="text-secondary text-nowrap text-uppercase" style={{ fontSize: '10px', letterSpacing: '0.05em', fontWeight: 600, padding: '0.5rem 0.75rem' }}>{children}</th>
 )
 const Td = ({ children, mono, dim }) => (
-  <td className={cn('px-3 py-2.5 text-xs whitespace-nowrap',
-    mono ? 'font-mono text-zinc-500' : dim ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-700 dark:text-zinc-300'
-  )}>{children ?? '—'}</td>
+  <td className={cn('align-middle text-nowrap', mono ? 'font-monospace text-secondary' : dim ? 'text-secondary' : '')}
+    style={{ fontSize: '0.75rem', padding: '0.5rem 0.75rem' }}>{children ?? '—'}</td>
 )
 
 // ── Search + filter bar ───────────────────────────────────
 function FilterBar({ search, onSearch, children }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+    <div className="d-flex align-items-center gap-2 flex-wrap">
+      <div className="position-relative flex-grow-1" style={{ minWidth: 180, maxWidth: 240 }}>
+        <Search size={13} className="position-absolute text-secondary" style={{ left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
         <input value={search} onChange={e => onSearch(e.target.value)}
-          placeholder="Search…" className="input-base pl-8 py-1.5 text-xs" />
+          placeholder="Search…" className="form-control form-control-sm" style={{ paddingLeft: 28 }} />
       </div>
       {children}
     </div>
@@ -82,7 +82,7 @@ function FilterBar({ search, onSearch, children }) {
 
 function Select({ value, onChange, options, placeholder }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className="input-base py-1.5 text-xs min-w-[140px]">
+    <select value={value} onChange={e => onChange(e.target.value)} className="form-select form-select-sm" style={{ minWidth: 140 }}>
       <option value="">{placeholder}</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
@@ -91,8 +91,7 @@ function Select({ value, onChange, options, placeholder }) {
 
 function ExportBtn({ label, icon: Icon = FileDown, onClick, variant = 'secondary' }) {
   return (
-    <button onClick={onClick}
-      className={cn('btn-base py-1.5 text-xs gap-1.5', variant === 'primary' ? 'btn-primary' : 'btn-secondary')}>
+    <button onClick={onClick} className={`btn btn-${variant === 'primary' ? 'primary' : 'outline-secondary'} btn-sm d-flex align-items-center gap-1`}>
       <Icon size={13} /> {label}
     </button>
   )
@@ -139,7 +138,7 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
     if (!search.trim()) return rows
     const q = search.toLowerCase()
     return rows.filter(r =>
-      `${r.first_name} ${r.last_name}`.toLowerCase().includes(q) ||
+      r.full_name?.toLowerCase().includes(q) ||
       r.email?.toLowerCase().includes(q) ||
       r.designation?.toLowerCase().includes(q) ||
       r.department?.toLowerCase().includes(q)
@@ -158,7 +157,7 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
     const head = ['Employee', 'Designation', 'Department', 'Location', 'Asset Type', 'Asset Tag / Number', 'Brand', 'Model', 'Status']
     const body = []
     filtered.forEach(emp => {
-      const name = `${emp.first_name} ${emp.last_name}`
+      const name = emp.full_name || ''
       const base = [name, emp.designation || '', emp.department || '', emp.location || '']
       ;(emp.systems || []).forEach(s => body.push([...base, s.type || 'System', s.asset_tag || '', s.manufacturer || '', s.model || '', s.status || '']))
       ;(emp.mobiles || []).forEach(m => body.push([...base, 'Mobile', m.asset_tag || '', m.manufacturer || '', m.model || '', m.status || '']))
@@ -170,32 +169,32 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={dept} onChange={setDept} options={filterOpts.departments} placeholder="All Departments" />
           <Select value={loc}  onChange={setLoc}  options={filterOpts.locations}   placeholder="All Locations" />
         </FilterBar>
-        <div className="flex gap-2">
+        <div className="d-flex gap-2">
           <ExportBtn label="CSV" onClick={csvExport} />
           <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
         </div>
       </div>
 
-      <p className="text-xs text-zinc-500">{filtered.length} employee{filtered.length !== 1 ? 's' : ''}</p>
+      <p className="small text-secondary mb-0">{filtered.length} employee{filtered.length !== 1 ? 's' : ''}</p>
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
               <Th></Th><Th>Employee</Th><Th>Designation</Th><Th>Department</Th><Th>Location</Th>
               <Th>Systems</Th><Th>Mobiles</Th><Th>SIMs</Th><Th>Total</Th>
             </tr></thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-zinc-400">Loading…</td></tr>
+                <tr><td colSpan={9} className="text-center text-secondary py-5">Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-zinc-400">No records found</td></tr>
+                <tr><td colSpan={9} className="text-center text-secondary py-5">No records found</td></tr>
               ) : filtered.map(emp => {
                 const sysCount = emp.systems?.length || 0
                 const mobCount = emp.mobiles?.length || 0
@@ -206,57 +205,51 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                   <React.Fragment key={emp.id}>
                     <tr
                       onClick={() => setExpanded(isOpen ? null : emp.id)}
-                      className={cn('border-b border-zinc-100 dark:border-zinc-800/50 cursor-pointer transition-colors',
-                        isOpen ? 'bg-brand-500/5' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/20'
-                      )}
+                      style={{ cursor: 'pointer', background: isOpen ? 'rgba(0,170,47,0.05)' : '' }}
                     >
-                      <td className="px-3 py-2.5 w-8">
-                        <ChevronDown size={13} className={cn('text-zinc-400 transition-transform', isOpen && 'rotate-180')} />
+                      <td className="align-middle" style={{ padding: '0.5rem 0.75rem', width: 32 }}>
+                        <ChevronDown size={13} className="text-secondary" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
                       </td>
-                      <td className="px-3 py-2.5">
-                        <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{emp.first_name} {emp.last_name}</div>
-                        <div className="text-[10px] text-zinc-400">{emp.email}</div>
+                      <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                        <div className="small fw-semibold">{emp.full_name}</div>
+                        <div className="text-secondary" style={{ fontSize: '10px' }}>{emp.email}</div>
                       </td>
                       <Td dim>{emp.designation}</Td>
                       <Td dim>{emp.department}</Td>
                       <Td dim>{emp.location}</Td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', sysCount > 0 ? 'bg-brand-500/10 text-brand-500 dark:text-brand-400' : 'text-zinc-400')}>{sysCount}</span>
+                      <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                        <span className="badge px-2 py-1" style={{ background: sysCount > 0 ? 'rgba(0,170,47,0.1)' : 'rgba(113,113,122,0.1)', color: sysCount > 0 ? '#4ade80' : '#a1a1aa', fontSize: '11px' }}>{sysCount}</span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', mobCount > 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'text-zinc-400')}>{mobCount}</span>
+                      <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                        <span className="badge px-2 py-1" style={{ background: mobCount > 0 ? 'rgba(34,197,94,0.1)' : 'rgba(113,113,122,0.1)', color: mobCount > 0 ? '#4ade80' : '#a1a1aa', fontSize: '11px' }}>{mobCount}</span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', simCount > 0 ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' : 'text-zinc-400')}>{simCount}</span>
+                      <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                        <span className="badge px-2 py-1" style={{ background: simCount > 0 ? 'rgba(168,85,247,0.1)' : 'rgba(113,113,122,0.1)', color: simCount > 0 ? '#c4b5fd' : '#a1a1aa', fontSize: '11px' }}>{simCount}</span>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={cn('text-xs font-bold', total > 0 ? 'text-zinc-800 dark:text-zinc-200' : 'text-zinc-400')}>{total}</span>
-                      </td>
+                      <td className="align-middle fw-bold" style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: total > 0 ? 'inherit' : '#a1a1aa' }}>{total}</td>
                     </tr>
                     <AnimatePresence initial={false}>
                       {isOpen && (
                         <tr key="detail">
-                          <td colSpan={9} className="p-0 border-b border-zinc-200 dark:border-zinc-800">
+                          <td colSpan={9} className="p-0" style={{ borderBottom: '1px solid var(--bs-border-color)' }}>
                             <motion.div
                               initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }}
-                              className="overflow-hidden bg-zinc-50 dark:bg-zinc-900/60"
+                              className="overflow-hidden"
+                              style={{ background: 'rgba(255,255,255,0.02)' }}
                             >
-                              <div className="px-8 py-4 space-y-4">
-                                {/* Systems */}
+                              <div className="px-4 py-3 d-flex flex-column gap-3">
                                 {sysCount > 0 && (
                                   <div>
-                                    <p className="text-[10px] font-semibold text-brand-500 dark:text-brand-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Monitor size={10} /> Systems</p>
-                                    <div className="overflow-x-auto">
-                                      <table className="text-xs w-full">
-                                        <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-                                          <Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th><Th>Serial</Th><Th>Gen</Th><Th>Status</Th><Th>Condition</Th><Th>Location</Th>
-                                        </tr></thead>
+                                    <p className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2" style={{ fontSize: '10px', color: '#4ade80' }}><Monitor size={10} /> Systems</p>
+                                    <div className="table-responsive">
+                                      <table className="table mb-0" style={{ fontSize: '0.75rem' }}>
+                                        <thead><tr><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th><Th>Serial</Th><Th>Gen</Th><Th>Status</Th><Th>Condition</Th><Th>Location</Th></tr></thead>
                                         <tbody>{emp.systems.map((s, i) => (
-                                          <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/30">
+                                          <tr key={i}>
                                             <Td mono>{s.asset_tag}</Td><Td>{s.type}</Td><Td>{s.manufacturer}</Td><Td>{s.model}</Td>
                                             <Td mono>{s.serial_number}</Td><Td dim>{s.generation}</Td>
-                                            <td className="px-3 py-2"><StatusBadge v={s.status} /></td>
+                                            <td className="align-middle" style={{ padding: '0.4rem 0.75rem' }}><StatusBadge v={s.status} /></td>
                                             <Td dim>{s.condition}</Td><Td dim>{s.location}</Td>
                                           </tr>
                                         ))}</tbody>
@@ -264,20 +257,17 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                     </div>
                                   </div>
                                 )}
-                                {/* Mobiles */}
                                 {mobCount > 0 && (
                                   <div>
-                                    <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Smartphone size={10} /> Mobile Devices</p>
-                                    <div className="overflow-x-auto">
-                                      <table className="text-xs w-full">
-                                        <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-                                          <Th>Asset Tag</Th><Th>Brand</Th><Th>Model</Th><Th>OS</Th><Th>Storage</Th><Th>Status</Th><Th>Condition</Th>
-                                        </tr></thead>
+                                    <p className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2" style={{ fontSize: '10px', color: '#34d399' }}><Smartphone size={10} /> Mobile Devices</p>
+                                    <div className="table-responsive">
+                                      <table className="table mb-0" style={{ fontSize: '0.75rem' }}>
+                                        <thead><tr><Th>Asset Tag</Th><Th>Brand</Th><Th>Model</Th><Th>OS</Th><Th>Storage</Th><Th>Status</Th><Th>Condition</Th></tr></thead>
                                         <tbody>{emp.mobiles.map((m, i) => (
-                                          <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/30">
+                                          <tr key={i}>
                                             <Td mono>{m.asset_tag}</Td><Td>{m.manufacturer}</Td><Td>{m.model}</Td>
                                             <Td dim>{m.os}</Td><Td dim>{m.storage_capacity}</Td>
-                                            <td className="px-3 py-2"><StatusBadge v={m.status} /></td>
+                                            <td className="align-middle" style={{ padding: '0.4rem 0.75rem' }}><StatusBadge v={m.status} /></td>
                                             <Td dim>{m.condition}</Td>
                                           </tr>
                                         ))}</tbody>
@@ -285,27 +275,24 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                     </div>
                                   </div>
                                 )}
-                                {/* SIMs */}
                                 {simCount > 0 && (
                                   <div>
-                                    <p className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5"><CreditCard size={10} /> SIM Cards</p>
-                                    <div className="overflow-x-auto">
-                                      <table className="text-xs w-full">
-                                        <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-                                          <Th>Phone Number</Th><Th>Vendor</Th><Th>Package</Th><Th>Service Type</Th><Th>Status</Th>
-                                        </tr></thead>
+                                    <p className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2" style={{ fontSize: '10px', color: '#c4b5fd' }}><CreditCard size={10} /> SIM Cards</p>
+                                    <div className="table-responsive">
+                                      <table className="table mb-0" style={{ fontSize: '0.75rem' }}>
+                                        <thead><tr><Th>Phone Number</Th><Th>Vendor</Th><Th>Package</Th><Th>Service Type</Th><Th>Status</Th></tr></thead>
                                         <tbody>{emp.sims.map((s, i) => (
-                                          <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/30">
+                                          <tr key={i}>
                                             <Td mono>{s.phone_number}</Td><Td>{s.vendor}</Td>
                                             <Td dim>{s.package_name}</Td><Td dim>{s.service_type}</Td>
-                                            <td className="px-3 py-2"><StatusBadge v={s.status} /></td>
+                                            <td className="align-middle" style={{ padding: '0.4rem 0.75rem' }}><StatusBadge v={s.status} /></td>
                                           </tr>
                                         ))}</tbody>
                                       </table>
                                     </div>
                                   </div>
                                 )}
-                                {total === 0 && <p className="text-xs text-zinc-400 italic">No assets assigned</p>}
+                                {total === 0 && <p className="small text-secondary fst-italic mb-0">No assets assigned</p>}
                               </div>
                             </motion.div>
                           </td>
@@ -325,9 +312,9 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
 
 // ── WARRANTY TAB ──────────────────────────────────────────
 const WARRANTY_CAT_STYLE = {
-  System:  'bg-brand-500/10 text-brand-500 dark:text-brand-400',
-  Mobile:  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  Network: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  System:  { bg: 'rgba(0,170,47,0.1)',   color: '#4ade80' },
+  Mobile:  { bg: 'rgba(34,197,94,0.1)',  color: '#34d399' },
+  Network: { bg: 'rgba(14,165,233,0.1)', color: '#7dd3fc' },
 }
 
 function WarrantyTab({ toast }) {
@@ -367,53 +354,58 @@ function WarrantyTab({ toast }) {
 
   const warningColor = (days) => {
     const d = Number(days)
-    if (d < 0) return 'text-red-500 dark:text-red-400'
-    if (d <= 30) return 'text-red-400'
-    if (d <= 90) return 'text-amber-500 dark:text-amber-400'
-    return 'text-zinc-600 dark:text-zinc-400'
+    if (d < 0) return { color: '#f87171' }
+    if (d <= 30) return { color: '#f87171' }
+    if (d <= 90) return { color: '#fbbf24' }
+    return {}
   }
 
   const cats = [...new Set(rows.map(r => r.category).filter(Boolean))]
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={catFilter} onChange={setCatFilter} options={cats} placeholder="All categories" />
           <Select value={filter} onChange={setFilter} options={['expired','30','90']} placeholder="All warranties" />
         </FilterBar>
-        <div className="flex gap-2">
+        <div className="d-flex gap-2">
           <ExportBtn label="CSV" onClick={csvExport} />
           <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
         </div>
       </div>
-      <p className="text-xs text-zinc-500">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</p>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Category</Th><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th>
-            <Th>Warranty Expiry</Th><Th>Days Left</Th><Th>Status</Th><Th>Assigned To</Th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : filtered.length === 0 ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">No records</td></tr>
-            : filtered.map((r, i) => (
-              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                <td className="px-3 py-2.5">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', WARRANTY_CAT_STYLE[r.category] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>{r.category}</span>
-                </td>
-                <Td mono>{r.asset_tag}</Td><Td>{r.type}</Td><Td dim>{r.manufacturer}</Td><Td dim>{r.model}</Td>
-                <td className="px-3 py-2.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">{fmtDate(r.warranty_expiry)}</td>
-                <td className={cn('px-3 py-2.5 text-xs font-bold', warningColor(r.days_remaining))}>
-                  {Number(r.days_remaining) < 0 ? `${Math.abs(r.days_remaining)}d expired` : `${r.days_remaining}d`}
-                </td>
-                <td className="px-3 py-2.5"><StatusBadge v={r.status} /></td>
-                <Td dim>{r.assigned_user_name || '—'}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
+      <p className="small text-secondary mb-0">{filtered.length} record{filtered.length !== 1 ? 's' : ''}</p>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>Category</Th><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th>
+              <Th>Warranty Expiry</Th><Th>Days Left</Th><Th>Status</Th><Th>Assigned To</Th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={9} className="text-center text-secondary py-5">Loading…</td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={9} className="text-center text-secondary py-5">No records</td></tr>
+              : filtered.map((r, i) => {
+                const cs = WARRANTY_CAT_STYLE[r.category] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                return (
+                  <tr key={i}>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: cs.bg, color: cs.color, fontSize: '10px' }}>{r.category}</span>
+                    </td>
+                    <Td mono>{r.asset_tag}</Td><Td>{r.type}</Td><Td dim>{r.manufacturer}</Td><Td dim>{r.model}</Td>
+                    <td className="align-middle small fw-medium" style={{ padding: '0.5rem 0.75rem' }}>{fmtDate(r.warranty_expiry)}</td>
+                    <td className="align-middle fw-bold small" style={{ padding: '0.5rem 0.75rem', ...warningColor(r.days_remaining) }}>
+                      {Number(r.days_remaining) < 0 ? `${Math.abs(r.days_remaining)}d expired` : `${r.days_remaining}d`}
+                    </td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}><StatusBadge v={r.status} /></td>
+                    <Td dim>{r.assigned_user_name || '—'}</Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
@@ -449,47 +441,52 @@ function UnassignedTab({ toast }) {
     await exportPDF('Unassigned Inventory', head, body)
   }
 
+  const catStyle = {
+    System:   { bg: 'rgba(0,170,47,0.1)',   color: '#4ade80' },
+    Mobile:   { bg: 'rgba(34,197,94,0.1)',  color: '#34d399' },
+    'SIM Card':{ bg: 'rgba(168,85,247,0.1)', color: '#c4b5fd' },
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={type} onChange={setType} options={['system','mobile','sim']} placeholder="All types" />
         </FilterBar>
-        <div className="flex gap-2">
-          <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+        <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+      </div>
+      <div className="d-flex gap-4 small text-secondary">
+        <span><strong style={{ color: '#4ade80' }}>{data.systems?.length}</strong> Systems</span>
+        <span><strong style={{ color: '#34d399' }}>{data.mobiles?.length}</strong> Mobiles</span>
+        <span><strong style={{ color: '#c4b5fd' }}>{data.sims?.length}</strong> SIM Cards</span>
+      </div>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>Category</Th><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th><Th>Serial / Number</Th><Th>Status</Th><Th>Condition</Th><Th>Location</Th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={9} className="text-center text-secondary py-5">Loading…</td></tr>
+              : all.length === 0 ? <tr><td colSpan={9} className="text-center text-secondary py-5">No unassigned assets</td></tr>
+              : all.map((r, i) => {
+                const cs = catStyle[r.category] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                return (
+                  <tr key={i}>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: cs.bg, color: cs.color, fontSize: '10px' }}>{r.category}</span>
+                    </td>
+                    <Td mono>{r.asset_tag}</Td><Td>{r.type}</Td><Td dim>{r.manufacturer}</Td><Td dim>{r.model}</Td>
+                    <Td mono>{r.serial_number}</Td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}><StatusBadge v={r.status} /></td>
+                    <Td dim>{r.condition}</Td><Td dim>{r.location}</Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
-      <div className="flex gap-4 text-xs text-zinc-500">
-        <span><span className="font-semibold text-brand-500 dark:text-brand-400">{data.systems?.length}</span> Systems</span>
-        <span><span className="font-semibold text-emerald-600 dark:text-emerald-400">{data.mobiles?.length}</span> Mobiles</span>
-        <span><span className="font-semibold text-purple-600 dark:text-purple-400">{data.sims?.length}</span> SIM Cards</span>
-      </div>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Category</Th><Th>Asset Tag</Th><Th>Type</Th><Th>Brand</Th><Th>Model</Th><Th>Serial / Number</Th><Th>Status</Th><Th>Condition</Th><Th>Location</Th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : all.length === 0 ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">No unassigned assets</td></tr>
-            : all.map((r, i) => (
-              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                <td className="px-3 py-2.5">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
-                    r.category === 'System' ? 'bg-brand-500/10 text-brand-500 dark:text-brand-400' :
-                    r.category === 'Mobile' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                    'bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                  )}>{r.category}</span>
-                </td>
-                <Td mono>{r.asset_tag}</Td><Td>{r.type}</Td><Td dim>{r.manufacturer}</Td><Td dim>{r.model}</Td>
-                <Td mono>{r.serial_number}</Td>
-                <td className="px-3 py-2.5"><StatusBadge v={r.status} /></td>
-                <Td dim>{r.condition}</Td><Td dim>{r.location}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
     </div>
   )
 }
@@ -521,42 +518,50 @@ function DamageTab({ toast }) {
     await exportPDF('Damage & Repair Report', head, body)
   }
 
+  const catStyle = {
+    System: { bg: 'rgba(0,170,47,0.1)',  color: '#4ade80' },
+    Mobile: { bg: 'rgba(34,197,94,0.1)', color: '#34d399' },
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={type} onChange={setType} options={['system','mobile']} placeholder="All types" />
         </FilterBar>
-        <div className="flex gap-2">
-          <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+        <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
+      </div>
+      <p className="small text-secondary mb-0">{all.length} item{all.length !== 1 ? 's' : ''}</p>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>Category</Th><Th>Asset Tag</Th><Th>Brand</Th><Th>Model</Th><Th>Serial</Th><Th>Status</Th><Th>Condition</Th><Th>Assigned To</Th><Th>Notes</Th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={9} className="text-center text-secondary py-5">Loading…</td></tr>
+              : all.length === 0 ? <tr><td colSpan={9} className="text-center py-5" style={{ color: '#4ade80' }}>No damaged or repair items</td></tr>
+              : all.map((r, i) => {
+                const cs = catStyle[r.category] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                return (
+                  <tr key={i}>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: cs.bg, color: cs.color, fontSize: '10px' }}>{r.category}</span>
+                    </td>
+                    <Td mono>{r.asset_tag}</Td><Td>{r.manufacturer}</Td><Td dim>{r.model}</Td><Td mono>{r.serial_number}</Td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}><StatusBadge v={r.status} /></td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: '10px' }}>{r.condition || '—'}</span>
+                    </td>
+                    <Td dim>{r.assigned_to || 'Inventory'}</Td>
+                    <td className="small text-secondary align-middle text-truncate" style={{ maxWidth: 200, padding: '0.5rem 0.75rem' }} title={r.notes}>{r.notes || '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
-      <p className="text-xs text-zinc-500">{all.length} item{all.length !== 1 ? 's' : ''}</p>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Category</Th><Th>Asset Tag</Th><Th>Brand</Th><Th>Model</Th><Th>Serial</Th><Th>Status</Th><Th>Condition</Th><Th>Assigned To</Th><Th>Notes</Th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={9} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : all.length === 0 ? <tr><td colSpan={9} className="py-12 text-center text-emerald-500">No damaged or repair items</td></tr>
-            : all.map((r, i) => (
-              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                <td className="px-3 py-2.5">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
-                    r.category === 'System' ? 'bg-brand-500/10 text-brand-500 dark:text-brand-400' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                  )}>{r.category}</span>
-                </td>
-                <Td mono>{r.asset_tag}</Td><Td>{r.manufacturer}</Td><Td dim>{r.model}</Td><Td mono>{r.serial_number}</Td>
-                <td className="px-3 py-2.5"><StatusBadge v={r.status} /></td>
-                <td className="px-3 py-2.5"><span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-red-500/10 text-red-500 dark:text-red-400">{r.condition || '—'}</span></td>
-                <Td dim>{r.assigned_to || 'Inventory'}</Td>
-                <td className="px-3 py-2.5 text-xs text-zinc-500 max-w-[200px] truncate" title={r.notes}>{r.notes || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
     </div>
   )
 }
@@ -588,41 +593,43 @@ function DepartmentTab({ toast }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex justify-content-end">
         <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
       </div>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Department</Th>
-            {cats.map(c => (
-              <React.Fragment key={c}>
-                <Th>{c} Total</Th><Th>Assigned</Th><Th>Inventory</Th>
-              </React.Fragment>
-            ))}
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={10} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : grouped.length === 0 ? <tr><td colSpan={10} className="py-12 text-center text-zinc-400">No data</td></tr>
-            : grouped.map(([dept, catMap]) => (
-              <tr key={dept} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                <td className="px-3 py-2.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">{dept}</td>
-                {cats.map(c => {
-                  const d = catMap[c] || {}
-                  return (
-                    <React.Fragment key={c}>
-                      <td className="px-3 py-2.5 text-xs font-bold text-zinc-700 dark:text-zinc-300">{d.total ?? 0}</td>
-                      <td className="px-3 py-2.5 text-xs text-brand-500 dark:text-brand-400">{d.assigned ?? 0}</td>
-                      <td className="px-3 py-2.5 text-xs text-zinc-400">{d.inventory ?? 0}</td>
-                    </React.Fragment>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>Department</Th>
+              {cats.map(c => (
+                <React.Fragment key={c}>
+                  <Th>{c} Total</Th><Th>Assigned</Th><Th>Inventory</Th>
+                </React.Fragment>
+              ))}
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={10} className="text-center text-secondary py-5">Loading…</td></tr>
+              : grouped.length === 0 ? <tr><td colSpan={10} className="text-center text-secondary py-5">No data</td></tr>
+              : grouped.map(([dept, catMap]) => (
+                <tr key={dept}>
+                  <td className="small fw-semibold align-middle" style={{ padding: '0.5rem 0.75rem' }}>{dept}</td>
+                  {cats.map(c => {
+                    const d = catMap[c] || {}
+                    return (
+                      <React.Fragment key={c}>
+                        <td className="small fw-bold align-middle" style={{ padding: '0.5rem 0.75rem' }}>{d.total ?? 0}</td>
+                        <td className="small align-middle" style={{ padding: '0.5rem 0.75rem', color: '#4ade80' }}>{d.assigned ?? 0}</td>
+                        <td className="small text-secondary align-middle" style={{ padding: '0.5rem 0.75rem' }}>{d.inventory ?? 0}</td>
+                      </React.Fragment>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
@@ -648,38 +655,34 @@ function SIMCostsTab({ toast }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end gap-2">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex justify-content-end gap-2">
         <ExportBtn label="CSV" onClick={csvExport} />
         <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
       </div>
-      <div className="card overflow-hidden max-w-lg">
-        <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Total monthly spend (active SIMs)</p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-0.5">
-            PKR {total.toLocaleString()}
-          </p>
+      <div className="itms-card overflow-hidden" style={{ maxWidth: 480 }}>
+        <div className="px-4 py-3 border-bottom">
+          <p className="small text-secondary mb-1">Total monthly spend (active SIMs)</p>
+          <p className="h4 fw-bold mb-0">PKR {total.toLocaleString()}</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
               <Th>Vendor</Th><Th>Active SIMs</Th><Th>Monthly Cost (PKR)</Th>
             </tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={3} className="py-12 text-center text-zinc-400">Loading…</td></tr>
+              {loading ? <tr><td colSpan={3} className="text-center text-secondary py-5">Loading…</td></tr>
               : rows.map((r, i) => (
-                <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-3 py-2.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200">{r.vendor}</td>
-                  <td className="px-3 py-2.5 text-xs text-zinc-600 dark:text-zinc-400">{r.count}</td>
-                  <td className="px-3 py-2.5 text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                    {Number(r.total_monthly || 0).toLocaleString()}
-                  </td>
+                <tr key={i}>
+                  <td className="small fw-semibold align-middle" style={{ padding: '0.5rem 0.75rem' }}>{r.vendor}</td>
+                  <td className="small text-secondary align-middle" style={{ padding: '0.5rem 0.75rem' }}>{r.count}</td>
+                  <td className="small fw-bold align-middle" style={{ padding: '0.5rem 0.75rem' }}>{Number(r.total_monthly || 0).toLocaleString()}</td>
                 </tr>
               ))}
-              <tr className="bg-zinc-50 dark:bg-zinc-800/30 font-bold">
-                <td className="px-3 py-2.5 text-xs text-zinc-700 dark:text-zinc-300">Total</td>
-                <td className="px-3 py-2.5 text-xs text-zinc-700 dark:text-zinc-300">{rows.reduce((a, r) => a + Number(r.count), 0)}</td>
-                <td className="px-3 py-2.5 text-xs text-brand-500 dark:text-brand-400">PKR {total.toLocaleString()}</td>
+              <tr style={{ background: 'rgba(255,255,255,0.03)' }} className="fw-bold">
+                <td className="small align-middle" style={{ padding: '0.5rem 0.75rem' }}>Total</td>
+                <td className="small align-middle" style={{ padding: '0.5rem 0.75rem' }}>{rows.reduce((a, r) => a + Number(r.count), 0)}</td>
+                <td className="small fw-bold align-middle" style={{ padding: '0.5rem 0.75rem', color: '#4ade80' }}>PKR {total.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -691,9 +694,9 @@ function SIMCostsTab({ toast }) {
 
 // ── INVENTORY STOCK TAB ───────────────────────────────────
 const STOCK_STATUS_STYLE = {
-  in_stock:     'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  low_stock:    'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  out_of_stock: 'bg-red-500/10 text-red-500 dark:text-red-400',
+  in_stock:     { bg: 'rgba(34,197,94,0.1)',  color: '#4ade80' },
+  low_stock:    { bg: 'rgba(245,158,11,0.1)', color: '#fbbf24' },
+  out_of_stock: { bg: 'rgba(239,68,68,0.1)',  color: '#f87171' },
 }
 
 function InvStockTab({ toast }) {
@@ -734,9 +737,17 @@ function InvStockTab({ toast }) {
     await exportPDF('Inventory Stock Report', head, body)
   }
 
+  const pills = [
+    { label: 'Available', value: totals.available, bg: 'rgba(34,197,94,0.1)',  color: '#4ade80' },
+    { label: 'Assigned',  value: totals.assigned,  bg: 'rgba(14,165,233,0.1)', color: '#7dd3fc' },
+    { label: 'Damaged',   value: totals.damaged,   bg: 'rgba(239,68,68,0.1)',  color: '#f87171' },
+    { label: 'Low Stock', value: totals.low,        bg: 'rgba(245,158,11,0.1)', color: '#fbbf24' },
+    { label: 'Out of Stock', value: totals.out,    bg: 'rgba(239,68,68,0.1)',  color: '#f87171' },
+  ]
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={statusFilter} onChange={setStatusFilter}
             options={['in_stock', 'low_stock', 'out_of_stock']} placeholder="All stock levels" />
@@ -744,68 +755,63 @@ function InvStockTab({ toast }) {
         <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
       </div>
 
-      {/* Summary pills */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        {[
-          { label: 'Available', value: totals.available, cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
-          { label: 'Assigned',  value: totals.assigned,  cls: 'text-sky-600 dark:text-sky-400 bg-sky-500/10' },
-          { label: 'Damaged',   value: totals.damaged,   cls: 'text-red-500 bg-red-500/10' },
-          { label: 'Low Stock', value: totals.low,        cls: 'text-amber-600 dark:text-amber-400 bg-amber-500/10' },
-          { label: 'Out of Stock', value: totals.out,    cls: 'text-red-500 bg-red-500/10' },
-        ].map((p, i) => (
-          <span key={i} className={cn('px-2.5 py-1.5 rounded-lg font-semibold', p.cls)}>
-            {p.value} <span className="font-normal opacity-80">{p.label}</span>
+      <div className="d-flex flex-wrap gap-2">
+        {pills.map((p, i) => (
+          <span key={i} className="badge px-3 py-2 fw-semibold" style={{ background: p.bg, color: p.color, fontSize: '11px' }}>
+            {p.value} <span className="fw-normal opacity-75">{p.label}</span>
           </span>
         ))}
       </div>
 
-      <p className="text-xs text-zinc-500">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>Item</Th><Th>Category</Th><Th>SKU</Th>
-            <Th>Available</Th><Th>Assigned</Th><Th>Damaged</Th><Th>Reorder At</Th><Th>Status</Th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : filtered.length === 0 ? <tr><td colSpan={8} className="py-12 text-center text-zinc-400">No items found</td></tr>
-            : filtered.map((r, i) => (
-              <tr key={i} className={cn('border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors',
-                r.stock_status === 'out_of_stock' && 'bg-red-500/5',
-                r.stock_status === 'low_stock' && 'bg-amber-500/5')}>
-                <td className="px-3 py-2.5">
-                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{r.name}</div>
-                  {r.model && <div className="text-[10px] text-zinc-400">{r.model}</div>}
-                </td>
-                <Td dim>{r.category_name || '—'}</Td>
-                <Td mono>{r.sku || '—'}</Td>
-                <td className={cn('px-3 py-2.5 text-xs font-bold',
-                  r.qty_available === 0 ? 'text-red-500 dark:text-red-400' :
-                  r.qty_available <= r.reorder_level ? 'text-amber-600 dark:text-amber-400' :
-                  'text-emerald-600 dark:text-emerald-400')}>{r.qty_available ?? 0}</td>
-                <Td>{r.qty_assigned ?? 0}</Td>
-                <Td dim>{r.qty_damaged ?? 0}</Td>
-                <Td dim>{r.reorder_level ?? 0}</Td>
-                <td className="px-3 py-2.5">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
-                    STOCK_STATUS_STYLE[r.stock_status] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
-                    {r.stock_status?.replace(/_/g, ' ')}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
+      <p className="small text-secondary mb-0">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>Item</Th><Th>Category</Th><Th>SKU</Th>
+              <Th>Available</Th><Th>Assigned</Th><Th>Damaged</Th><Th>Reorder At</Th><Th>Status</Th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={8} className="text-center text-secondary py-5">Loading…</td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={8} className="text-center text-secondary py-5">No items found</td></tr>
+              : filtered.map((r, i) => {
+                const ss = STOCK_STATUS_STYLE[r.stock_status] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                const avColor = r.qty_available === 0 ? '#f87171' : r.qty_available <= r.reorder_level ? '#fbbf24' : '#4ade80'
+                return (
+                  <tr key={i} style={{
+                    background: r.stock_status === 'out_of_stock' ? 'rgba(239,68,68,0.03)' : r.stock_status === 'low_stock' ? 'rgba(245,158,11,0.03)' : ''
+                  }}>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <div className="small fw-semibold">{r.name}</div>
+                      {r.model && <div className="text-secondary" style={{ fontSize: '10px' }}>{r.model}</div>}
+                    </td>
+                    <Td dim>{r.category_name || '—'}</Td>
+                    <Td mono>{r.sku || '—'}</Td>
+                    <td className="align-middle fw-bold small" style={{ padding: '0.5rem 0.75rem', color: avColor }}>{r.qty_available ?? 0}</td>
+                    <Td>{r.qty_assigned ?? 0}</Td>
+                    <Td dim>{r.qty_damaged ?? 0}</Td>
+                    <Td dim>{r.reorder_level ?? 0}</Td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: ss.bg, color: ss.color, fontSize: '10px' }}>
+                        {r.stock_status?.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
 
 // ── INV. ASSIGNMENTS TAB ──────────────────────────────────
 const ASN_STATUS_STYLE = {
-  active:              'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  partially_returned:  'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  fully_returned:      'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500',
+  active:              { bg: 'rgba(34,197,94,0.1)',   color: '#4ade80' },
+  partially_returned:  { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24' },
+  fully_returned:      { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' },
 }
 
 function InvAssignmentsTab({ toast }) {
@@ -846,52 +852,53 @@ function InvAssignmentsTab({ toast }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 flex-wrap justify-between">
+    <div className="d-flex flex-column gap-3">
+      <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select value={statusFilter} onChange={setStatusFilter}
             options={['active', 'partially_returned', 'fully_returned']} placeholder="Active only" />
         </FilterBar>
         <ExportBtn label="PDF" onClick={pdfExport} variant="primary" />
       </div>
-      <p className="text-xs text-zinc-500">{filtered.length} assignment{filtered.length !== 1 ? 's' : ''}</p>
-      <div className="card overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-            <Th>ASN #</Th><Th>Employee</Th><Th>Department</Th><Th>Assigned By</Th>
-            <Th>Date</Th><Th>Return By</Th><Th>Status</Th>
-          </tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan={7} className="py-12 text-center text-zinc-400">Loading…</td></tr>
-            : filtered.length === 0 ? <tr><td colSpan={7} className="py-12 text-center text-zinc-400">No assignments found</td></tr>
-            : filtered.map((r, i) => (
-              <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                <Td mono>{r.asn_number}</Td>
-                <td className="px-3 py-2.5">
-                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{r.assignee_name}</div>
-                  {r.designation && <div className="text-[10px] text-zinc-400">{r.designation}</div>}
-                </td>
-                <Td dim>{r.department || '—'}</Td>
-                <Td dim>{r.assigned_by_name}</Td>
-                <td className="px-3 py-2.5 text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">{fmtDate(r.assigned_date)}</td>
-                <td className="px-3 py-2.5 text-xs whitespace-nowrap">
-                  {r.expected_return_date
-                    ? <span className={cn(new Date(r.expected_return_date) < new Date() && r.status === 'active' ? 'text-red-500 font-medium' : 'text-zinc-400')}>
-                        {fmtDate(r.expected_return_date)}
+      <p className="small text-secondary mb-0">{filtered.length} assignment{filtered.length !== 1 ? 's' : ''}</p>
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+            <thead><tr>
+              <Th>ASN #</Th><Th>Employee</Th><Th>Department</Th><Th>Assigned By</Th>
+              <Th>Date</Th><Th>Return By</Th><Th>Status</Th>
+            </tr></thead>
+            <tbody>
+              {loading ? <tr><td colSpan={7} className="text-center text-secondary py-5">Loading…</td></tr>
+              : filtered.length === 0 ? <tr><td colSpan={7} className="text-center text-secondary py-5">No assignments found</td></tr>
+              : filtered.map((r, i) => {
+                const ss = ASN_STATUS_STYLE[r.status] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                const overdueColor = new Date(r.expected_return_date) < new Date() && r.status === 'active' ? '#f87171' : ''
+                return (
+                  <tr key={i}>
+                    <Td mono>{r.asn_number}</Td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <div className="small fw-semibold">{r.assignee_name}</div>
+                      {r.designation && <div className="text-secondary" style={{ fontSize: '10px' }}>{r.designation}</div>}
+                    </td>
+                    <Td dim>{r.department || '—'}</Td>
+                    <Td dim>{r.assigned_by_name}</Td>
+                    <td className="small text-secondary align-middle text-nowrap" style={{ padding: '0.5rem 0.75rem' }}>{fmtDate(r.assigned_date)}</td>
+                    <td className="small align-middle text-nowrap" style={{ padding: '0.5rem 0.75rem', color: overdueColor || undefined }}>
+                      {r.expected_return_date ? fmtDate(r.expected_return_date) : <span className="text-secondary">—</span>}
+                    </td>
+                    <td className="align-middle" style={{ padding: '0.5rem 0.75rem' }}>
+                      <span className="badge px-1" style={{ background: ss.bg, color: ss.color, fontSize: '10px' }}>
+                        {r.status?.replace(/_/g, ' ')}
                       </span>
-                    : <span className="text-zinc-300 dark:text-zinc-600">—</span>}
-                </td>
-                <td className="px-3 py-2.5">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium',
-                    ASN_STATUS_STYLE[r.status] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
-                    {r.status?.replace(/_/g, ' ')}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div></div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
@@ -915,105 +922,103 @@ function CostAnalyticsTab({ toast }) {
     return `PKR ${n.toLocaleString()}`
   }
 
-  if (loading) return <div className="py-16 text-center text-zinc-400 text-sm">Loading…</div>
+  if (loading) return <div className="text-center text-secondary py-5 small">Loading…</div>
   if (!data)   return null
 
   const totalMaint = data.maintenanceByType.reduce((s, r) => s + Number(r.total_cost || 0), 0)
 
   const TYPE_COLOR = {
-    system:  'bg-brand-500/10 text-brand-500',
-    mobile:  'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    network: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+    system:  { bg: 'rgba(0,170,47,0.1)',   color: '#4ade80' },
+    mobile:  { bg: 'rgba(34,197,94,0.1)',  color: '#34d399' },
+    network: { bg: 'rgba(14,165,233,0.1)', color: '#7dd3fc' },
   }
 
   return (
-    <div className="space-y-6">
+    <div className="d-flex flex-column gap-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="card p-4 space-y-1">
-          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Total Maintenance Spend</p>
-          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(totalMaint)}</p>
-          <p className="text-xs text-zinc-400">all time</p>
-        </div>
-        <div className="card p-4 space-y-1">
-          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">SIM Monthly Cost</p>
-          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(data.simMonthlyTotal)}</p>
-          <p className="text-xs text-zinc-400">active SIMs / month</p>
-        </div>
-        <div className="card p-4 space-y-1">
-          <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Est. Annual SIM Cost</p>
-          <p className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">{fmtPKR(data.simMonthlyTotal * 12)}</p>
-          <p className="text-xs text-zinc-400">projected</p>
-        </div>
+      <div className="row g-3">
+        {[
+          { label: 'Total Maintenance Spend', value: fmtPKR(totalMaint), sub: 'all time' },
+          { label: 'SIM Monthly Cost', value: fmtPKR(data.simMonthlyTotal), sub: 'active SIMs / month' },
+          { label: 'Est. Annual SIM Cost', value: fmtPKR(data.simMonthlyTotal * 12), sub: 'projected' },
+        ].map((c, i) => (
+          <div key={i} className="col-md-4">
+            <div className="itms-card p-3">
+              <p className="text-secondary text-uppercase fw-semibold mb-1" style={{ fontSize: '10px', letterSpacing: '0.08em' }}>{c.label}</p>
+              <p className="h4 fw-bold mb-1">{c.value}</p>
+              <p className="small text-secondary mb-0">{c.sub}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="row g-4">
         {/* Maintenance by asset type */}
-        <div className="card p-4 space-y-3">
-          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Maintenance Cost by Asset Type</p>
-          {data.maintenanceByType.length === 0
-            ? <p className="text-xs text-zinc-400 py-4 text-center">No maintenance costs recorded</p>
-            : data.maintenanceByType.map((r, i) => {
-                const pct = totalMaint > 0 ? (Number(r.total_cost) / totalMaint) * 100 : 0
-                return (
-                  <div key={i} className="space-y-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium capitalize',
-                        TYPE_COLOR[r.asset_type] || 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500')}>
-                        {r.asset_type}
-                      </span>
-                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{fmtPKR(r.total_cost)}</span>
+        <div className="col-md-6">
+          <div className="itms-card p-3 d-flex flex-column gap-3">
+            <p className="small fw-semibold mb-0">Maintenance Cost by Asset Type</p>
+            {data.maintenanceByType.length === 0
+              ? <p className="small text-secondary text-center py-3 mb-0">No maintenance costs recorded</p>
+              : data.maintenanceByType.map((r, i) => {
+                  const pct = totalMaint > 0 ? (Number(r.total_cost) / totalMaint) * 100 : 0
+                  const cs = TYPE_COLOR[r.asset_type] || { bg: 'rgba(113,113,122,0.2)', color: '#a1a1aa' }
+                  return (
+                    <div key={i}>
+                      <div className="d-flex justify-content-between align-items-center small mb-1">
+                        <span className="badge px-1 text-capitalize" style={{ background: cs.bg, color: cs.color, fontSize: '10px' }}>{r.asset_type}</span>
+                        <span className="fw-semibold">{fmtPKR(r.total_cost)}</span>
+                      </div>
+                      <div className="rounded-pill overflow-hidden" style={{ height: 6, background: 'rgba(113,113,122,0.2)' }}>
+                        <div className="h-100 rounded-pill" style={{ width: `${pct}%`, background: 'var(--brand)', transition: 'width 0.5s' }} />
+                      </div>
+                      <p className="text-secondary mb-0 mt-1" style={{ fontSize: '10px' }}>{r.events} event{r.events !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
                     </div>
-                    <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                      <div className="h-full bg-brand-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-[10px] text-zinc-400">{r.events} event{r.events !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
-                  </div>
-                )
-              })
-          }
+                  )
+                })
+            }
+          </div>
         </div>
 
         {/* SIM costs by vendor */}
-        <div className="card p-4 space-y-3">
-          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">SIM Monthly Cost by Vendor</p>
-          {data.simByVendor.length === 0
-            ? <p className="text-xs text-zinc-400 py-4 text-center">No active SIMs with monthly rates</p>
-            : data.simByVendor.map((r, i) => {
-                const pct = data.simMonthlyTotal > 0
-                  ? (Number(r.monthly_total) / data.simMonthlyTotal) * 100 : 0
-                return (
-                  <div key={i} className="space-y-1">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-zinc-700 dark:text-zinc-300 font-medium">{r.vendor || 'Unknown'}</span>
-                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">{fmtPKR(r.monthly_total)}/mo</span>
+        <div className="col-md-6">
+          <div className="itms-card p-3 d-flex flex-column gap-3">
+            <p className="small fw-semibold mb-0">SIM Monthly Cost by Vendor</p>
+            {data.simByVendor.length === 0
+              ? <p className="small text-secondary text-center py-3 mb-0">No active SIMs with monthly rates</p>
+              : data.simByVendor.map((r, i) => {
+                  const pct = data.simMonthlyTotal > 0
+                    ? (Number(r.monthly_total) / data.simMonthlyTotal) * 100 : 0
+                  return (
+                    <div key={i}>
+                      <div className="d-flex justify-content-between align-items-center small mb-1">
+                        <span className="fw-medium">{r.vendor || 'Unknown'}</span>
+                        <span className="fw-semibold">{fmtPKR(r.monthly_total)}/mo</span>
+                      </div>
+                      <div className="rounded-pill overflow-hidden" style={{ height: 6, background: 'rgba(113,113,122,0.2)' }}>
+                        <div className="h-100 rounded-pill" style={{ width: `${pct}%`, background: '#a855f7', transition: 'width 0.5s' }} />
+                      </div>
+                      <p className="text-secondary mb-0 mt-1" style={{ fontSize: '10px' }}>{r.sim_count} SIM{r.sim_count !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
                     </div>
-                    <div className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                      <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                    </div>
-                    <p className="text-[10px] text-zinc-400">{r.sim_count} SIM{r.sim_count !== '1' ? 's' : ''} · {pct.toFixed(1)}%</p>
-                  </div>
-                )
-              })
-          }
+                  )
+                })
+            }
+          </div>
         </div>
       </div>
 
       {/* Maintenance by month table */}
       {data.maintenanceByMonth.length > 0 && (
-        <div className="card p-4 space-y-3">
-          <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Monthly Maintenance Spend (Last 12 Months)</p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <Th>Month</Th><Th>Events</Th><Th>Total Spend</Th>
-              </tr></thead>
+        <div className="itms-card p-3 d-flex flex-column gap-3">
+          <p className="small fw-semibold mb-0">Monthly Maintenance Spend (Last 12 Months)</p>
+          <div className="table-responsive">
+            <table className="table table-hover mb-0" style={{ fontSize: '0.8125rem' }}>
+              <thead><tr><Th>Month</Th><Th>Events</Th><Th>Total Spend</Th></tr></thead>
               <tbody>
                 {data.maintenanceByMonth.map((r, i) => (
-                  <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20">
+                  <tr key={i}>
                     <Td mono>{r.month}</Td>
                     <Td>{r.events}</Td>
-                    <td className="px-3 py-2.5 text-xs font-semibold text-brand-600 dark:text-brand-400">{fmtPKR(r.total_cost)}</td>
+                    <td className="small fw-semibold align-middle" style={{ padding: '0.5rem 0.75rem', color: '#4ade80' }}>{fmtPKR(r.total_cost)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1034,19 +1039,21 @@ function FullExportTab({ toast }) {
     { label: 'SIM Costs',                    file: 'sim-costs.csv', url: '/api/reports/sim-costs/csv', desc: 'Active SIM breakdown with monthly rates' },
   ]
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+    <div className="row g-3" style={{ maxWidth: 640 }}>
       {exports.map((e, i) => (
-        <div key={i} className="card p-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{e.label}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{e.desc}</p>
+        <div key={i} className="col-md-6">
+          <div className="itms-card p-3 d-flex align-items-start justify-content-between gap-3">
+            <div>
+              <p className="small fw-semibold mb-1">{e.label}</p>
+              <p className="small text-secondary mb-0">{e.desc}</p>
+            </div>
+            <button
+              onClick={() => api.download(e.url, e.file).catch(err => toast(err.message, 'error'))}
+              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 flex-shrink-0"
+            >
+              <FileDown size={13} /> CSV
+            </button>
           </div>
-          <button
-            onClick={() => api.download(e.url, e.file).catch(err => toast(err.message, 'error'))}
-            className="btn-secondary py-1.5 text-xs flex-shrink-0 gap-1.5"
-          >
-            <FileDown size={13} /> CSV
-          </button>
         </div>
       ))}
     </div>
@@ -1072,21 +1079,27 @@ export default function Reports() {
   }, [])
 
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="d-flex flex-column gap-4">
       {/* Tab navigation */}
-      <div className="flex gap-1 flex-wrap border-b border-zinc-200 dark:border-zinc-800 pb-0">
+      <div className="d-flex gap-1 flex-wrap border-bottom pb-0">
         {TABS.map(t => {
           const Icon = t.icon
+          const active = tab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-t-lg transition-colors -mb-px border-b-2',
-                tab === t.id
-                  ? 'border-brand-500 text-brand-500 dark:text-brand-400 bg-brand-500/5'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
-              )}
+              className="d-flex align-items-center gap-1 px-3 py-2 rounded-top-2 border-0 border-bottom border-2 small fw-medium"
+              style={{
+                marginBottom: -1,
+                background: active ? 'rgba(0,170,47,0.05)' : 'transparent',
+                borderColor: active ? 'var(--brand)' : 'transparent',
+                color: active ? 'var(--brand)' : '#71717a',
+                transition: 'all 0.15s',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'inherit' }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#71717a' }}
             >
               <Icon size={12} /> {t.label}
             </button>

@@ -34,7 +34,7 @@ router.get('/', requireAuth, adminOnly, async (req, res) => {
   try {
     const r = await db.query(`
       SELECT u.id,u.email,u.name,u.avatar_url,u.role,u.department,u.designation,u.is_active,u.last_login,u.created_at,
-             e.id AS employee_id, (e.first_name||' '||e.last_name) AS employee_name
+             e.id AS employee_id, e.full_name AS employee_name
       FROM users u LEFT JOIN employees e ON e.portal_user_id=u.id
       ORDER BY u.created_at DESC`);
     res.json(r.rows);
@@ -45,9 +45,9 @@ router.get('/', requireAuth, adminOnly, async (req, res) => {
 router.get('/employees/available', requireAuth, adminOnly, async (req, res) => {
   try {
     const r = await db.query(
-      `SELECT id,first_name,last_name,email,designation,department
+      `SELECT id,full_name,email,designation,department
        FROM employees WHERE portal_user_id IS NULL AND is_active=true
-       ORDER BY first_name,last_name`
+       ORDER BY full_name`
     );
     res.json(r.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -129,7 +129,7 @@ router.post('/', requireAuth, adminOnly, async (req, res) => {
       `INSERT INTO users (email,name,password_hash,role,department,designation,is_active)
        VALUES ($1,$2,$3,$4,$5,$6,true)
        RETURNING id,email,name,role,department,designation,is_active,created_at`,
-      [emp.email, `${emp.first_name} ${emp.last_name}`, hash, role, emp.department, emp.designation]
+      [emp.email, emp.full_name, hash, role, emp.department, emp.designation]
     );
     const newUser = r.rows[0];
     await db.query('UPDATE employees SET portal_user_id=$1 WHERE id=$2', [newUser.id, employee_id]);

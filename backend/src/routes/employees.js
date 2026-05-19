@@ -8,16 +8,8 @@ const { requireAuth, canWrite, canDelete } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const REQUIRED = ['first_name', 'designation', 'department', 'location'];
-const REQUIRED_LABELS = {
-  first_name:  'Employee Name (First Name)',
-  designation: 'Designation',
-  department:  'Department',
-  location:    'Location',
-};
-
-const VALID_LOCATIONS    = ['Karachi','Lahore','Islamabad','Multan','Peshawar','Other'];
-const VALID_EMP_TYPES    = ['Permanent','Contractual'];
+const VALID_LOCATIONS = ['Karachi','Lahore','Islamabad','Multan','Peshawar','Other'];
+const VALID_EMP_TYPES = ['Permanent','Contractual'];
 
 async function log(userId, action, id, label, details) {
   await db.query(
@@ -53,28 +45,28 @@ router.get('/', requireAuth, async (req, res) => {
     let sql = 'SELECT * FROM employees WHERE 1=1';
     const params = []; let i = 1;
     if (q) {
-      sql += ` AND (first_name ILIKE $${i} OR last_name ILIKE $${i} OR email ILIKE $${i} OR designation ILIKE $${i} OR department ILIKE $${i} OR business_unit ILIKE $${i} OR mobile_number ILIKE $${i})`;
+      sql += ` AND (full_name ILIKE $${i} OR email ILIKE $${i} OR designation ILIKE $${i} OR department ILIKE $${i} OR business_unit ILIKE $${i} OR mobile_number ILIKE $${i})`;
       params.push(`%${q}%`); i++;
     }
     if (location)        { sql += ` AND location=$${i++}`;        params.push(location); }
     if (employment_type) { sql += ` AND employment_type=$${i++}`; params.push(employment_type); }
     if (status === 'active')   sql += ' AND is_active=true';
     if (status === 'inactive') sql += ' AND is_active=false';
-    sql += ' ORDER BY first_name, last_name';
+    sql += ' ORDER BY full_name';
     res.json((await db.query(sql, params)).rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────────
-// Mandatory: employee_name, designation, department, location
+// Mandatory: employee_name*, designation*, department*, location*
 // Optional:  business_unit, employment_type, joining_date, email, mobile_number
 router.get('/sample/csv', requireAuth, (req, res) => {
   const rows = [
-    { employee_name: 'Ali Raza',      business_unit: 'Technology', department: 'Engineering',     designation: 'Software Engineer',          location: 'Karachi',   employment_type: 'Permanent',   joining_date: '2022-03-15', email: 'ali.raza@bykea.com',      mobile_number: '0321-1000001' },
-    { employee_name: 'Sara Khan',     business_unit: 'Corporate',  department: 'Human Resources', designation: 'HR Manager',                 location: 'Lahore',    employment_type: 'Contractual', joining_date: '2023-07-01', email: 'sara.khan@bykea.com',     mobile_number: '0300-2000002' },
-    { employee_name: 'Usman Ahmed',   business_unit: 'Technology', department: 'IT',              designation: 'Network Engineer',           location: 'Islamabad', employment_type: 'Permanent',   joining_date: '2021-11-10', email: 'usman.ahmed@bykea.com',   mobile_number: '0333-3000003' },
-    { employee_name: 'Fatima Sheikh', business_unit: 'Corporate',  department: 'Finance',         designation: 'Finance Analyst',            location: 'Karachi',   employment_type: 'Permanent',   joining_date: '2020-05-20', email: 'fatima.sheikh@bykea.com', mobile_number: '0312-4000004' },
-    { employee_name: 'Hassan',        business_unit: '',            department: 'Operations',      designation: 'Rider Operations Executive', location: 'Multan',    employment_type: 'Contractual', joining_date: '',           email: '',                        mobile_number: '0345-5000005' },
+    { employee_name: 'Ali Raza',            business_unit: 'Technology', department: 'Engineering',     designation: 'Software Engineer',          location: 'Karachi',   employment_type: 'Permanent',   joining_date: '2022-03-15', email: 'ali.raza@bykea.com',      mobile_number: '0321-1000001' },
+    { employee_name: 'Sara Khan',            business_unit: 'Corporate',  department: 'Human Resources', designation: 'HR Manager',                 location: 'Lahore',    employment_type: 'Contractual', joining_date: '2023-07-01', email: 'sara.khan@bykea.com',     mobile_number: '0300-2000002' },
+    { employee_name: 'Usman Ahmed',          business_unit: 'Technology', department: 'IT',              designation: 'Network Engineer',           location: 'Islamabad', employment_type: 'Permanent',   joining_date: '2021-11-10', email: 'usman.ahmed@bykea.com',   mobile_number: '0333-3000003' },
+    { employee_name: 'Fatima Sheikh',        business_unit: 'Corporate',  department: 'Finance',         designation: 'Finance Analyst',            location: 'Karachi',   employment_type: 'Permanent',   joining_date: '2020-05-20', email: 'fatima.sheikh@bykea.com', mobile_number: '0312-4000004' },
+    { employee_name: 'Muhammad Hassan Raza', business_unit: '',           department: 'Operations',      designation: 'Rider Operations Executive', location: 'Multan',    employment_type: 'Contractual', joining_date: '',           email: '',                        mobile_number: '0345-5000005' },
   ];
   const columns = ['employee_name','business_unit','department','designation','location','employment_type','joining_date','email','mobile_number'];
   const csv = stringify(rows, { header: true, columns });
@@ -87,13 +79,13 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 router.get('/export/csv', requireAuth, async (req, res) => {
   try {
     const r = await db.query(
-      `SELECT first_name, last_name, email, designation, department, business_unit,
-              mobile_number, location, employment_type, joining_date, is_active
-       FROM employees ORDER BY first_name, last_name`
+      `SELECT full_name, business_unit, department, designation, location,
+              employment_type, joining_date, email, mobile_number, is_active
+       FROM employees ORDER BY full_name`
     );
     const columns = ['employee_name','business_unit','department','designation','location','employment_type','joining_date','email','mobile_number','status'];
     const rows = r.rows.map(e => ({
-      employee_name:   `${e.first_name || ''} ${e.last_name || ''}`.trim(),
+      employee_name:   e.full_name        || '',
       business_unit:   e.business_unit   || '',
       department:      e.department      || '',
       designation:     e.designation     || '',
@@ -118,20 +110,13 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
     let inserted = 0, updated = 0, skipped = 0, errors = [];
 
     for (let rowIdx = 0; rowIdx < records.length; rowIdx++) {
-      const raw = records[rowIdx];
-      const d = normalizeRow(raw);
-      // Support both employee_name (CSV format) and first_name/last_name (legacy)
-      if (d.employee_name && !d.first_name) {
-        const parts = d.employee_name.trim().split(/\s+/);
-        d.first_name = parts[0] || '';
-        d.last_name  = parts.slice(1).join(' ') || '';
-      }
-      const firstName = d.first_name || null;
-      const lastName  = d.last_name  || null;
-      const rowLabel  = firstName ? `${firstName} ${lastName || ''}`.trim() : `Row ${rowIdx + 2}`;
+      const d = normalizeRow(records[rowIdx]);
+      // Accept employee_name (canonical) or full_name (alias)
+      const fullName = (d.employee_name || d.full_name || '').trim().slice(0, 50);
+      const rowLabel = fullName || `Row ${rowIdx + 2}`;
 
       const missing = [];
-      if (!firstName)      missing.push('employee_name');
+      if (!fullName)       missing.push('employee_name');
       if (!d.designation)  missing.push('designation');
       if (!d.department)   missing.push('department');
       if (!d.location)     missing.push('location');
@@ -148,11 +133,8 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
           const r = await db.query('SELECT id FROM employees WHERE email=$1', [d.email]);
           existing = r.rows[0];
         }
-        if (!existing && firstName && lastName) {
-          const r = await db.query(
-            'SELECT id FROM employees WHERE LOWER(first_name)=LOWER($1) AND LOWER(last_name)=LOWER($2)',
-            [firstName, lastName]
-          );
+        if (!existing) {
+          const r = await db.query('SELECT id FROM employees WHERE LOWER(full_name)=LOWER($1)', [fullName]);
           existing = r.rows[0];
         }
 
@@ -164,28 +146,27 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
         if (existing) {
           await db.query(`
             UPDATE employees SET
-              first_name      = COALESCE($1,  first_name),
-              last_name       = COALESCE($2,  last_name),
-              email           = COALESCE($3,  email),
-              designation     = COALESCE($4,  designation),
-              department      = COALESCE($5,  department),
-              business_unit   = COALESCE($6,  business_unit),
-              mobile_number   = COALESCE($7,  mobile_number),
-              location        = COALESCE($8,  location),
-              employment_type = COALESCE($9,  employment_type),
-              joining_date    = COALESCE($10, joining_date)
-            WHERE id=$11`,
-            [firstName, lastName||null, d.email||null, d.designation, d.department,
+              full_name       = $1,
+              email           = COALESCE($2,  email),
+              designation     = $3,
+              department      = $4,
+              business_unit   = COALESCE($5,  business_unit),
+              mobile_number   = COALESCE($6,  mobile_number),
+              location        = $7,
+              employment_type = COALESCE($8,  employment_type),
+              joining_date    = COALESCE($9,  joining_date)
+            WHERE id=$10`,
+            [fullName, d.email||null, d.designation, d.department,
              bunit, d.mobile_number||null, loc, empType, joining, existing.id]
           );
           updated++;
         } else {
           await db.query(
             `INSERT INTO employees
-               (first_name, last_name, email, designation, department, business_unit,
+               (full_name, email, designation, department, business_unit,
                 mobile_number, location, employment_type, joining_date)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [firstName, lastName||'', d.email||null, d.designation, d.department,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [fullName, d.email||null, d.designation, d.department,
              bunit, d.mobile_number||null, loc, empType, joining]
           );
           inserted++;
@@ -211,17 +192,21 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, canWrite, async (req, res) => {
   try {
     const d = req.body;
-    for (const f of REQUIRED) if (!d[f]) return res.status(400).json({ error: `${REQUIRED_LABELS[f] || f} is required` });
+    const fullName = (d.full_name || '').trim().slice(0, 50);
+    if (!fullName)       return res.status(400).json({ error: 'Employee Name is required' });
+    if (!d.designation)  return res.status(400).json({ error: 'Designation is required' });
+    if (!d.department)   return res.status(400).json({ error: 'Department is required' });
+    if (!d.location)     return res.status(400).json({ error: 'Location is required' });
     const r = await db.query(
       `INSERT INTO employees
-         (first_name, last_name, email, designation, department, business_unit,
+         (full_name, email, designation, department, business_unit,
           mobile_number, location, employment_type, joining_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [d.first_name, d.last_name||'', d.email||null, d.designation, d.department,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [fullName, d.email||null, d.designation, d.department,
        d.business_unit||null, d.mobile_number||null, d.location||null,
        d.employment_type||null, d.joining_date||null]
     );
-    await log(req.user.id, 'created', r.rows[0].id, `${d.first_name} ${d.last_name||''}`, `Dept: ${d.department}`);
+    await log(req.user.id, 'created', r.rows[0].id, fullName, `Dept: ${d.department}`);
     res.status(201).json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -230,20 +215,24 @@ router.post('/', requireAuth, canWrite, async (req, res) => {
 router.put('/:id', requireAuth, canWrite, async (req, res) => {
   try {
     const d = req.body;
-    for (const f of REQUIRED) if (!d[f]) return res.status(400).json({ error: `${REQUIRED_LABELS[f] || f} is required` });
+    const fullName = (d.full_name || '').trim().slice(0, 50);
+    if (!fullName)       return res.status(400).json({ error: 'Employee Name is required' });
+    if (!d.designation)  return res.status(400).json({ error: 'Designation is required' });
+    if (!d.department)   return res.status(400).json({ error: 'Department is required' });
+    if (!d.location)     return res.status(400).json({ error: 'Location is required' });
     const r = await db.query(
       `UPDATE employees SET
-         first_name=$1, last_name=$2, email=$3, designation=$4, department=$5,
-         business_unit=$6, mobile_number=$7, location=$8, employment_type=$9,
-         joining_date=$10, is_active=$11
-       WHERE id=$12 RETURNING *`,
-      [d.first_name, d.last_name||'', d.email||null, d.designation, d.department,
+         full_name=$1, email=$2, designation=$3, department=$4,
+         business_unit=$5, mobile_number=$6, location=$7, employment_type=$8,
+         joining_date=$9, is_active=$10
+       WHERE id=$11 RETURNING *`,
+      [fullName, d.email||null, d.designation, d.department,
        d.business_unit||null, d.mobile_number||null, d.location||null,
        d.employment_type||null, d.joining_date||null,
        d.is_active !== false, req.params.id]
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await log(req.user.id, 'updated', r.rows[0].id, `${d.first_name} ${d.last_name||''}`, 'Updated employee');
+    await log(req.user.id, 'updated', r.rows[0].id, fullName, 'Updated employee');
     res.json(r.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -253,7 +242,7 @@ router.delete('/all', requireAuth, canDelete, async (req, res) => {
   try {
     const all = await db.query('SELECT * FROM employees');
     await Promise.all(all.rows.map(row =>
-      saveToRecycleBin('employees', 'employees', row, `${row.first_name} ${row.last_name||''}`, req.user.id)
+      saveToRecycleBin('employees', 'employees', row, row.full_name, req.user.id)
     ));
     const r = await db.query('DELETE FROM employees RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Employees', `Deleted all ${r.rowCount} employees`);
@@ -266,8 +255,8 @@ router.delete('/:id', requireAuth, canDelete, async (req, res) => {
   try {
     const r = await db.query('DELETE FROM employees WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await saveToRecycleBin('employees', 'employees', r.rows[0], `${r.rows[0].first_name} ${r.rows[0].last_name||''}`, req.user.id);
-    await log(req.user.id, 'deleted', r.rows[0].id, `${r.rows[0].first_name} ${r.rows[0].last_name||''}`, 'Deleted employee');
+    await saveToRecycleBin('employees', 'employees', r.rows[0], r.rows[0].full_name, req.user.id);
+    await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].full_name, 'Deleted employee');
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

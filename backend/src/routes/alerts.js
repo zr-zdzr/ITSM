@@ -33,7 +33,7 @@ router.get('/', requireAuth, async (req, res) => {
       `),
       db.query(`
         SELECT a.id, a.asn_number, a.expected_return_date, a.status,
-               (e.first_name || ' ' || e.last_name) AS assignee_name
+               e.full_name AS assignee_name
         FROM inv_assignments a JOIN employees e ON e.id = a.assignee_id
         WHERE a.status = 'active' AND a.expected_return_date < CURRENT_DATE
         ORDER BY a.expected_return_date ASC

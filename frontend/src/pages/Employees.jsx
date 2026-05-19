@@ -115,14 +115,18 @@ function EmployeeForm({ vals, setVals }) {
     <div className="row g-3" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
       <div className="col-12 form-sec-head"><span>Personal Information</span><hr /></div>
 
-      <div className="col-md-6">
-        <Fld label="First Name" required>
-          <input className={inp} value={vals.first_name || ''} onChange={e => set('first_name', e.target.value)} placeholder="Ali" />
-        </Fld>
-      </div>
-      <div className="col-md-6">
-        <Fld label="Last Name">
-          <input className={inp} value={vals.last_name || ''} onChange={e => set('last_name', e.target.value)} placeholder="Raza" />
+      <div className="col-12">
+        <Fld label="Employee Name (Full Name)" required>
+          <input
+            className={inp}
+            value={vals.full_name || ''}
+            onChange={e => set('full_name', e.target.value.slice(0, 50))}
+            placeholder="e.g. Muhammad Ali Khan"
+            maxLength={50}
+          />
+          <div className="form-text text-secondary" style={{ fontSize: '10px' }}>
+            Max 50 characters · spaces allowed · do not abbreviate
+          </div>
         </Fld>
       </div>
       <div className="col-md-6">
@@ -189,7 +193,6 @@ function EmployeeForm({ vals, setVals }) {
 
 // ── View Renderer ─────────────────────────────────────────────
 function EmployeeView({ row }) {
-  const fullName = `${row.first_name || ''} ${row.last_name || ''}`.trim()
   const DT = ({ label, value }) => (
     <div className="col-6">
       <dt className="text-secondary fw-semibold text-uppercase mb-1" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>{label}</dt>
@@ -198,7 +201,7 @@ function EmployeeView({ row }) {
   )
   return (
     <dl className="row g-3">
-      <DT label="Full Name"     value={fullName} />
+      <DT label="Employee Name" value={row.full_name} />
       <DT label="Email"         value={row.email} />
       <DT label="Mobile"        value={row.mobile_number} />
       <DT label="Designation"   value={row.designation} />
@@ -242,18 +245,15 @@ const config = {
 
   columns: [
     {
-      key: 'first_name',
+      key: 'full_name',
       label: 'Employee Name',
       sortable: true,
-      render: (_, row) => {
-        const name = `${row.first_name || ''} ${row.last_name || ''}`.trim()
-        return (
-          <div>
-            <span className="fw-medium">{name || <span className="text-secondary">—</span>}</span>
-            {row.email && <div className="text-secondary" style={{ fontSize: '10px' }}>{row.email}</div>}
-          </div>
-        )
-      },
+      render: (v, row) => (
+        <div>
+          <span className="fw-medium">{v || <span className="text-secondary">—</span>}</span>
+          {row.email && <div className="text-secondary" style={{ fontSize: '10px' }}>{row.email}</div>}
+        </div>
+      ),
     },
     { key: 'business_unit', label: 'Business Unit', sortable: true, render: v => v || <span className="text-secondary">—</span> },
     { key: 'department',    label: 'Department',    sortable: true },
@@ -281,7 +281,8 @@ const config = {
   fields: [],
 
   validate: vals => {
-    if (!vals.first_name) return 'First Name is required'
+    if (!vals.full_name?.trim()) return 'Employee Name is required'
+    if (vals.full_name.trim().length > 50) return 'Employee Name must be 50 characters or less'
     if (!vals.designation) return 'Designation is required'
     if (!vals.department) return 'Department is required'
     if (!vals.location) return 'Location is required'
