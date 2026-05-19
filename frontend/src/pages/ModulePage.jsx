@@ -13,7 +13,7 @@ import QRModal from '../components/ui/QRModal'
 const EMPTY = {}
 
 export default function ModulePage({ config }) {
-  const { apiPath, module: mod, columns, fields, title, exportFile, searchPlaceholder, viewExtra, qrData } = config
+  const { apiPath, module: mod, columns, fields = [], title, exportFile, searchPlaceholder, viewExtra, qrData } = config
   const { canPerm } = useAuth()
   const { toast } = useToast()
 
@@ -37,7 +37,6 @@ export default function ModulePage({ config }) {
   const [formVals, setFormVals]             = useState(EMPTY)
   const [selectedIds, setSelectedIds]       = useState(new Set())
 
-  // Import modal state
   const [importModal, setImportModal]   = useState(false)
   const [importFile, setImportFile]     = useState(null)
   const [importing, setImporting]       = useState(false)
@@ -72,8 +71,13 @@ export default function ModulePage({ config }) {
   function closeModals() { setAddModal(false); setEditRow(null); setViewRow(null); setFormVals(EMPTY) }
 
   async function save() {
-    const missing = fields.filter(f => f.required).find(f => !formVals[f.name])
-    if (missing) return toast(`${missing.label} is required`, 'error')
+    if (config.validate) {
+      const err = config.validate(formVals)
+      if (err) return toast(err, 'error')
+    } else {
+      const missing = fields.filter(f => f.required).find(f => !formVals[f.name])
+      if (missing) return toast(`${missing.label} is required`, 'error')
+    }
     setSaving(true)
     try {
       if (editRow) {
@@ -171,28 +175,28 @@ export default function ModulePage({ config }) {
   const allColumns = [
     ...columns,
     {
-      key: '_actions', label: '', sortable: false, className: 'w-24',
+      key: '_actions', label: 'Actions', sortable: false, className: 'text-end',
       render: (_, row) => (
-        <div className="flex items-center gap-1 justify-end">
+        <div className="d-flex align-items-center gap-1 justify-content-end">
           <button onClick={() => setViewRow(row)} title="View"
-            className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
+            className="btn btn-link text-secondary p-1" style={{ lineHeight: 1 }}>
             <Eye size={13} />
           </button>
           {qrData && (
             <button onClick={() => setQrRow(row)} title="QR Code"
-              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
+              className="btn btn-link text-secondary p-1" style={{ lineHeight: 1 }}>
               <QrCode size={13} />
             </button>
           )}
           {canUpdate && (
             <button onClick={() => openEdit(row)} title="Edit"
-              className="p-1.5 rounded hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 transition-colors">
+              className="btn btn-link text-secondary p-1" style={{ lineHeight: 1 }}>
               <Pencil size={13} />
             </button>
           )}
           {canDelete && (
             <button onClick={() => setConfirmDelete(row)} title="Delete"
-              className="p-1.5 rounded hover:bg-red-500/15 text-zinc-500 hover:text-red-400 transition-colors">
+              className="btn btn-link text-danger p-1" style={{ lineHeight: 1, opacity: 0.6 }}>
               <Trash2 size={13} />
             </button>
           )}
@@ -202,42 +206,46 @@ export default function ModulePage({ config }) {
   ]
 
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="d-flex flex-column gap-3">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1 text-xs text-zinc-500">
+      <div className="d-flex flex-wrap align-items-center gap-2">
+        <span className="flex-grow-1 small text-secondary">
           {loading ? 'Loading…' : `${rows.length} records`}
           {selectedIds.size > 0 && (
-            <span className="ml-2 text-brand-400 font-medium">· {selectedIds.size} selected</span>
+            <span className="ms-2 fw-medium" style={{ color: 'var(--brand)' }}>· {selectedIds.size} selected</span>
           )}
         </span>
 
         {canUpdate && selectedIds.size > 0 && (
-          <button className="btn-secondary" onClick={() => { setBulkVals({}); setBulkEditModal(true) }}>
-            <Layers size={14} /> Bulk Edit {selectedIds.size}
+          <button className="toolbar-btn toolbar-btn-secondary"
+            onClick={() => { setBulkVals({}); setBulkEditModal(true) }}>
+            <Layers size={12} /> Bulk Edit {selectedIds.size}
           </button>
         )}
         {canDelete && selectedIds.size > 0 && (
-          <button className="btn-danger" onClick={() => setConfirmDeleteSelected(true)}>
-            <Trash2 size={14} /> Delete {selectedIds.size} Selected
+          <button className="toolbar-btn toolbar-btn-danger"
+            onClick={() => setConfirmDeleteSelected(true)}>
+            <Trash2 size={12} /> Delete {selectedIds.size} Selected
           </button>
         )}
         {canDelete && selectedIds.size === 0 && (
-          <button className="btn-danger" onClick={() => setConfirmDeleteAll(true)}>
-            <Trash2 size={14} /> Delete All
+          <button className="toolbar-btn toolbar-btn-danger"
+            onClick={() => setConfirmDeleteAll(true)}>
+            <Trash2 size={12} /> Delete All
           </button>
         )}
         {canCreate && (
-          <button className="btn-secondary" onClick={() => { setImportResult(null); setImportFile(null); setImportModal(true) }}>
-            <FileUp size={14} /> Import CSV
+          <button className="toolbar-btn toolbar-btn-secondary"
+            onClick={() => { setImportResult(null); setImportFile(null); setImportModal(true) }}>
+            <FileUp size={12} /> Import CSV
           </button>
         )}
-        <button className="btn-secondary" onClick={handleExport}>
-          <FileDown size={14} /> Export CSV
+        <button className="toolbar-btn toolbar-btn-secondary" onClick={handleExport}>
+          <FileDown size={12} /> Export CSV
         </button>
         {canCreate && (
-          <button className="btn-primary" onClick={openAdd}>
-            <Plus size={14} /> Add {title}
+          <button className="btn btn-primary btn-sm d-flex align-items-center gap-1" style={{ fontSize: '0.72rem', padding: '4px 10px' }} onClick={openAdd}>
+            <Plus size={12} /> Add {title}
           </button>
         )}
       </div>
@@ -250,54 +258,64 @@ export default function ModulePage({ config }) {
         onSelectionChange={setSelectedIds}
       />
 
-      {/* ── Add / Edit Modal ── */}
+      {/* Add / Edit Modal */}
       <Modal open={addModal || !!editRow} onClose={closeModals}
         title={editRow ? `Edit ${title}` : `Add ${title}`} size="lg">
-        <DynamicForm fields={fields} values={formVals}
-          onChange={(k, v) => setFormVals(p => ({ ...p, [k]: v }))} />
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
-          <button className="btn-secondary" onClick={closeModals}>Cancel</button>
-          <button className="btn-primary" onClick={save} disabled={saving}>
+        {config.renderForm
+          ? config.renderForm(formVals, setFormVals)
+          : <DynamicForm fields={fields} values={formVals}
+              onChange={(k, v) => setFormVals(p => ({ ...p, [k]: v }))} />
+        }
+        <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button className="btn btn-secondary btn-sm" onClick={closeModals}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : editRow ? 'Save Changes' : `Add ${title}`}
           </button>
         </div>
       </Modal>
 
-      {/* ── View Modal ── */}
+      {/* View Modal */}
       <Modal open={!!viewRow} onClose={() => setViewRow(null)} title={`${title} Details`} size="md">
         {viewRow && (
           <>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {fields.map(f => (
-                <div key={f.name} className={f.fullWidth ? 'col-span-2' : ''}>
-                  <dt className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider">{f.label}</dt>
-                  <dd className="text-sm text-zinc-200 mt-1">
-                    {f.name === 'status'
-                      ? <Badge status={viewRow[f.name]}>{viewRow[f.name] || '—'}</Badge>
-                      : viewRow[f.name] || <span className="text-zinc-600">—</span>}
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            {config.renderView
+              ? config.renderView(viewRow)
+              : (
+                <dl className="row g-3">
+                  {fields.map(f => (
+                    <div key={f.name} className={f.fullWidth ? 'col-12' : 'col-6'}>
+                      <dt className="text-secondary fw-semibold text-uppercase mb-1" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>{f.label}</dt>
+                      <dd className="small mb-0">
+                        {f.name === 'status'
+                          ? <Badge status={viewRow[f.name]}>{viewRow[f.name] || '—'}</Badge>
+                          : viewRow[f.name] || <span className="text-secondary">—</span>}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )
+            }
             {viewExtra && (
-              <div className="mt-5 pt-4 border-t border-zinc-800">
+              <div className="mt-4 pt-3 border-top">
                 {viewExtra(viewRow)}
               </div>
             )}
           </>
         )}
-        <div className="flex justify-between gap-2 mt-5 pt-4 border-t border-zinc-800">
+        <div className="d-flex justify-content-between gap-2 mt-4 pt-3 border-top">
           <div>
             {qrData && (
-              <button className="btn-secondary" onClick={() => { setQrRow(viewRow); setViewRow(null) }}>
+              <button className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                onClick={() => { setQrRow(viewRow); setViewRow(null) }}>
                 <QrCode size={13} /> QR Code
               </button>
             )}
           </div>
-          <div className="flex gap-2">
-            <button className="btn-secondary" onClick={() => setViewRow(null)}>Close</button>
+          <div className="d-flex gap-2">
+            <button className="btn btn-secondary btn-sm" onClick={() => setViewRow(null)}>Close</button>
             {canUpdate && (
-              <button className="btn-primary" onClick={() => { openEdit(viewRow); setViewRow(null) }}>
+              <button className="btn btn-primary btn-sm d-flex align-items-center gap-1"
+                onClick={() => { openEdit(viewRow); setViewRow(null) }}>
                 <Pencil size={13} /> Edit
               </button>
             )}
@@ -305,51 +323,71 @@ export default function ModulePage({ config }) {
         </div>
       </Modal>
 
-      {/* ── Import CSV Modal ── */}
+      {/* Import CSV Modal */}
       <Modal open={importModal} onClose={closeImport} title={`Import ${title} CSV`} size="md">
-        <div className="space-y-5">
-          <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700">
-            <p className="text-xs font-semibold text-zinc-300 mb-1">Step 1 — Download the sample template</p>
-            <p className="text-xs text-zinc-500 mb-3">Fill in the sample file with your data, then upload it below.</p>
-            <button className="btn-secondary text-xs" onClick={downloadSample}>
+        <div className="d-flex flex-column gap-3">
+          <div className="p-3 rounded-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--bs-border-color)' }}>
+            <p className="small fw-semibold mb-1">Step 1 — Download the sample template</p>
+            <p className="small text-secondary mb-2">
+              Fill in the sample file with your data. Columns marked <span className="text-danger">*</span> are mandatory — rows with missing mandatory fields will be skipped.
+            </p>
+            <button className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1" onClick={downloadSample}>
               <FileDown size={13} /> Download Sample CSV
             </button>
           </div>
 
-          <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700">
-            <p className="text-xs font-semibold text-zinc-300 mb-1">Step 2 — Upload your filled CSV</p>
-            <p className="text-xs text-zinc-500 mb-3">Only .csv files are accepted.</p>
+          <div className="p-3 rounded-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--bs-border-color)' }}>
+            <p className="small fw-semibold mb-1">Step 2 — Upload your filled CSV</p>
+            <p className="small text-secondary mb-2">Only .csv files are accepted.</p>
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed border-zinc-700 hover:border-brand-500/50 rounded-lg cursor-pointer transition-colors group"
+              className="d-flex flex-column align-items-center justify-content-center gap-2 p-4 rounded-3 cursor-pointer"
+              style={{ border: '2px dashed var(--bs-border-color)', cursor: 'pointer', transition: 'border-color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brand)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--bs-border-color)'}
             >
-              <FileUp size={22} className="text-zinc-600 group-hover:text-brand-400 transition-colors" />
+              <FileUp size={22} className="text-secondary" />
               {importFile
-                ? <p className="text-sm font-medium text-brand-400">{importFile.name}</p>
-                : <p className="text-sm text-zinc-500">Click to browse or drop a CSV file</p>
+                ? <p className="small fw-medium mb-0" style={{ color: 'var(--brand)' }}>{importFile.name}</p>
+                : <p className="small text-secondary mb-0">Click to browse or drop a CSV file</p>
               }
               <input
-                ref={fileInputRef} type="file" accept=".csv" className="hidden"
+                ref={fileInputRef} type="file" accept=".csv" className="d-none"
                 onChange={e => { setImportFile(e.target.files?.[0] || null); setImportResult(null); e.target.value = '' }}
               />
             </div>
           </div>
 
           {importResult && (
-            <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700 space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
-                <CheckCircle2 size={15} />
-                Inserted: {importResult.inserted ?? 0} &nbsp;·&nbsp; Skipped: {importResult.skipped ?? 0}
-              </div>
+            <div className="p-3 rounded-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--bs-border-color)' }}>
+              {(importResult.inserted ?? 0) > 0 && (
+                <div className="d-flex align-items-center gap-2 text-success small fw-medium mb-2">
+                  <CheckCircle2 size={15} />
+                  {importResult.inserted} record{importResult.inserted !== 1 ? 's' : ''} imported successfully
+                  {(importResult.updated ?? 0) > 0 && <>, {importResult.updated} updated</>}
+                </div>
+              )}
+              {(importResult.skipped ?? 0) > 0 && (
+                <div className="d-flex align-items-center gap-2 small fw-medium mb-2" style={{ color: '#f59e0b' }}>
+                  <AlertTriangle size={15} />
+                  {importResult.skipped} row{importResult.skipped !== 1 ? 's' : ''} skipped — mandatory fields missing
+                </div>
+              )}
+              {(importResult.inserted ?? 0) === 0 && (importResult.skipped ?? 0) === 0 && (
+                <div className="d-flex align-items-center gap-2 text-secondary small fw-medium mb-2">
+                  <AlertTriangle size={15} /> No records processed
+                </div>
+              )}
               {importResult.errors?.length > 0 && (
-                <div className="space-y-1">
-                  {importResult.errors.slice(0, 5).map((e, i) => (
-                    <p key={i} className="flex items-start gap-1.5 text-xs text-red-400">
-                      <XCircle size={12} className="flex-shrink-0 mt-0.5" /> {e}
+                <div className="d-flex flex-column gap-1 mt-2">
+                  <p className="small text-secondary mb-1 fw-semibold">Validation errors:</p>
+                  {importResult.errors.slice(0, 8).map((e, i) => (
+                    <p key={i} className="d-flex align-items-start gap-1 small text-danger mb-0">
+                      <XCircle size={12} className="flex-shrink-0 mt-1" /> {e}
                     </p>
                   ))}
-                  {importResult.errors.length > 5 && (
-                    <p className="text-xs text-zinc-500">…and {importResult.errors.length - 5} more errors</p>
+                  {importResult.errors.length > 8 && (
+                    <p className="small text-secondary mb-0">…and {importResult.errors.length - 8} more errors</p>
                   )}
                 </div>
               )}
@@ -357,59 +395,59 @@ export default function ModulePage({ config }) {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
-          <button className="btn-secondary" onClick={closeImport}>Close</button>
+        <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button className="btn btn-secondary btn-sm" onClick={closeImport}>Close</button>
           {!importResult && (
-            <button className="btn-primary" onClick={submitImport} disabled={importing || !importFile}>
+            <button className="btn btn-primary btn-sm" onClick={submitImport} disabled={importing || !importFile}>
               {importing ? 'Uploading…' : 'Upload & Import'}
             </button>
           )}
           {importResult && (
-            <button className="btn-primary" onClick={closeImport}>Done</button>
+            <button className="btn btn-primary btn-sm" onClick={closeImport}>Done</button>
           )}
         </div>
       </Modal>
 
-      {/* ── Delete single confirm ── */}
+      {/* Delete single confirm */}
       <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Confirm Delete" size="sm">
-        <div className="flex gap-3">
-          <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-zinc-300">This record will be permanently deleted. Are you sure?</p>
+        <div className="d-flex gap-3">
+          <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
+          <p className="small mb-0">This record will be permanently deleted. Are you sure?</p>
         </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
-          <button className="btn-base bg-red-500 hover:bg-red-600 text-white" onClick={() => deleteRow(confirmDelete)}>Delete</button>
+        <div className="d-flex justify-content-end gap-2 mt-4">
+          <button className="btn btn-secondary btn-sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+          <button className="btn btn-danger btn-sm" onClick={() => deleteRow(confirmDelete)}>Delete</button>
         </div>
       </Modal>
 
-      {/* ── Delete Selected confirm ── */}
+      {/* Delete Selected confirm */}
       <Modal open={confirmDeleteSelected} onClose={() => setConfirmDeleteSelected(false)} title="Delete Selected" size="sm">
-        <div className="flex gap-3">
-          <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-zinc-300">
-            <strong className="text-red-400">{selectedIds.size} record{selectedIds.size > 1 ? 's' : ''}</strong> will be permanently deleted. This cannot be undone.
+        <div className="d-flex gap-3">
+          <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
+          <p className="small mb-0">
+            <strong className="text-danger">{selectedIds.size} record{selectedIds.size > 1 ? 's' : ''}</strong> will be permanently deleted. This cannot be undone.
           </p>
         </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-secondary" onClick={() => setConfirmDeleteSelected(false)}>Cancel</button>
-          <button className="btn-base bg-red-500 hover:bg-red-600 text-white" onClick={deleteSelected}>
+        <div className="d-flex justify-content-end gap-2 mt-4">
+          <button className="btn btn-secondary btn-sm" onClick={() => setConfirmDeleteSelected(false)}>Cancel</button>
+          <button className="btn btn-danger btn-sm" onClick={deleteSelected}>
             Delete {selectedIds.size} Record{selectedIds.size > 1 ? 's' : ''}
           </button>
         </div>
       </Modal>
 
-      {/* ── Bulk Edit Modal ── */}
+      {/* Bulk Edit Modal */}
       <Modal open={bulkEditModal} onClose={() => setBulkEditModal(false)} title={`Bulk Edit ${selectedIds.size} Records`} size="sm">
-        <p className="text-xs text-zinc-500 mb-4">Only filled fields will be updated. Leave blank to keep existing values.</p>
-        <div className="space-y-3">
+        <p className="small text-secondary mb-3">Only filled fields will be updated. Leave blank to keep existing values.</p>
+        <div className="d-flex flex-column gap-3">
           {fields.filter(f => ['status','condition','department','location','notes'].includes(f.name)).map(f => (
             <div key={f.name}>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1">{f.label}</label>
+              <label className="form-label small fw-semibold mb-1">{f.label}</label>
               {f.type === 'select' ? (
                 <select
                   value={bulkVals[f.name] || ''}
                   onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-brand-500"
+                  className="form-select form-select-sm"
                 >
                   <option value="">— keep existing —</option>
                   {f.options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -420,7 +458,8 @@ export default function ModulePage({ config }) {
                   placeholder="Leave blank to keep existing"
                   value={bulkVals[f.name] || ''}
                   onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-brand-500 resize-none"
+                  className="form-control form-control-sm"
+                  style={{ resize: 'none' }}
                 />
               ) : (
                 <input
@@ -428,37 +467,37 @@ export default function ModulePage({ config }) {
                   placeholder="Leave blank to keep existing"
                   value={bulkVals[f.name] || ''}
                   onChange={e => setBulkVals(p => ({ ...p, [f.name]: e.target.value }))}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-brand-500"
+                  className="form-control form-control-sm"
                 />
               )}
             </div>
           ))}
         </div>
-        <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-zinc-800">
-          <button className="btn-secondary" onClick={() => setBulkEditModal(false)}>Cancel</button>
-          <button className="btn-primary" onClick={saveBulk} disabled={bulkSaving}>
+        <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button className="btn btn-secondary btn-sm" onClick={() => setBulkEditModal(false)}>Cancel</button>
+          <button className="btn btn-primary btn-sm" onClick={saveBulk} disabled={bulkSaving}>
             {bulkSaving ? 'Saving…' : `Update ${selectedIds.size} Records`}
           </button>
         </div>
       </Modal>
 
-      {/* ── QR Modal ── */}
+      {/* QR Modal */}
       {qrData && qrRow && (
         <QRModal open={!!qrRow} onClose={() => setQrRow(null)} {...qrData(qrRow)} />
       )}
 
-      {/* ── Delete All confirm ── */}
+      {/* Delete All confirm */}
       <Modal open={confirmDeleteAll} onClose={() => setConfirmDeleteAll(false)} title="Delete All Records" size="sm">
-        <div className="flex gap-3">
-          <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-zinc-300">
-            All <strong className="text-red-400">{rows.length} records</strong> will be permanently deleted.
-            This <strong className="text-zinc-200">cannot be undone</strong>.
+        <div className="d-flex gap-3">
+          <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
+          <p className="small mb-0">
+            All <strong className="text-danger">{rows.length} records</strong> will be permanently deleted.
+            This <strong>cannot be undone</strong>.
           </p>
         </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button className="btn-secondary" onClick={() => setConfirmDeleteAll(false)}>Cancel</button>
-          <button className="btn-base bg-red-500 hover:bg-red-600 text-white" onClick={deleteAll}>
+        <div className="d-flex justify-content-end gap-2 mt-4">
+          <button className="btn btn-secondary btn-sm" onClick={() => setConfirmDeleteAll(false)}>Cancel</button>
+          <button className="btn btn-danger btn-sm" onClick={deleteAll}>
             Delete All {rows.length} Records
           </button>
         </div>
