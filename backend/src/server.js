@@ -334,6 +334,28 @@ async function runMigrations() {
   await db.query(`ALTER TABLE mobiles ADD CONSTRAINT mobiles_assigned_type_check CHECK (assigned_type IN ('user','employee','wfh','inventory','damaged'))`);
   await db.query(`ALTER TABLE mobiles DROP CONSTRAINT IF EXISTS mobiles_purpose_check`);
   await db.query(`ALTER TABLE mobiles ADD CONSTRAINT mobiles_purpose_check CHECK (purpose IS NULL OR purpose IN ('official','service','personal','qa_testing'))`);
+  // ── GWS: add first_name, last_name, phone_number ─────────
+  await db.query(`ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS first_name   VARCHAR(100)`);
+  await db.query(`ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS last_name    VARCHAR(100)`);
+  await db.query(`ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS phone_number VARCHAR(30)`);
+  await db.query(`
+    UPDATE gws_accounts
+    SET first_name = CASE
+          WHEN POSITION(' ' IN display_name) > 0 THEN SUBSTRING(display_name, 1, POSITION(' ' IN display_name) - 1)
+          ELSE display_name
+        END,
+        last_name = CASE
+          WHEN POSITION(' ' IN display_name) > 0 THEN SUBSTRING(display_name, POSITION(' ' IN display_name) + 1)
+          ELSE display_name
+        END
+    WHERE (first_name IS NULL OR first_name = '') AND display_name IS NOT NULL AND display_name <> ''
+  `);
+  await db.query(`UPDATE gws_accounts SET first_name = SPLIT_PART(email,'@',1) WHERE first_name IS NULL OR TRIM(first_name)=''`);
+  await db.query(`UPDATE gws_accounts SET last_name  = first_name              WHERE last_name  IS NULL OR TRIM(last_name) =''`);
+  await db.query(`ALTER TABLE gws_accounts ALTER COLUMN first_name SET NOT NULL`);
+  await db.query(`ALTER TABLE gws_accounts ALTER COLUMN last_name  SET NOT NULL`);
+  await db.query(`ALTER TABLE gws_accounts DROP CONSTRAINT IF EXISTS gws_accounts_license_check`);
+  await db.query(`ALTER TABLE gws_accounts ADD CONSTRAINT gws_accounts_license_check CHECK (license IS NULL OR license IN ('Starter','Standard','Vault','Not Assigned'))`);
 }
 
 const PORT = process.env.PORT || 3000;

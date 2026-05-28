@@ -1,153 +1,351 @@
-import React, { useEffect, useState } from 'react'
-import { Wrench, Plus, Trash2, X } from 'lucide-react'
-import { api } from '../../lib/api'
-import { useToast } from '../../contexts/ToastContext'
-import { cn } from '../../lib/utils'
+import React, { useEffect, useState } from "react";
+import { Wrench, Plus, Trash2, X } from "lucide-react";
+import { api } from "../../lib/api";
+import { useToast } from "../../contexts/ToastContext";
+import { cn } from "../../lib/utils";
 
-const EVENT_TYPES = ['repair_sent', 'repaired', 'upgraded', 'serviced', 'replaced_part', 'inspected', 'other']
+const EVENT_TYPES = [
+  "repair_sent",
+  "repaired",
+  "upgraded",
+  "serviced",
+  "replaced_part",
+  "inspected",
+  "other",
+];
 
 const EVENT_COLOR = {
-  repair_sent:   'bg-red-500/10 text-red-500 dark:text-red-400',
-  repaired:      'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  upgraded:      'bg-brand-500/10 text-brand-500 dark:text-brand-400',
-  serviced:      'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  replaced_part: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  inspected:     'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500',
-  other:         'bg-zinc-200 dark:bg-zinc-700/50 text-zinc-500',
-}
+  repair_sent: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+  repaired: { bg: "rgba(34,197,94,0.1)", color: "#4ade80" },
+  upgraded: { bg: "rgba(0,170,47,0.1)", color: "#4ade80" },
+  serviced: { bg: "rgba(14,165,233,0.1)", color: "#7dd3fc" },
+  replaced_part: { bg: "rgba(245,158,11,0.1)", color: "#fbbf24" },
+  inspected: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
+  other: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
+};
 
 function fmtDate(d) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
-const EMPTY_FORM = { event_type: 'serviced', event_date: '', performed_by: '', cost_pkr: '', notes: '' }
-const InputCls = 'w-full px-2.5 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30'
+const EMPTY_FORM = {
+  event_type: "serviced",
+  event_date: "",
+  performed_by: "",
+  cost_pkr: "",
+  notes: "",
+};
 
 export default function MaintenanceLog({ row, assetType }) {
-  const { toast } = useToast()
-  const [logs, setLogs] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const { toast } = useToast();
+  const [logs, setLogs] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
-    if (!row?.id) return
-    setLoading(true)
-    api.get(`/api/maintenance/${assetType}/${row.id}`)
+    if (!row?.id) return;
+    setLoading(true);
+    api
+      .get(`/api/maintenance/${assetType}/${row.id}`)
       .then(setLogs)
       .catch(() => setLogs([]))
-      .finally(() => setLoading(false))
-  }, [row?.id, assetType])
+      .finally(() => setLoading(false));
+  }, [row?.id, assetType]);
 
   async function save() {
-    setSaving(true)
+    setSaving(true);
     try {
-      const entry = await api.post(`/api/maintenance/${assetType}/${row.id}`, form)
-      setLogs(l => [entry, ...(l || [])])
-      setAdding(false)
-      setForm(EMPTY_FORM)
-      toast('Maintenance event logged', 'success')
-    } catch (e) { toast(e.message, 'error') }
-    finally { setSaving(false) }
+      const entry = await api.post(
+        `/api/maintenance/${assetType}/${row.id}`,
+        form,
+      );
+      setLogs((l) => [entry, ...(l || [])]);
+      setAdding(false);
+      setForm(EMPTY_FORM);
+      toast("Maintenance event logged", "success");
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function remove(id) {
     try {
-      await api.del(`/api/maintenance/${id}`)
-      setLogs(l => l.filter(x => x.id !== id))
-    } catch (e) { toast(e.message, 'error') }
+      await api.del(`/api/maintenance/${id}`);
+      setLogs((l) => l.filter((x) => x.id !== id));
+    } catch (e) {
+      toast(e.message, "error");
+    }
   }
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Wrench size={13} className="text-amber-500" />
-        <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Maintenance Log</span>
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <Wrench size={13} style={{ color: "#f59e0b" }} />
+        <span
+          className="fw-semibold text-secondary text-uppercase"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.1em" }}
+        >
+          Maintenance Log
+        </span>
         {!loading && logs !== null && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500">{logs.length} events</span>
+          <span
+            className="badge bg-secondary bg-opacity-25 text-secondary"
+            style={{ fontSize: "10px" }}
+          >
+            {logs.length} events
+          </span>
         )}
         <button
-          onClick={() => setAdding(a => !a)}
-          className="ml-auto flex items-center gap-1 text-[11px] text-brand-500 hover:text-brand-400 font-medium transition-colors">
+          onClick={() => setAdding((a) => !a)}
+          className="btn btn-link ms-auto p-0 d-flex align-items-center gap-1"
+          style={{
+            fontSize: "11px",
+            color: "var(--brand)",
+            textDecoration: "none",
+          }}
+        >
           {adding ? <X size={11} /> : <Plus size={11} />}
-          {adding ? 'Cancel' : 'Log Event'}
+          {adding ? "Cancel" : "Log Event"}
         </button>
       </div>
 
       {adding && (
-        <div className="mb-3 p-3 rounded-lg border border-zinc-700/60 bg-zinc-800/40 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-wide">Event Type *</label>
-              <select value={form.event_type} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))} className={InputCls}>
-                {EVENT_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+        <div
+          className="mb-3 p-3 rounded-3"
+          style={{
+            border: "1px solid var(--bs-border-color)",
+            background: "rgba(255,255,255,0.03)",
+          }}
+        >
+          <div className="row g-2">
+            <div className="col-6">
+              <label
+                className="form-label"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#71717a",
+                }}
+              >
+                Event Type *
+              </label>
+              <select
+                value={form.event_type}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, event_type: e.target.value }))
+                }
+                className="form-select form-select-sm"
+              >
+                {EVENT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace(/_/g, " ")}
+                  </option>
+                ))}
               </select>
             </div>
-            <div>
-              <label className="block text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-wide">Date</label>
-              <input type="date" value={form.event_date} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} className={InputCls} />
+            <div className="col-6">
+              <label
+                className="form-label"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#71717a",
+                }}
+              >
+                Date
+              </label>
+              <input
+                type="date"
+                value={form.event_date}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, event_date: e.target.value }))
+                }
+                className="form-control form-control-sm"
+              />
             </div>
-            <div>
-              <label className="block text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-wide">Performed By</label>
-              <input value={form.performed_by} onChange={e => setForm(f => ({ ...f, performed_by: e.target.value }))}
-                placeholder="Vendor or technician" className={InputCls} />
+            <div className="col-6">
+              <label
+                className="form-label"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#71717a",
+                }}
+              >
+                Performed By
+              </label>
+              <input
+                value={form.performed_by}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, performed_by: e.target.value }))
+                }
+                placeholder="Vendor or technician"
+                className="form-control form-control-sm"
+              />
             </div>
-            <div>
-              <label className="block text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-wide">Cost (PKR)</label>
-              <input type="number" min="0" value={form.cost_pkr} onChange={e => setForm(f => ({ ...f, cost_pkr: e.target.value }))}
-                placeholder="0" className={InputCls} />
+            <div className="col-6">
+              <label
+                className="form-label"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#71717a",
+                }}
+              >
+                Cost (PKR)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={form.cost_pkr}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, cost_pkr: e.target.value }))
+                }
+                placeholder="0"
+                className="form-control form-control-sm"
+              />
             </div>
-            <div className="col-span-2">
-              <label className="block text-[10px] text-zinc-500 mb-1 font-medium uppercase tracking-wide">Notes</label>
-              <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="What was done?" className={InputCls} />
+            <div className="col-12">
+              <label
+                className="form-label"
+                style={{
+                  fontSize: "10px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "#71717a",
+                }}
+              >
+                Notes
+              </label>
+              <input
+                value={form.notes}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, notes: e.target.value }))
+                }
+                placeholder="What was done?"
+                className="form-control form-control-sm"
+              />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button onClick={() => { setAdding(false); setForm(EMPTY_FORM) }}
-              className="px-3 py-1.5 text-xs rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 transition-colors">
+          <div className="d-flex justify-content-end gap-2 mt-2">
+            <button
+              onClick={() => {
+                setAdding(false);
+                setForm(EMPTY_FORM);
+              }}
+              className="btn btn-secondary btn-sm"
+            >
               Cancel
             </button>
-            <button onClick={save} disabled={saving}
-              className="px-3 py-1.5 text-xs rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-medium transition-colors">
-              {saving ? 'Saving…' : 'Save'}
+            <button
+              onClick={save}
+              disabled={saving}
+              className="btn btn-primary btn-sm"
+            >
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p className="text-xs text-zinc-500 py-2">Loading…</p>
+        <p className="small text-secondary py-2 mb-0">Loading…</p>
       ) : !logs?.length ? (
-        <p className="text-xs text-zinc-500 py-2">No maintenance events recorded</p>
+        <p className="small text-secondary py-2 mb-0">
+          No maintenance events recorded
+        </p>
       ) : (
-        <div className="space-y-2">
-          {logs.map(entry => (
-            <div key={entry.id} className="rounded-lg border border-zinc-700/50 bg-zinc-800/20 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', EVENT_COLOR[entry.event_type] || EVENT_COLOR.other)}>
-                    {entry.event_type.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-xs text-zinc-400">{fmtDate(entry.event_date)}</span>
-                  {entry.performed_by && <span className="text-xs text-zinc-500">· {entry.performed_by}</span>}
-                  {entry.cost_pkr && <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">PKR {Number(entry.cost_pkr).toLocaleString()}</span>}
+        <div className="d-flex flex-column gap-2">
+          {logs.map((entry) => {
+            const s = EVENT_COLOR[entry.event_type] || EVENT_COLOR.other;
+            return (
+              <div
+                key={entry.id}
+                className="rounded-3 px-3 py-2"
+                style={{
+                  border: "1px solid var(--bs-border-color)",
+                  background: "rgba(255,255,255,0.02)",
+                }}
+              >
+                <div className="d-flex align-items-center justify-content-between gap-2">
+                  <div className="d-flex align-items-center flex-wrap gap-2">
+                    <span
+                      className="badge px-1"
+                      style={{
+                        fontSize: "10px",
+                        background: s.bg,
+                        color: s.color,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {entry.event_type.replace(/_/g, " ")}
+                    </span>
+                    <span
+                      className="text-secondary"
+                      style={{ fontSize: "0.75rem" }}
+                    >
+                      {fmtDate(entry.event_date)}
+                    </span>
+                    {entry.performed_by && (
+                      <span
+                        className="text-secondary"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        · {entry.performed_by}
+                      </span>
+                    )}
+                    {entry.cost_pkr && (
+                      <span
+                        className="fw-medium"
+                        style={{ fontSize: "0.75rem", color: "#4ade80" }}
+                      >
+                        PKR {Number(entry.cost_pkr).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => remove(entry.id)}
+                    className="btn btn-link text-secondary p-1 flex-shrink-0"
+                    style={{ lineHeight: 1 }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = "#f87171")
+                    }
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "")}
+                  >
+                    <Trash2 size={11} />
+                  </button>
                 </div>
-                <button onClick={() => remove(entry.id)}
-                  className="p-1 rounded text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0">
-                  <Trash2 size={11} />
-                </button>
+                {entry.notes && (
+                  <p className="small text-secondary mt-1 mb-0">
+                    {entry.notes}
+                  </p>
+                )}
+                {entry.logged_by_name && (
+                  <p
+                    className="text-secondary mt-1 mb-0"
+                    style={{ fontSize: "10px" }}
+                  >
+                    Logged by {entry.logged_by_name}
+                  </p>
+                )}
               </div>
-              {entry.notes && <p className="text-xs text-zinc-500 mt-1">{entry.notes}</p>}
-              {entry.logged_by_name && (
-                <p className="text-[10px] text-zinc-600 mt-1">Logged by {entry.logged_by_name}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,37 +1,58 @@
-import React, { useState } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import Sidebar from './Sidebar'
-import Header from './Header'
-import { cn } from '../../lib/utils'
+import React, { useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import Header from "./Header";
+import ChatBot from "../ui/ChatBot";
 
 export default function Layout() {
-  const [collapsed, setCollapsed] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Close mobile sidebar on route change
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   function handleRefresh() {
-    // Re-navigate to same path to trigger page reload
-    navigate(location.pathname + location.search, { replace: true })
-    window.dispatchEvent(new CustomEvent('module-action', { detail: { action: 'refresh' } }))
+    navigate(location.pathname + location.search, { replace: true });
+    window.dispatchEvent(
+      new CustomEvent("module-action", { detail: { action: "refresh" } }),
+    );
   }
 
   return (
-    <div className="min-h-screen flex">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
-      <div className={cn(
-        'flex-1 flex flex-col min-h-screen overflow-hidden transition-all duration-300',
-        collapsed ? 'ml-[60px]' : 'ml-[240px]'
-      )}>
-        <Header onRefresh={handleRefresh} />
-        <main className="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
-          <div className="p-5">
-            <Outlet />
-          </div>
+    <div>
+      {/* Mobile backdrop */}
+      <div
+        id="sidebar-backdrop"
+        className={mobileOpen ? "show" : ""}
+        onClick={() => setMobileOpen(false)}
+      />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((c) => !c)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+      <div id="main-content" className={collapsed ? "sidebar-collapsed" : ""}>
+        <Header
+          onRefresh={handleRefresh}
+          onMobileMenuToggle={() => setMobileOpen((o) => !o)}
+        />
+        <main className="flex-grow-1 p-3 p-md-4">
+          <Outlet />
         </main>
-        <footer className="flex-shrink-0 px-5 py-3 text-center text-[11px] text-zinc-500 dark:text-zinc-600 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-          © {new Date().getFullYear()} Bykea IT Department · Created by Zeeshan Rafiq · v2.0
+        <footer
+          className="text-center py-2 text-muted border-top"
+          style={{ fontSize: "11px" }}
+        >
+          © {new Date().getFullYear()} Bykea IT Department · Created by Zeeshan
+          Rafiq · v2.0
         </footer>
       </div>
+      <ChatBot />
     </div>
-  )
+  );
 }

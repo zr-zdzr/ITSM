@@ -1,19 +1,20 @@
-import React, { useEffect, useState } from 'react'
-import ModulePage from './ModulePage'
-import { api } from '../lib/api'
+import React, { useEffect, useState } from "react";
+import ModulePage from "./ModulePage";
+import { api } from "../lib/api";
 
-const inp = "form-control form-control-sm"
-const sel = "form-select form-select-sm"
+const inp = "form-control form-control-sm";
+const sel = "form-select form-select-sm";
 
 function Fld({ label, required, children, half = true }) {
   return (
-    <div className={half ? '' : 'col-12'}>
+    <div className={half ? "" : "col-12"}>
       <label className="form-label small fw-medium mb-1">
-        {label}{required && <span className="text-danger ms-1">*</span>}
+        {label}
+        {required && <span className="text-danger ms-1">*</span>}
       </label>
       {children}
     </div>
-  )
+  );
 }
 
 function SecHead({ title }) {
@@ -22,37 +23,51 @@ function SecHead({ title }) {
       <span>{title}</span>
       <hr />
     </div>
-  )
+  );
 }
 
 function SIMCardForm({ vals, setVals }) {
-  const [employees, setEmployees] = useState([])
+  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    api.get('/api/employees')
-      .then(d => setEmployees(Array.isArray(d) ? d : []))
-      .catch(() => {})
-  }, [])
+    api
+      .get("/api/employees")
+      .then((d) => setEmployees(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
 
-  const set = (k, v) => setVals(p => ({ ...p, [k]: v }))
-  const needEmployee = ['employee', 'wfh', 'user'].includes(vals.assigned_type)
+  const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
+  const needEmployee = ["employee", "wfh", "user"].includes(vals.assigned_type);
 
   return (
-    <div className="row g-3" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
+    <div
+      className="row g-3"
+      style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: 4 }}
+    >
       <SecHead title="SIM Information" />
 
       <div className="col-md-6">
         <Fld label="Number" required>
-          <input className={inp} value={vals.phone_number || ''} onChange={e => set('phone_number', e.target.value)} placeholder="0321-1000001" />
+          <input
+            className={inp}
+            value={vals.phone_number || ""}
+            onChange={(e) => set("phone_number", e.target.value)}
+            placeholder="0321-1000001"
+          />
         </Fld>
       </div>
 
       <div className="col-md-6">
         <Fld label="Named On">
-          <select className={sel} value={vals.assigned_type || 'service'} onChange={e => {
-            set('assigned_type', e.target.value)
-            if (!['employee', 'wfh', 'user'].includes(e.target.value)) set('assigned_user_id', null)
-          }}>
+          <select
+            className={sel}
+            value={vals.assigned_type || "service"}
+            onChange={(e) => {
+              set("assigned_type", e.target.value);
+              if (!["employee", "wfh", "user"].includes(e.target.value))
+                set("assigned_user_id", null);
+            }}
+          >
             <option value="employee">Employee</option>
             <option value="wfh">WFH (Work From Home)</option>
             <option value="service">Service</option>
@@ -63,11 +78,16 @@ function SIMCardForm({ vals, setVals }) {
       {needEmployee && (
         <div className="col-12">
           <Fld label="Employee Name" half={false}>
-            <select className={sel} value={vals.assigned_user_id || ''} onChange={e => set('assigned_user_id', e.target.value || null)}>
+            <select
+              className={sel}
+              value={vals.assigned_user_id || ""}
+              onChange={(e) => set("assigned_user_id", e.target.value || null)}
+            >
               <option value="">— Select Employee —</option>
-              {employees.map(e => (
+              {employees.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.full_name}{e.designation ? ` — ${e.designation}` : ''}
+                  {e.full_name}
+                  {e.designation ? ` — ${e.designation}` : ""}
                 </option>
               ))}
             </select>
@@ -77,13 +97,23 @@ function SIMCardForm({ vals, setVals }) {
 
       <div className="col-md-6">
         <Fld label="SIM Holder">
-          <input className={inp} value={vals.sim_holder || ''} onChange={e => set('sim_holder', e.target.value)} placeholder="Name on SIM card" />
+          <input
+            className={inp}
+            value={vals.sim_holder || ""}
+            onChange={(e) => set("sim_holder", e.target.value)}
+            placeholder="Name on SIM card"
+          />
         </Fld>
       </div>
 
       <div className="col-md-6">
         <Fld label="Department">
-          <input className={inp} value={vals.department || ''} onChange={e => set('department', e.target.value)} placeholder="Engineering, HR…" />
+          <input
+            className={inp}
+            value={vals.department || ""}
+            onChange={(e) => set("department", e.target.value)}
+            placeholder="Engineering, HR…"
+          />
         </Fld>
       </div>
 
@@ -91,7 +121,11 @@ function SIMCardForm({ vals, setVals }) {
 
       <div className="col-md-6">
         <Fld label="Type">
-          <select className={sel} value={vals.sim_type || ''} onChange={e => set('sim_type', e.target.value)}>
+          <select
+            className={sel}
+            value={vals.sim_type || ""}
+            onChange={(e) => set("sim_type", e.target.value)}
+          >
             <option value="">— Select Type —</option>
             <option value="Calling">Calling</option>
             <option value="Data">Data</option>
@@ -101,7 +135,11 @@ function SIMCardForm({ vals, setVals }) {
 
       <div className="col-md-6">
         <Fld label="Status">
-          <select className={sel} value={vals.status || 'active'} onChange={e => set('status', e.target.value)}>
+          <select
+            className={sel}
+            value={vals.status || "active"}
+            onChange={(e) => set("status", e.target.value)}
+          >
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
           </select>
@@ -110,7 +148,11 @@ function SIMCardForm({ vals, setVals }) {
 
       <div className="col-md-6">
         <Fld label="Purpose of Use">
-          <select className={sel} value={vals.purpose || ''} onChange={e => set('purpose', e.target.value)}>
+          <select
+            className={sel}
+            value={vals.purpose || ""}
+            onChange={(e) => set("purpose", e.target.value)}
+          >
             <option value="">— Select Purpose —</option>
             <option value="official">Official</option>
             <option value="service">Service</option>
@@ -120,86 +162,145 @@ function SIMCardForm({ vals, setVals }) {
 
       <div className="col-md-6">
         <Fld label="Location">
-          <input className={inp} value={vals.location || ''} onChange={e => set('location', e.target.value)} placeholder="Karachi HQ, Lahore Office…" />
+          <input
+            className={inp}
+            value={vals.location || ""}
+            onChange={(e) => set("location", e.target.value)}
+            placeholder="Karachi HQ, Lahore Office…"
+          />
         </Fld>
       </div>
 
       <div className="col-12">
         <Fld label="Note" half={false}>
-          <textarea className={inp} rows={2} value={vals.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes…" style={{ resize: 'none' }} />
+          <textarea
+            className={inp}
+            rows={2}
+            value={vals.notes || ""}
+            onChange={(e) => set("notes", e.target.value)}
+            placeholder="Any additional notes…"
+            style={{ resize: "none" }}
+          />
         </Fld>
       </div>
     </div>
-  )
+  );
 }
 
 function SIMCardView(row) {
-  const namedOnLabel = { employee: 'Employee', user: 'Employee', wfh: 'WFH', service: 'Service' }
-  const purposeLabel = { official: 'Official', service: 'Service' }
-  const statusLabel  = { active: 'Active', suspended: 'Suspended' }
+  const namedOnLabel = {
+    employee: "Employee",
+    user: "Employee",
+    wfh: "WFH",
+    service: "Service",
+  };
+  const purposeLabel = { official: "Official", service: "Service" };
+  const statusLabel = { active: "Active", suspended: "Suspended" };
 
-  const Field = ({ label, value }) => value ? (
-    <div className="col-6">
-      <dt className="text-secondary fw-semibold text-uppercase mb-1" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>{label}</dt>
-      <dd className="small mb-0">{value}</dd>
-    </div>
-  ) : null
+  const Field = ({ label, value }) =>
+    value ? (
+      <div className="col-6">
+        <dt
+          className="text-secondary fw-semibold text-uppercase mb-1"
+          style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+        >
+          {label}
+        </dt>
+        <dd className="small mb-0">{value}</dd>
+      </div>
+    ) : null;
 
   return (
     <dl className="row g-3">
-      <Field label="Number"     value={row.phone_number} />
-      <Field label="Named On"   value={namedOnLabel[row.assigned_type] || row.assigned_type} />
-      {row.assigned_user_name && <Field label="Employee" value={row.assigned_user_name} />}
+      <Field label="Number" value={row.phone_number} />
+      <Field
+        label="Named On"
+        value={namedOnLabel[row.assigned_type] || row.assigned_type}
+      />
+      {row.assigned_user_name && (
+        <Field label="Employee" value={row.assigned_user_name} />
+      )}
       <Field label="SIM Holder" value={row.sim_holder} />
       <Field label="Department" value={row.department} />
-      <Field label="Type"       value={row.sim_type} />
-      <Field label="Status"     value={statusLabel[row.status] || row.status} />
-      <Field label="Purpose"    value={purposeLabel[row.purpose] || row.purpose} />
-      <Field label="Location"   value={row.location} />
+      <Field label="Type" value={row.sim_type} />
+      <Field label="Status" value={statusLabel[row.status] || row.status} />
+      <Field label="Purpose" value={purposeLabel[row.purpose] || row.purpose} />
+      <Field label="Location" value={row.location} />
       {row.notes && (
         <div className="col-12">
-          <dt className="text-secondary fw-semibold text-uppercase mb-1" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>Notes</dt>
+          <dt
+            className="text-secondary fw-semibold text-uppercase mb-1"
+            style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+          >
+            Notes
+          </dt>
           <dd className="small mb-0">{row.notes}</dd>
         </div>
       )}
     </dl>
-  )
+  );
 }
 
 function NamedOnBadge({ row }) {
   const map = {
-    employee: { label: row.assigned_user_name || 'Employee', cls: 'badge-assign-employee' },
-    user:     { label: row.assigned_user_name || 'Employee', cls: 'badge-assign-employee' },
-    wfh:      { label: row.assigned_user_name || 'WFH',      cls: 'badge-assign-wfh' },
-    service:  { label: 'Service',                             cls: 'badge-assign-service' },
-  }
-  const { label, cls } = map[row.assigned_type] || { label: row.assigned_type, cls: 'badge-assign-default' }
-  return <span className={`badge rounded-pill px-2 py-1 ${cls}`} style={{ fontSize: '11px' }}>{label}</span>
+    employee: {
+      label: row.assigned_user_name || "Employee",
+      cls: "badge-assign-employee",
+    },
+    user: {
+      label: row.assigned_user_name || "Employee",
+      cls: "badge-assign-employee",
+    },
+    wfh: { label: row.assigned_user_name || "WFH", cls: "badge-assign-wfh" },
+    service: { label: "Service", cls: "badge-assign-service" },
+  };
+  const { label, cls } = map[row.assigned_type] || {
+    label: row.assigned_type,
+    cls: "badge-assign-default",
+  };
+  return (
+    <span
+      className={`badge rounded-pill px-2 py-1 ${cls}`}
+      style={{ fontSize: "11px" }}
+    >
+      {label}
+    </span>
+  );
 }
 
 const config = {
-  title: 'SIM Card',
-  module: 'sims',
-  apiPath: '/api/sims',
-  exportFile: 'sims-export.csv',
-  searchPlaceholder: 'Search by number, holder, type, location, department…',
+  title: "SIM Card",
+  module: "sims",
+  apiPath: "/api/sims",
+  exportFile: "sims-export.csv",
+  searchPlaceholder: "Search by number, holder, type, location, department…",
 
   columns: [
-    { key: 'phone_number',  label: 'Number',          sortable: true },
-    { key: 'assigned_type', label: 'Named On',        render: (_, row) => <NamedOnBadge row={row} /> },
-    { key: 'sim_holder',    label: 'SIM Holder',      render: v => v || '—' },
-    { key: 'sim_type',      label: 'Type',            render: v => v || '—' },
-    { key: 'location',      label: 'Location',        render: v => v || '—' },
-    { key: 'purpose',       label: 'Purpose of Use',  render: v => v ? (v === 'official' ? 'Official' : 'Service') : '—' },
+    { key: "phone_number", label: "Number", sortable: true },
+    {
+      key: "assigned_type",
+      label: "Named On",
+      render: (_, row) => <NamedOnBadge row={row} />,
+    },
+    { key: "sim_holder", label: "SIM Holder", render: (v) => v || "—" },
+    { key: "sim_type", label: "Type", render: (v) => v || "—" },
+    { key: "location", label: "Location", render: (v) => v || "—" },
+    {
+      key: "purpose",
+      label: "Purpose of Use",
+      render: (v) => (v ? (v === "official" ? "Official" : "Service") : "—"),
+    },
   ],
 
-  validate: vals => {
-    if (!vals.phone_number) return 'Number is required'
-    return null
+  validate: (vals) => {
+    if (!vals.phone_number) return "Number is required";
+    return null;
   },
 
   renderForm: (vals, setVals) => <SIMCardForm vals={vals} setVals={setVals} />,
-  renderView: row => <SIMCardView {...row} />,
-}
+  renderView: (row) => <SIMCardView {...row} />,
+};
 
-export default function SIMCards() { return <ModulePage config={config} /> }
+export default function SIMCards() {
+  return <ModulePage config={config} />;
+}

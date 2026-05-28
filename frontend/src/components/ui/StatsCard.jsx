@@ -1,34 +1,102 @@
-import React from 'react'
-import { motion } from 'framer-motion'
-import { cn } from '../../lib/utils'
+import React from "react";
+import { motion } from "framer-motion";
+import { cn } from "../../lib/utils";
 
-export default function StatsCard({ icon: Icon, label, value, sub, color = 'brand', loading }) {
-  const colors = {
-    brand:   'from-brand-500/10 to-brand-600/5 text-brand-400 ring-brand-500/20',
-    emerald: 'from-emerald-500/10 to-emerald-600/5 text-emerald-400 ring-emerald-500/20',
-    amber:   'from-amber-500/10 to-amber-600/5 text-amber-400 ring-amber-500/20',
-    rose:    'from-rose-500/10 to-rose-600/5 text-rose-400 ring-rose-500/20',
-    purple:  'from-purple-500/10 to-purple-600/5 text-purple-400 ring-purple-500/20',
-    cyan:    'from-cyan-500/10 to-cyan-600/5 text-cyan-400 ring-cyan-500/20',
-    sky:     'from-sky-500/10 to-sky-600/5 text-sky-400 ring-sky-500/20',
-  }
-  const c = colors[color] || colors.brand
+const ICON_BG = {
+  brand: "#00AA2F",
+  emerald: "#22c55e",
+  amber: "#f59e0b",
+  rose: "#f43f5e",
+  purple: "#a855f7",
+  cyan: "#06b6d4",
+  sky: "#0ea5e9",
+};
+
+const ACCENT_COLOR = {
+  brand: "#00AA2F",
+  emerald: "#22c55e",
+  amber: "#f59e0b",
+  rose: "#f43f5e",
+  purple: "#a855f7",
+  cyan: "#06b6d4",
+  sky: "#0ea5e9",
+};
+
+export default function StatsCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  color = "brand",
+  loading,
+  onClick,
+  active,
+}) {
+  const iconBg = ICON_BG[color] || ICON_BG.brand;
+  const accent = ACCENT_COLOR[color] || ACCENT_COLOR.brand;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-      className="card p-5 flex items-start gap-4"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={onClick}
+      className={cn("itms-card p-3 stats-card", active && "active-card")}
     >
-      <div className={cn('flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ring-1 flex items-center justify-center', c)}>
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-zinc-500 font-medium truncate">{label}</p>
-        {loading
-          ? <div className="h-7 w-12 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse mt-1" />
-          : <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{value ?? '—'}</p>
-        }
-        {sub && <p className="text-[11px] text-zinc-600 mt-0.5">{sub}</p>}
+      {/* Colored top accent bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background: accent,
+          borderRadius: "0.75rem 0.75rem 0 0",
+        }}
+      />
+
+      <div className="d-flex align-items-start gap-3 mt-1">
+        <div
+          className="flex-shrink-0 rounded-3 d-flex align-items-center justify-content-center"
+          style={{
+            width: 40,
+            height: 40,
+            background: iconBg,
+            boxShadow: `0 4px 12px ${iconBg}44`,
+          }}
+        >
+          <Icon size={18} color="#fff" />
+        </div>
+
+        <div className="min-w-0 flex-grow-1">
+          <p
+            className="small text-secondary fw-medium mb-0"
+            style={{ fontSize: "0.75rem" }}
+          >
+            {label}
+          </p>
+          {loading ? (
+            <div
+              style={{ height: 28, width: 56 }}
+              className="bg-secondary bg-opacity-25 rounded mt-1 placeholder-glow"
+            >
+              <span className="placeholder w-100 h-100 d-block rounded" />
+            </div>
+          ) : (
+            <p className="fw-bold mb-0 lh-1" style={{ fontSize: "1.5rem" }}>
+              {value ?? "—"}
+            </p>
+          )}
+          {sub && (
+            <p
+              className="mb-0 text-secondary"
+              style={{ fontSize: "0.68rem", marginTop: 2 }}
+            >
+              {sub}
+            </p>
+          )}
+        </div>
       </div>
     </motion.div>
-  )
+  );
 }

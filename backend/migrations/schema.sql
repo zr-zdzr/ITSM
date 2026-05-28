@@ -161,27 +161,21 @@ CREATE TABLE IF NOT EXISTS sims (
 
 -- ── GWS ACCOUNTS ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS gws_accounts (
-    id              SERIAL PRIMARY KEY,
-    display_name    VARCHAR(255) NOT NULL,
-    email           VARCHAR(255) UNIQUE NOT NULL,
-    department      VARCHAR(100),
-    designation     VARCHAR(100),
-    account_type    VARCHAR(20)  NOT NULL
-                    CHECK (account_type IN ('user','service_account')),
-    gws_role        VARCHAR(30)  CHECK (gws_role IN ('Super Admin','Admin','User')),
-    org_unit        VARCHAR(100),
-    storage_used    DECIMAL(10,2) NOT NULL DEFAULT 0,
-    storage_limit   DECIMAL(10,2) NOT NULL DEFAULT 30,
-    two_fa          BOOLEAN NOT NULL DEFAULT false,
-    linked_user_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    license         VARCHAR(20)  CHECK (license IN ('Starter','Standard','Vault')),
-    status          VARCHAR(20)  NOT NULL DEFAULT 'active'
-                    CHECK (status IN ('active','suspended','deleted')),
-    creation_date   DATE,
-    last_login      DATE,
-    notes           TEXT,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id           SERIAL PRIMARY KEY,
+    first_name   VARCHAR(100) NOT NULL,
+    last_name    VARCHAR(100) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    email        VARCHAR(255) UNIQUE NOT NULL,
+    org_unit     VARCHAR(100),
+    phone_number VARCHAR(30),
+    license      VARCHAR(20)  CHECK (license IS NULL OR license IN ('Starter','Standard','Vault','Not Assigned')),
+    status       VARCHAR(20)  NOT NULL DEFAULT 'active'
+                 CHECK (status IN ('active','suspended','deleted')),
+    account_type VARCHAR(20)  NOT NULL DEFAULT 'user'
+                 CHECK (account_type IN ('user','service_account')),
+    notes        TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ── ACTIVITY LOG ──────────────────────────────────────────

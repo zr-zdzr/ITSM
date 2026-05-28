@@ -4,148 +4,303 @@ const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
-const { requireAuth, perm } = require('../middleware/auth');
+const { requireAuth, canWrite, canDelete, perm } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const VALID_LICENSES = ['Starter', 'Standard', 'Vault', 'Not Assigned'];
 
 async function log(userId, action, id, label, details) {
   await db.query(
     'INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)',
-    [userId, action, 'gws', id, label, details]
+    [userId, action, 'gws_accounts', id, label, details]
   );
 }
 
+const COL_ALIASES = {
+  email_address:            'email',
+  email_address_required:   'email',
+  e_mail:                   'email',
+  given_name:               'first_name',
+  first_name_required:      'first_name',
+  family_name:              'last_name',
+  last_name_required:       'last_name',
+  name:                     'display_name',
+  full_name:                'display_name',
+  display_name:             'display_name',
+  org_unit_path:            'org_unit',
+  org_unit_path_required:   'org_unit',
+  organizational_unit:      'org_unit',
+  phone:                    'phone_number',
+  mobile:                   'phone_number',
+  mobile_phone:             'phone_number',
+  contact_phone:            'phone_number',
+  account_status:           'status',
+  suspended:                'status',
+};
+
 function normalizeRow(raw) {
   const out = {};
-  for (const [k, v] of Object.entries(raw))
-    out[k.trim().toLowerCase().replace(/[\s\-]+/g, '_')] = typeof v === 'string' ? v.trim() : v;
+  for (const [k, v] of Object.entries(raw)) {
+    const normalized = k.trim().toLowerCase()
+      .replace(/[\s\-\/\[\]\(\)]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+    const key = COL_ALIASES[normalized] || normalized;
+    out[key] = typeof v === 'string' ? v.trim() : v;
+  }
+  // fall back: split display_name into first/last if not provided
+  if ((!out.first_name || !out.last_name) && out.display_name) {
+    const parts = out.display_name.split(/\s+/);
+    if (!out.first_name) out.first_name = parts[0] || '';
+    if (!out.last_name)  out.last_name  = parts.slice(1).join(' ') || parts[0] || '';
+  }
   return out;
 }
 
-const VALID_LICENSES = ['Starter','Standard','Vault'];
 function pickLicense(val) {
   if (!val) return null;
   return VALID_LICENSES.find(l => l.toLowerCase() === val.toLowerCase()) || null;
 }
 
-const VALID_ACCT_TYPES = ['user','service_account'];
-function pickAcctType(val) {
-  if (!val) return 'user';
-  const v = val.toLowerCase().replace(/[\s\-]+/g, '_');
-  return VALID_ACCT_TYPES.includes(v) ? v : 'user';
-}
-
-const VALID_ROLES = ['Super Admin','Admin','User'];
-function pickRole(val) {
-  if (!val) return 'User';
-  return VALID_ROLES.find(r => r.toLowerCase() === val.toLowerCase()) || 'User';
-}
-
 function pickStatus(val) {
   if (!val) return 'active';
-  const v = val.toLowerCase();
-  return v === 'suspended' ? 'suspended' : 'active';
+  return val.toLowerCase() === 'suspended' ? 'suspended' : 'active';
 }
 
-// ── LIST ──────────────────────────────────────────────────
+function isValidEmail(val) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+}
+
+const LIST_SQL = `
+  SELECT g.*,
+         COALESCE(e.full_name, '') AS employee_name
+  FROM gws_accounts g
+  LEFT JOIN employees e
+         ON LOWER(e.email) = LOWER(g.email)
+         OR LOWER(TRIM(e.full_name)) = LOWER(TRIM(g.first_name || ' ' || g.last_name))
+  WHERE 1=1
+`;
+
+// ── LIST ─────────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { q, account_type, status } = req.query;
-    let sql = 'SELECT * FROM gws_accounts WHERE 1=1';
+    const { q, status } = req.query;
+    let sql = LIST_SQL;
     const params = []; let i = 1;
-    if (q)            { sql += ` AND (email ILIKE $${i} OR display_name ILIKE $${i} OR department ILIKE $${i} OR designation ILIKE $${i} OR org_unit ILIKE $${i})`; params.push(`%${q}%`); i++; }
-    if (account_type) { sql += ` AND account_type=$${i++}`; params.push(account_type); }
-    if (status)       { sql += ` AND status=$${i++}`;       params.push(status); }
-    sql += ' ORDER BY created_at DESC';
+    if (q) {
+      sql += ` AND (g.email ILIKE $${i} OR g.first_name ILIKE $${i} OR g.last_name ILIKE $${i} OR g.org_unit ILIKE $${i})`;
+      params.push(`%${q}%`); i++;
+    }
+    if (status) { sql += ` AND g.status=$${i++}`; params.push(status); }
+    sql += ' ORDER BY g.created_at DESC';
     res.json((await db.query(sql, params)).rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── SAMPLE CSV ────────────────────────────────────────────
+// ── SAMPLE CSV ────────────────────────────────────────────────
 router.get('/sample/csv', requireAuth, (req, res) => {
-  const csv = stringify([
-    { first_name:'Ali',   last_name:'Raza',     email:'ali.raza@bykea.com',    designation:'Software Engineer', department:'Engineering',     org_unit:'/Engineering',     account_type:'user',            license:'Standard', status:'active'    },
-    { first_name:'Sara',  last_name:'Khan',     email:'sara.khan@bykea.com',   designation:'HR Manager',        department:'Human Resources', org_unit:'/HR',              account_type:'user',            license:'Starter',  status:'active'    },
-    { first_name:'CI',    last_name:'Pipeline', email:'svc-ci@bykea.com',      designation:'',                  department:'IT',              org_unit:'/ServiceAccounts', account_type:'service_account', license:'Vault',    status:'active'    },
-    { first_name:'Usman', last_name:'Ahmed',    email:'usman.ahmed@bykea.com', designation:'Network Engineer',  department:'IT',              org_unit:'/IT',              account_type:'user',            license:'Standard', status:'suspended' },
-  ], { header: true });
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=cloud_ids_sample.csv');
-  res.send(csv);
+  const rows = [
+    { employee_name: 'Ali Raza',       first_name: 'Ali',    last_name: 'Raza',     email: 'ali.raza@bykea.com',      org_unit: '/Engineering',     phone_number: '0321-1000001', license: 'Standard',     status: 'active'    },
+    { employee_name: 'Sara Khan',      first_name: 'Sara',   last_name: 'Khan',     email: 'sara.khan@bykea.com',     org_unit: '/HR',              phone_number: '0300-2000002', license: 'Starter',      status: 'active'    },
+    { employee_name: 'Usman Ahmed',    first_name: 'Usman',  last_name: 'Ahmed',    email: 'usman.ahmed@bykea.com',   org_unit: '/IT',              phone_number: '',             license: 'Standard',     status: 'suspended' },
+    { employee_name: 'Fatima Sheikh',  first_name: 'Fatima', last_name: 'Sheikh',   email: 'fatima.sheikh@bykea.com', org_unit: '/Finance',         phone_number: '0312-4000004', license: 'Vault',        status: 'active'    },
+    { employee_name: '',               first_name: 'CI',     last_name: 'Pipeline', email: 'svc-ci@bykea.com',        org_unit: '/ServiceAccounts', phone_number: '',             license: 'Not Assigned', status: 'active'    },
+  ];
+  const columns = ['employee_name', 'first_name', 'last_name', 'email', 'org_unit', 'phone_number', 'license', 'status'];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=Cloud_IDs_sample.csv');
+  res.send(stringify(rows, { header: true, columns, quoted: true }));
 });
 
-// ── EXPORT CSV ────────────────────────────────────────────
+// ── EXPORT CSV ────────────────────────────────────────────────
 router.get('/export/csv', requireAuth, async (req, res) => {
   try {
-    const r = await db.query(
-      'SELECT email,display_name,designation,department,org_unit,account_type,gws_role,license,status,two_fa,notes FROM gws_accounts ORDER BY created_at DESC'
-    );
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=cloud_ids.csv');
-    res.send(stringify(r.rows, { header: true }));
+    const r = await db.query(`
+      SELECT g.first_name, g.last_name, g.email, g.org_unit, g.phone_number, g.license, g.status,
+             COALESCE(e.full_name, '') AS employee_name
+      FROM gws_accounts g
+      LEFT JOIN employees e
+             ON LOWER(e.email) = LOWER(g.email)
+             OR LOWER(TRIM(e.full_name)) = LOWER(TRIM(g.first_name || ' ' || g.last_name))
+      ORDER BY g.created_at DESC
+    `);
+    const columns = ['employee_name', 'first_name', 'last_name', 'email', 'org_unit', 'status', 'phone_number', 'license'];
+    const rows = r.rows.map(g => ({
+      employee_name: g.employee_name || '',
+      first_name:    g.first_name   || '',
+      last_name:     g.last_name    || '',
+      email:         g.email        || '',
+      org_unit:      g.org_unit     || '',
+      status:        g.status       || '',
+      phone_number:  g.phone_number || '',
+      license:       g.license      || '',
+    }));
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=cloud_ids_export.csv');
+    res.send(stringify(rows, { header: true, columns, quoted: true }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── IMPORT CSV ────────────────────────────────────────────
-router.post('/import/csv', requireAuth, perm('gws','create'), upload.single('file'), async (req, res) => {
+// ── IMPORT CSV ────────────────────────────────────────────────
+router.post('/import/csv', requireAuth, perm('gws', 'create'), upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
     let inserted = 0, updated = 0, skipped = 0, errors = [];
-    for (const raw of records) {
-      const d = normalizeRow(raw);
-      if (!d.email) { skipped++; errors.push('Skipped: email is required'); continue; }
-      const displayName = (d.first_name || d.last_name)
-        ? `${d.first_name||''} ${d.last_name||''}`.trim()
-        : (d.display_name || d.name || null);
+
+    for (let rowIdx = 0; rowIdx < records.length; rowIdx++) {
+      const d = normalizeRow(records[rowIdx]);
+      const rowNum = rowIdx + 2;
+      const rowLabel = d.email || `Row ${rowNum}`;
+
+      const missing = [];
+      if (!d.first_name) missing.push('first_name');
+      if (!d.last_name)  missing.push('last_name');
+      if (!d.email)      missing.push('email');
+      if (!d.license)    missing.push('license');
+
+      if (missing.length > 0) {
+        skipped++;
+        errors.push(`Row ${rowNum} (${rowLabel}): missing required field${missing.length > 1 ? 's' : ''} — ${missing.join(', ')}`);
+        continue;
+      }
+
+      if (!isValidEmail(d.email)) {
+        skipped++;
+        errors.push(`Row ${rowNum} (${rowLabel}): invalid email format`);
+        continue;
+      }
+
+      const lic = pickLicense(d.license);
+      if (!lic) {
+        skipped++;
+        errors.push(`Row ${rowNum} (${rowLabel}): invalid license "${d.license}" — must be one of: ${VALID_LICENSES.join(', ')}`);
+        continue;
+      }
+
       try {
-        const existing = await db.query('SELECT id FROM gws_accounts WHERE email=$1', [d.email]);
-        const desig  = d.designation||null;
-        const dept   = d.department||null;
-        const ou     = d.org_unit||null;
-        const atype  = pickAcctType(d.account_type);
-        const role   = pickRole(d.gws_role);
-        const lic    = pickLicense(d.license);
+        const existing = await db.query('SELECT id FROM gws_accounts WHERE LOWER(email)=LOWER($1)', [d.email]);
+        const displayName = `${d.first_name} ${d.last_name}`.trim();
         const status = pickStatus(d.status);
-        const twofa  = d.two_fa==='true'||d.two_fa===true||d.two_fa==='yes'||d.two_fa==='1';
-        const notes  = d.notes||null;
 
         if (existing.rows[0]) {
           await db.query(`
             UPDATE gws_accounts SET
-              display_name = COALESCE($1, display_name),
-              designation  = COALESCE($2, designation),
-              department   = COALESCE($3, department),
+              first_name   = $1,
+              last_name    = $2,
+              display_name = $3,
               org_unit     = COALESCE($4, org_unit),
-              account_type = COALESCE($5, account_type),
-              gws_role     = COALESCE($6, gws_role),
-              license      = COALESCE($7, license),
-              status       = COALESCE($8, status),
-              two_fa       = $9,
-              notes        = COALESCE($10, notes)
-            WHERE id=$11`,
-            [displayName, desig, dept, ou, atype||null, role||null, lic,
-             status||null, twofa, notes, existing.rows[0].id]
+              phone_number = COALESCE($5, phone_number),
+              license      = $6,
+              status       = $7
+            WHERE id = $8`,
+            [d.first_name, d.last_name, displayName, d.org_unit || null,
+             d.phone_number || null, lic, status, existing.rows[0].id]
           );
           updated++;
         } else {
-          await db.query(
-            `INSERT INTO gws_accounts (email,display_name,designation,department,org_unit,account_type,gws_role,license,status,two_fa,notes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-            [d.email, displayName || d.email.split('@')[0], desig, dept, ou,
-             atype, role, lic, status, twofa, notes]
+          await db.query(`
+            INSERT INTO gws_accounts
+              (first_name, last_name, display_name, email, org_unit, phone_number, license, status, account_type)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'user')`,
+            [d.first_name, d.last_name, displayName, d.email,
+             d.org_unit || null, d.phone_number || null, lic, status]
           );
           inserted++;
         }
-      } catch (e) { skipped++; errors.push(`${d.email}: ${e.message}`); }
+      } catch (e) {
+        if (e.code === '23505') {
+          skipped++;
+          errors.push(`Row ${rowNum} (${rowLabel}): email already exists`);
+        } else {
+          skipped++;
+          errors.push(`Row ${rowNum} (${rowLabel}): ${e.message}`);
+        }
+      }
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} Cloud IDs, updated ${updated}, skipped ${skipped}`);
+
+    await log(req.user.id, 'imported', null, 'CSV Import',
+      `Imported ${inserted} Cloud IDs, updated ${updated}, skipped ${skipped}`);
     res.json({ inserted, updated, skipped, errors });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── DELETE ALL ────────────────────────────────────────────
-router.delete('/all', requireAuth, perm('gws','delete'), async (req, res) => {
+// ── GET ONE ───────────────────────────────────────────────────
+router.get('/:id', requireAuth, async (req, res) => {
+  try {
+    const r = await db.query(`${LIST_SQL} AND g.id=$1`, [req.params.id]);
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── CREATE ────────────────────────────────────────────────────
+router.post('/', requireAuth, perm('gws', 'create'), async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.first_name?.trim()) return res.status(400).json({ error: 'First Name is required' });
+    if (!d.last_name?.trim())  return res.status(400).json({ error: 'Last Name is required' });
+    if (!d.email?.trim())      return res.status(400).json({ error: 'Email is required' });
+    if (!isValidEmail(d.email)) return res.status(400).json({ error: 'Invalid email format' });
+    if (!d.license)            return res.status(400).json({ error: 'License is required' });
+    if (!VALID_LICENSES.includes(d.license)) return res.status(400).json({ error: `License must be one of: ${VALID_LICENSES.join(', ')}` });
+
+    const displayName = `${d.first_name.trim()} ${d.last_name.trim()}`.trim();
+    const r = await db.query(`
+      INSERT INTO gws_accounts
+        (first_name, last_name, display_name, email, org_unit, phone_number, license, status, account_type)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'user') RETURNING *`,
+      [d.first_name.trim(), d.last_name.trim(), displayName, d.email.trim(),
+       d.org_unit || null, d.phone_number || null,
+       d.license, d.status || 'active']
+    );
+    await log(req.user.id, 'created', r.rows[0].id, d.email, 'Added Cloud ID');
+    res.status(201).json(r.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── UPDATE ────────────────────────────────────────────────────
+router.put('/:id', requireAuth, perm('gws', 'update'), async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.first_name?.trim()) return res.status(400).json({ error: 'First Name is required' });
+    if (!d.last_name?.trim())  return res.status(400).json({ error: 'Last Name is required' });
+    if (!d.email?.trim())      return res.status(400).json({ error: 'Email is required' });
+    if (!isValidEmail(d.email)) return res.status(400).json({ error: 'Invalid email format' });
+    if (!d.license)            return res.status(400).json({ error: 'License is required' });
+    if (!VALID_LICENSES.includes(d.license)) return res.status(400).json({ error: `License must be one of: ${VALID_LICENSES.join(', ')}` });
+
+    const displayName = `${d.first_name.trim()} ${d.last_name.trim()}`.trim();
+    const r = await db.query(`
+      UPDATE gws_accounts SET
+        first_name   = $1,
+        last_name    = $2,
+        display_name = $3,
+        email        = $4,
+        org_unit     = $5,
+        phone_number = $6,
+        license      = $7,
+        status       = $8
+      WHERE id = $9 RETURNING *`,
+      [d.first_name.trim(), d.last_name.trim(), displayName, d.email.trim(),
+       d.org_unit || null, d.phone_number || null,
+       d.license, d.status || 'active', req.params.id]
+    );
+    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    await log(req.user.id, 'updated', r.rows[0].id, d.email, 'Updated Cloud ID');
+    res.json(r.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── DELETE ALL ────────────────────────────────────────────────
+router.delete('/all', requireAuth, perm('gws', 'delete'), async (req, res) => {
   try {
     const all = await db.query('SELECT * FROM gws_accounts');
     await Promise.all(all.rows.map(row =>
@@ -157,56 +312,8 @@ router.delete('/all', requireAuth, perm('gws','delete'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── GET ONE ───────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
-  try {
-    const r = await db.query('SELECT * FROM gws_accounts WHERE id=$1', [req.params.id]);
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── CREATE ────────────────────────────────────────────────
-router.post('/', requireAuth, perm('gws','create'), async (req, res) => {
-  try {
-    const d = req.body;
-    if (!d.email || !d.display_name) return res.status(400).json({ error: 'email and display_name required' });
-    const r = await db.query(
-      `INSERT INTO gws_accounts (email,display_name,designation,department,org_unit,account_type,gws_role,license,status,two_fa,notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [d.email, d.display_name, d.designation||null, d.department||null, d.org_unit||null,
-       d.account_type||'user', d.gws_role||'User',
-       d.license||null, d.status||'active', d.two_fa||false, d.notes||null]
-    );
-    await log(req.user.id, 'created', r.rows[0].id, d.email, 'Added Cloud ID');
-    res.status(201).json(r.rows[0]);
-  } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Email already exists' });
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── UPDATE ────────────────────────────────────────────────
-router.put('/:id', requireAuth, perm('gws','update'), async (req, res) => {
-  try {
-    const d = req.body;
-    const r = await db.query(
-      `UPDATE gws_accounts SET email=$1,display_name=$2,designation=$3,department=$4,org_unit=$5,
-         account_type=$6,gws_role=$7,license=$8,status=$9,two_fa=$10,notes=$11
-       WHERE id=$12 RETURNING *`,
-      [d.email, d.display_name, d.designation||null, d.department||null, d.org_unit||null,
-       d.account_type||'user', d.gws_role||'User',
-       d.license||null, d.status||'active', d.two_fa||false, d.notes||null,
-       req.params.id]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await log(req.user.id, 'updated', r.rows[0].id, d.email, 'Updated Cloud ID');
-    res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ── DELETE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, perm('gws','delete'), async (req, res) => {
+// ── DELETE ONE ────────────────────────────────────────────────
+router.delete('/:id', requireAuth, perm('gws', 'delete'), async (req, res) => {
   try {
     const r = await db.query('DELETE FROM gws_accounts WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });

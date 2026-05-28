@@ -1,172 +1,278 @@
-import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { RefreshCw, Search } from 'lucide-react'
-import { api } from '../lib/api'
-import { useToast } from '../contexts/ToastContext'
-import { useAuth } from '../contexts/AuthContext'
-import { Navigate } from 'react-router-dom'
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { RefreshCw, Search } from "lucide-react";
+import { api } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
+import { useAuth } from "../contexts/AuthContext";
+import { Navigate } from "react-router-dom";
 
 const ACTION_STYLES = {
-  login:           'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
-  logout:          'bg-zinc-700/50 text-zinc-400 ring-1 ring-zinc-600/30',
-  login_failed:    'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-  login_blocked:   'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-  created:         'bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/20',
-  updated:         'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20',
-  deleted:         'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-  deleted_all:     'bg-red-500/15 text-red-400 ring-1 ring-red-500/30',
-  imported:        'bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20',
-  password_changed:'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
-  password_reset:  'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
-  // Inventory / Requests / Assignments
-  STOCK_ADJUST:    'bg-teal-500/10 text-teal-400 ring-1 ring-teal-500/20',
-  CREATE:          'bg-brand-500/10 text-brand-400 ring-1 ring-brand-500/20',
-  REVIEW:          'bg-purple-500/10 text-purple-400 ring-1 ring-purple-500/20',
-  FULFILL:         'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
-  RETURN:          'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20',
-  ASSIGN:          'bg-sky-500/10 text-sky-400 ring-1 ring-sky-500/20',
-  CANCEL:          'bg-zinc-700/50 text-zinc-400 ring-1 ring-zinc-600/30',
-  DELETE:          'bg-red-500/10 text-red-400 ring-1 ring-red-500/20',
-}
+  login: { bg: "rgba(34,197,94,0.1)", color: "#4ade80" },
+  logout: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
+  login_failed: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+  login_blocked: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+  created: { bg: "rgba(0,170,47,0.1)", color: "#4ade80" },
+  updated: { bg: "rgba(245,158,11,0.1)", color: "#fbbf24" },
+  deleted: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+  deleted_all: { bg: "rgba(239,68,68,0.15)", color: "#f87171" },
+  imported: { bg: "rgba(139,92,246,0.1)", color: "#c4b5fd" },
+  password_changed: { bg: "rgba(14,165,233,0.1)", color: "#7dd3fc" },
+  password_reset: { bg: "rgba(14,165,233,0.1)", color: "#7dd3fc" },
+  STOCK_ADJUST: { bg: "rgba(20,184,166,0.1)", color: "#2dd4bf" },
+  CREATE: { bg: "rgba(0,170,47,0.1)", color: "#4ade80" },
+  REVIEW: { bg: "rgba(168,85,247,0.1)", color: "#c4b5fd" },
+  FULFILL: { bg: "rgba(34,197,94,0.1)", color: "#4ade80" },
+  RETURN: { bg: "rgba(245,158,11,0.1)", color: "#fbbf24" },
+  ASSIGN: { bg: "rgba(14,165,233,0.1)", color: "#7dd3fc" },
+  CANCEL: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
+  DELETE: { bg: "rgba(239,68,68,0.1)", color: "#f87171" },
+};
 
 const MODULE_LABELS = {
-  auth:            'Auth',
-  users:           'Users',
-  systems:         'Systems',
-  network_devices: 'Network',
-  mobiles:         'Mobiles',
-  sims:            'SIMs',
-  gws_accounts:    'Cloud IDs',
-  employees:       'Employees',
-  inventory:       'Inventory',
-  inv_requests:    'Requests',
-  inv_assignments: 'Assignments',
-}
+  auth: "Auth",
+  users: "Users",
+  systems: "Systems",
+  network_devices: "Network",
+  mobiles: "Mobiles",
+  sims: "SIMs",
+  gws_accounts: "Cloud IDs",
+  employees: "Employees",
+  inventory: "Inventory",
+  inv_requests: "Requests",
+  inv_assignments: "Assignments",
+};
 
 function fmt(ts) {
-  if (!ts) return '—'
-  const d = new Date(ts)
-  return d.toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 export default function ActivityLog() {
-  const { user: me } = useAuth()
-  const { toast } = useToast()
-  const [logs, setLogs] = useState([])
-  const [filtered, setFiltered] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [actionFilter, setActionFilter] = useState('all')
+  const { user: me } = useAuth();
+  const { toast } = useToast();
+  const [logs, setLogs] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [actionFilter, setActionFilter] = useState("all");
 
-  if (me?.role !== 'super_admin') return <Navigate to="/" replace />
+  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
 
   async function load() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const data = await api.get('/api/users/activity/log')
-      setLogs(data)
+      const data = await api.get("/api/users/activity/log");
+      setLogs(data);
     } catch (e) {
-      toast(e.message, 'error')
+      toast(e.message, "error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load();
+  }, []);
 
   useEffect(() => {
-    let out = logs
-    if (actionFilter !== 'all') out = out.filter(l => l.action === actionFilter)
+    let out = logs;
+    if (actionFilter !== "all")
+      out = out.filter((l) => l.action === actionFilter);
     if (search.trim()) {
-      const q = search.toLowerCase()
-      out = out.filter(l =>
-        l.user_name?.toLowerCase().includes(q) ||
-        l.user_email?.toLowerCase().includes(q) ||
-        l.action?.toLowerCase().includes(q) ||
-        l.record_label?.toLowerCase().includes(q) ||
-        l.details?.toLowerCase().includes(q) ||
-        l.ip_address?.includes(q)
-      )
+      const q = search.toLowerCase();
+      out = out.filter(
+        (l) =>
+          l.user_name?.toLowerCase().includes(q) ||
+          l.user_email?.toLowerCase().includes(q) ||
+          l.action?.toLowerCase().includes(q) ||
+          l.record_label?.toLowerCase().includes(q) ||
+          l.details?.toLowerCase().includes(q) ||
+          l.ip_address?.includes(q),
+      );
     }
-    setFiltered(out)
-  }, [logs, search, actionFilter])
+    setFiltered(out);
+  }, [logs, search, actionFilter]);
 
-  const actions = ['all', ...Array.from(new Set(logs.map(l => l.action))).sort()]
+  const actions = [
+    "all",
+    ...Array.from(new Set(logs.map((l) => l.action))).sort(),
+  ];
 
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-zinc-500">{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="d-flex flex-column gap-4"
+    >
+      <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <p className="small text-secondary mb-0">
+          {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+        </p>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <div className="position-relative">
+            <Search
+              size={12}
+              className="position-absolute text-secondary"
+              style={{
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none",
+              }}
+            />
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="input-base pl-7 py-1.5 text-xs w-48"
+              className="form-control form-control-sm"
+              style={{ paddingLeft: 28, width: 192 }}
             />
           </div>
           <select
             value={actionFilter}
-            onChange={e => setActionFilter(e.target.value)}
-            className="input-base py-1.5 text-xs"
+            onChange={(e) => setActionFilter(e.target.value)}
+            className="form-select form-select-sm"
+            style={{ width: "auto" }}
           >
-            {actions.map(a => (
-              <option key={a} value={a}>{a === 'all' ? 'All actions' : a.replace('_', ' ')}</option>
+            {actions.map((a) => (
+              <option key={a} value={a}>
+                {a === "all" ? "All actions" : a.replace("_", " ")}
+              </option>
             ))}
           </select>
           <button
             onClick={load}
             disabled={loading}
-            className="btn-secondary py-1.5 text-xs flex items-center gap-1.5"
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
           >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw
+              size={12}
+              className={loading ? "spin" : ""}
+              style={loading ? { animation: "spin 1s linear infinite" } : {}}
+            />
             Refresh
           </button>
         </div>
       </div>
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table
+            className="table table-hover mb-0"
+            style={{ fontSize: "0.8125rem" }}
+          >
             <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                {['Time', 'User', 'Action', 'Module', 'Record', 'Details', 'IP'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-zinc-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              <tr>
+                {[
+                  "Time",
+                  "User",
+                  "Action",
+                  "Module",
+                  "Record",
+                  "Details",
+                  "IP",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-uppercase text-secondary text-nowrap"
+                    style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-zinc-500">Loading…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-zinc-500">No events found</td></tr>
-              ) : filtered.map(l => (
-                <tr key={l.id} className="border-b border-zinc-100 dark:border-zinc-800/50 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors">
-                  <td className="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">{fmt(l.created_at)}</td>
-                  <td className="px-3 py-2">
-                    <div className="text-xs text-zinc-700 dark:text-zinc-300 font-medium">{l.user_name || <span className="text-zinc-400">—</span>}</div>
-                    <div className="text-[10px] text-zinc-400 dark:text-zinc-600">{l.user_email || 'Unknown'}</div>
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-5">
+                    Loading…
                   </td>
-                  <td className="px-3 py-2">
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${ACTION_STYLES[l.action] || 'bg-zinc-700/50 text-zinc-400'}`}>
-                      {l.action?.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{MODULE_LABELS[l.table_name] || l.table_name || '—'}</td>
-                  <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 max-w-[140px] truncate" title={l.record_label}>{l.record_label || '—'}</td>
-                  <td className="px-3 py-2 text-xs text-zinc-500 max-w-[180px] truncate" title={l.details}>{l.details || '—'}</td>
-                  <td className="px-3 py-2 text-xs text-zinc-400 dark:text-zinc-600 font-mono">{l.ip_address || '—'}</td>
                 </tr>
-              ))}
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-5">
+                    No events found
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((l) => {
+                  const s = ACTION_STYLES[l.action] || {
+                    bg: "rgba(113,113,122,0.2)",
+                    color: "#a1a1aa",
+                  };
+                  return (
+                    <tr key={l.id}>
+                      <td
+                        className="text-secondary text-nowrap align-middle"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        {fmt(l.created_at)}
+                      </td>
+                      <td className="align-middle">
+                        <div className="small fw-medium">
+                          {l.user_name || (
+                            <span className="text-secondary">—</span>
+                          )}
+                        </div>
+                        <div
+                          className="text-secondary"
+                          style={{ fontSize: "10px" }}
+                        >
+                          {l.user_email || "Unknown"}
+                        </div>
+                      </td>
+                      <td className="align-middle">
+                        <span
+                          className="badge px-2 py-1"
+                          style={{
+                            background: s.bg,
+                            color: s.color,
+                            fontSize: "11px",
+                          }}
+                        >
+                          {l.action?.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                      <td className="small text-secondary align-middle">
+                        {MODULE_LABELS[l.table_name] || l.table_name || "—"}
+                      </td>
+                      <td
+                        className="small text-secondary align-middle text-truncate"
+                        style={{ maxWidth: 140 }}
+                        title={l.record_label}
+                      >
+                        {l.record_label || "—"}
+                      </td>
+                      <td
+                        className="small text-secondary align-middle text-truncate"
+                        style={{ maxWidth: 180 }}
+                        title={l.details}
+                      >
+                        {l.details || "—"}
+                      </td>
+                      <td
+                        className="font-monospace text-secondary align-middle"
+                        style={{ fontSize: "0.75rem" }}
+                      >
+                        {l.ip_address || "—"}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
     </motion.div>
-  )
+  );
 }

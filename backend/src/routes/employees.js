@@ -69,8 +69,8 @@ router.get('/sample/csv', requireAuth, (req, res) => {
     { employee_name: 'Muhammad Hassan Raza', business_unit: '',           department: 'Operations',      designation: 'Rider Operations Executive', location: 'Multan',    employment_type: 'Contractual', joining_date: '',           email: '',                        mobile_number: '0345-5000005' },
   ];
   const columns = ['employee_name','business_unit','department','designation','location','employment_type','joining_date','email','mobile_number'];
-  const csv = stringify(rows, { header: true, columns });
-  res.setHeader('Content-Type', 'text/csv');
+  const csv = stringify(rows, { header: true, columns, quoted_string: true });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename=employees_sample.csv');
   res.send(csv);
 });
@@ -96,9 +96,9 @@ router.get('/export/csv', requireAuth, async (req, res) => {
       mobile_number:   e.mobile_number   || '',
       status:          e.is_active       ? 'Active' : 'Inactive',
     }));
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=employees-export.csv');
-    res.send(stringify(rows, { header: true, columns }));
+    res.send(stringify(rows, { header: true, columns, quoted_string: true }));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
