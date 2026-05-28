@@ -12,7 +12,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import Modal from "../components/ui/Modal";
-import { cn } from "../lib/utils";
+import { cn, fmtDate } from "../lib/utils";
 
 const PRIORITY_BADGE = {
   urgent: { bg: "rgba(239,68,68,0.15)", color: "#f87171" },
@@ -32,15 +32,6 @@ const STATUS_BADGE = {
 
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
-
-function fmtDate(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-PK", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default function Requests() {
   const { user, canPerm } = useAuth();
@@ -99,7 +90,7 @@ export default function Requests() {
     } finally {
       setLoading(false);
     }
-  }, [isIT]);
+  }, [isIT, toast]);
 
   useEffect(() => {
     load();
@@ -110,18 +101,18 @@ export default function Requests() {
       api
         .get("/api/inventory/items")
         .then(setItems)
-        .catch(() => {});
+        .catch((e) => toast(e.message, "error"));
     }
-  }, [newModal]);
+  }, [newModal, toast]);
 
   useEffect(() => {
     if (fulfillModal) {
       api
         .get("/api/employees")
         .then(setEmployees)
-        .catch(() => {});
+        .catch((e) => toast(e.message, "error"));
     }
-  }, [fulfillModal]);
+  }, [fulfillModal, toast]);
 
   async function openReview(req) {
     try {

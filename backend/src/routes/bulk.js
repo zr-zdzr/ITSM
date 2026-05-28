@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const db = require('../config/db');
-const { requireAuth, perm } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
 // Whitelist tables and their updatable columns
 const ALLOWED = {
@@ -13,7 +13,7 @@ const ALLOWED = {
 };
 
 // PATCH /api/bulk  { table, ids, updates }
-router.patch('/', requireAuth, async (req, res) => {
+router.patch('/', requireAuth, async (req, res, next) => {
   const { table, ids, updates } = req.body;
 
   if (!ALLOWED[table]) return res.status(400).json({ error: 'Invalid table' });
@@ -37,15 +37,16 @@ router.patch('/', requireAuth, async (req, res) => {
   vals.push(...ids);
 
   const sql = `UPDATE ${table} SET ${sets.join(', ')} WHERE id IN (${idPlaceholders})`;
-  await db.query(sql, vals);
 
-  // Activity log — one entry per asset would be too noisy; log a summary
-  await db.query(
-    'INSERT INTO activity_log (user_id, action, table_name, record_id, record_label, details) VALUES ($1,$2,$3,$4,$5,$6)',
-    [req.user.id, 'bulk_update', table, null, `${ids.length} records`, JSON.stringify({ updates, ids })]
-  );
-
-  res.json({ updated: ids.length });
+  try {
+    await db.query(sql, vals);
+    // Activity log — one entry per asset would be too noisy; log a summary
+    await db.query(
+      'INSERT INTO activity_log (user_id, action, table_name, record_id, record_label, details) VALUES ($1,$2,$3,$4,$5,$6)',
+      [req.user.id, 'bulk_update', table, null, `${ids.length} records`, JSON.stringify({ updates, ids })]
+    );
+    res.json({ updated: ids.length });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

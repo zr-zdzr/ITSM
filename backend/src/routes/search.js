@@ -2,7 +2,7 @@ const router = require('express').Router();
 const db = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
   const like = `%${q}%`;
@@ -65,7 +65,7 @@ router.get('/', requireAuth, async (req, res) => {
       LIMIT 50
     `, [like]);
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

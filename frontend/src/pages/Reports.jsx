@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileDown,
@@ -13,7 +13,6 @@ import {
   Building2,
   Wrench,
   FileText,
-  BarChart3,
   PackageCheck,
   Network,
   DollarSign,
@@ -21,7 +20,7 @@ import {
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
-import { cn } from "../lib/utils";
+import { cn, fmtDate } from "../lib/utils";
 
 // ── PDF export helper ─────────────────────────────────────
 async function exportPDF(title, head, body) {
@@ -50,15 +49,6 @@ async function exportPDF(title, head, body) {
     margin: { left: 14, right: 14 },
   });
   doc.save(`${title.toLowerCase().replace(/\s+/g, "-")}.pdf`);
-}
-
-function fmtDate(v) {
-  if (!v) return "—";
-  return new Date(v).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 // ── Status badge ──────────────────────────────────────────
@@ -205,7 +195,7 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
   const [loc, setLoc] = useState("");
   const [expanded, setExpanded] = useState(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (dept) params.set("department", dept);
@@ -218,11 +208,11 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [dept, loc, toast]);
 
   useEffect(() => {
     load();
-  }, [dept, loc]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -1750,7 +1740,7 @@ function InvAssignmentsTab({ toast }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
@@ -1762,11 +1752,11 @@ function InvAssignmentsTab({ toast }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [statusFilter, toast]);
 
   useEffect(() => {
     load();
-  }, [statusFilter]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -2220,7 +2210,7 @@ export default function Reports() {
     api
       .get("/api/reports/filter-options")
       .then(setFilterOpts)
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load filter options:", e.message));
 
     const handler = (e) => {
       if (e.detail?.action === "export")
@@ -2230,7 +2220,7 @@ export default function Reports() {
     };
     window.addEventListener("module-action", handler);
     return () => window.removeEventListener("module-action", handler);
-  }, []);
+  }, [toast]);
 
   return (
     <motion.div

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -60,7 +60,7 @@ export default function DataTable({
     selectable && filteredIds.some((id) => selectedIds?.has(id));
   const headerCheckRef = useRef(null);
 
-  useMemo(() => {
+  useEffect(() => {
     if (headerCheckRef.current)
       headerCheckRef.current.indeterminate = someChecked && !allChecked;
   }, [someChecked, allChecked]);

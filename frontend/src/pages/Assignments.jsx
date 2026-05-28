@@ -11,7 +11,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import Modal from "../components/ui/Modal";
-import { cn } from "../lib/utils";
+import { cn, fmtDate } from "../lib/utils";
 
 const STATUS_BADGE = {
   active: { bg: "rgba(34,197,94,0.15)", color: "#4ade80" },
@@ -21,15 +21,6 @@ const STATUS_BADGE = {
 
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
-
-function fmtDate(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-PK", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export default function Assignments() {
   const { canPerm } = useAuth();
@@ -87,8 +78,8 @@ export default function Assignments() {
       api
         .get("/api/inventory/items")
         .then(setItems)
-        .catch(() => {});
-  }, [directModal]);
+        .catch((e) => toast(e.message, "error"));
+  }, [directModal, toast]);
 
   async function openDetail(asn) {
     try {
@@ -117,9 +108,13 @@ export default function Assignments() {
 
   async function openReturnFromDetail() {
     if (!detailAsn) return;
-    const full = await api.get(`/api/assignments/${detailAsn.id}`);
-    setDetailAsn(null);
-    openReturn(full);
+    try {
+      const full = await api.get(`/api/assignments/${detailAsn.id}`);
+      setDetailAsn(null);
+      openReturn(full);
+    } catch (e) {
+      toast(e.message, "error");
+    }
   }
 
   async function submitReturn() {
@@ -365,10 +360,14 @@ export default function Assignments() {
                           {canEdit && asn.status !== "fully_returned" && (
                             <button
                               onClick={async () => {
-                                const full = await api.get(
-                                  `/api/assignments/${asn.id}`,
-                                );
-                                openReturn(full);
+                                try {
+                                  const full = await api.get(
+                                    `/api/assignments/${asn.id}`,
+                                  );
+                                  openReturn(full);
+                                } catch (e) {
+                                  toast(e.message, "error");
+                                }
                               }}
                               className="btn btn-sm px-2 py-1 d-flex align-items-center gap-1 text-nowrap"
                               style={{

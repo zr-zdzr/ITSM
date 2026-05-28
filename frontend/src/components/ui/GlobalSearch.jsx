@@ -90,7 +90,8 @@ export default function GlobalSearch({ open, onClose }) {
         const data = await api.get(`/api/search?q=${encodeURIComponent(q)}`);
         setResults(data);
         setActiveIdx(0);
-      } catch {
+      } catch (e) {
+        console.error("Global search error:", e.message);
         setResults([]);
       } finally {
         setLoading(false);

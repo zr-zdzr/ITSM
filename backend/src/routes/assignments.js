@@ -31,7 +31,7 @@ const ASN_ITEMS_SQL = `
 
 // ── LIST ──────────────────────────────────────────────────
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { status, employee_id } = req.query;
     let sql = `${ASN_DETAIL_SQL} WHERE 1=1`;
@@ -42,10 +42,10 @@ router.get('/', requireAuth, async (req, res) => {
     sql += ' ORDER BY a.created_at DESC';
     const r = await db.query(sql, params);
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.get('/employee/:employeeId', requireAuth, async (req, res) => {
+router.get('/employee/:employeeId', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `${ASN_DETAIL_SQL} WHERE a.assignee_id = $1 ORDER BY a.created_at DESC`,
@@ -58,10 +58,10 @@ router.get('/employee/:employeeId', requireAuth, async (req, res) => {
       asn.items = items.rows;
     }
     res.json(assignments);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.get('/stats', requireAuth, async (req, res) => {
+router.get('/stats', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT
@@ -71,23 +71,23 @@ router.get('/stats', requireAuth, async (req, res) => {
         COUNT(*)                                              AS total
       FROM inv_assignments`);
     res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── GET SINGLE ────────────────────────────────────────────
 
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`${ASN_DETAIL_SQL} WHERE a.id = $1`, [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     const items = await db.query(ASN_ITEMS_SQL, [req.params.id]);
     res.json({ ...r.rows[0], items: items.rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── DIRECT ASSIGNMENT (no request) ───────────────────────
 
-router.post('/direct', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/direct', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -138,13 +138,13 @@ router.post('/direct', requireAuth, perm('inventory', 'update'), async (req, res
     res.json(asn);
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
 // ── PROCESS RETURN ────────────────────────────────────────
 
-router.post('/:id/return', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/:id/return', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -234,7 +234,7 @@ router.post('/:id/return', requireAuth, perm('inventory', 'update'), async (req,
     res.json({ ok: true, return: ret, assignment_status: newStatus });
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 

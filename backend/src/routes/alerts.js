@@ -2,7 +2,7 @@ const router = require('express').Router();
 const db = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 
-router.get('/count', requireAuth, async (req, res) => {
+router.get('/count', requireAuth, async (req, res, next) => {
   try {
     const [inv, overdue, warranty] = await Promise.all([
       db.query(`SELECT COUNT(*) n FROM inv_alerts WHERE is_resolved = false`),
@@ -17,10 +17,10 @@ router.get('/count', requireAuth, async (req, res) => {
     ]);
     const count = Number(inv.rows[0].n) + Number(overdue.rows[0].n) + Number(warranty.rows[0].n);
     res.json({ count });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const [inv, overdue, warranty] = await Promise.all([
       db.query(`
@@ -63,7 +63,7 @@ router.get('/', requireAuth, async (req, res) => {
       warranties:     warranty.rows,
       totalCount: inv.rows.length + overdue.rows.length + warranty.rows.length,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

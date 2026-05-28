@@ -61,7 +61,7 @@ const SELECT_COLS = `
 `;
 
 // ── LIST ──────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { q } = req.query;
     let sql = `SELECT ${SELECT_COLS} FROM sims s LEFT JOIN employees e ON e.id=s.assigned_user_id WHERE 1=1`;
@@ -72,7 +72,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
     sql += ' ORDER BY s.created_at DESC';
     res.json((await db.query(sql, params)).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────
@@ -100,7 +100,7 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 });
 
 // ── EXPORT CSV ────────────────────────────────────────────
-router.get('/export/csv', requireAuth, async (req, res) => {
+router.get('/export/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT s.phone_number,
@@ -114,11 +114,11 @@ router.get('/export/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=sims.csv');
     res.send(stringify(r.rows, { header: true }));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── IMPORT CSV ────────────────────────────────────────────
-router.post('/import/csv', requireAuth, perm('sims', 'create'), upload.single('file'), async (req, res) => {
+router.post('/import/csv', requireAuth, perm('sims', 'create'), upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
@@ -169,11 +169,11 @@ router.post('/import/csv', requireAuth, perm('sims', 'create'), upload.single('f
     await log(req.user.id, 'imported', null, 'CSV Import',
       `Imported ${inserted} SIMs, updated ${updated}, skipped ${skipped}`);
     res.json({ inserted, updated, skipped, errors });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ALL ────────────────────────────────────────────
-router.delete('/all', requireAuth, perm('sims', 'delete'), async (req, res) => {
+router.delete('/all', requireAuth, perm('sims', 'delete'), async (req, res, next) => {
   try {
     const all = await db.query('SELECT * FROM sims');
     await Promise.all(all.rows.map(row =>
@@ -182,11 +182,11 @@ router.delete('/all', requireAuth, perm('sims', 'delete'), async (req, res) => {
     const r = await db.query('DELETE FROM sims RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All SIMs', `Deleted all ${r.rowCount} SIM cards`);
     res.json({ deleted: r.rowCount });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── GET ONE ───────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT ${SELECT_COLS} FROM sims s LEFT JOIN employees e ON e.id=s.assigned_user_id WHERE s.id=$1`,
@@ -194,11 +194,11 @@ router.get('/:id', requireAuth, async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── CREATE ────────────────────────────────────────────────
-router.post('/', requireAuth, perm('sims', 'create'), async (req, res) => {
+router.post('/', requireAuth, perm('sims', 'create'), async (req, res, next) => {
   try {
     const d = req.body;
     if (!d.phone_number) return res.status(400).json({ error: 'Number is required' });
@@ -214,11 +214,11 @@ router.post('/', requireAuth, perm('sims', 'create'), async (req, res) => {
     );
     await log(req.user.id, 'created', r.rows[0].id, d.phone_number, `Added SIM ${d.phone_number}`);
     res.status(201).json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── UPDATE ────────────────────────────────────────────────
-router.put('/:id', requireAuth, perm('sims', 'update'), async (req, res) => {
+router.put('/:id', requireAuth, perm('sims', 'update'), async (req, res, next) => {
   try {
     const d = req.body;
     if (!d.phone_number) return res.status(400).json({ error: 'Number is required' });
@@ -236,18 +236,18 @@ router.put('/:id', requireAuth, perm('sims', 'update'), async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await log(req.user.id, 'updated', r.rows[0].id, d.phone_number, 'Updated SIM card');
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, perm('sims', 'delete'), async (req, res) => {
+router.delete('/:id', requireAuth, perm('sims', 'delete'), async (req, res, next) => {
   try {
     const r = await db.query('DELETE FROM sims WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await saveToRecycleBin('sims', 'sims', r.rows[0], r.rows[0].phone_number, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].phone_number, 'Deleted SIM card');
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

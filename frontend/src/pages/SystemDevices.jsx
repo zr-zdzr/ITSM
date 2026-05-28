@@ -38,7 +38,7 @@ function SystemDeviceForm({ vals, setVals }) {
     api
       .get("/api/employees")
       .then((d) => setEmployees(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load employees:", e.message));
   }, []);
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));

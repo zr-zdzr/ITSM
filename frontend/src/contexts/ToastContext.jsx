@@ -61,4 +61,8 @@ export function ToastProvider({ children }) {
   );
 }
 
-export const useToast = () => useContext(Ctx);
+export function useToast() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useToast must be used within a ToastProvider");
+  return ctx;
+}

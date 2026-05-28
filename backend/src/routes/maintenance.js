@@ -4,7 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 
 const ALLOWED = new Set(['system', 'mobile']);
 
-router.get('/:type/:id', requireAuth, async (req, res) => {
+router.get('/:type/:id', requireAuth, async (req, res, next) => {
   const { type, id } = req.params;
   if (!ALLOWED.has(type)) return res.status(400).json({ error: 'Invalid type' });
   try {
@@ -16,10 +16,10 @@ router.get('/:type/:id', requireAuth, async (req, res) => {
       [type, id]
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.post('/:type/:id', requireAuth, async (req, res) => {
+router.post('/:type/:id', requireAuth, async (req, res, next) => {
   const { type, id } = req.params;
   if (!ALLOWED.has(type)) return res.status(400).json({ error: 'Invalid type' });
   const { event_type, event_date, performed_by, cost_pkr, notes } = req.body;
@@ -32,14 +32,14 @@ router.post('/:type/:id', requireAuth, async (req, res) => {
        performed_by || null, cost_pkr || null, notes || null, req.user.id]
     );
     res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.delete('/:entryId', requireAuth, async (req, res) => {
+router.delete('/:entryId', requireAuth, async (req, res, next) => {
   try {
     await db.query('DELETE FROM maintenance_log WHERE id = $1', [req.params.entryId]);
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

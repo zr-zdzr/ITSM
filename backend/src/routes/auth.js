@@ -1,18 +1,7 @@
 const router  = require('express').Router();
 const bcrypt   = require('bcryptjs');
 const db       = require('../config/db');
-
-function getIP(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  return fwd ? fwd.split(',')[0].trim() : (req.socket?.remoteAddress || req.ip || null);
-}
-
-async function logEvent(userId, action, label, details, ip) {
-  await db.query(
-    'INSERT INTO activity_log (user_id,action,table_name,record_label,details,ip_address) VALUES ($1,$2,$3,$4,$5,$6)',
-    [userId, action, 'auth', label, details, ip]
-  );
-}
+const { logActivity, getIP } = require('../utils/activity');
 
 // ── LOGIN ─────────────────────────────────────────────────
 router.post('/login', async (req, res, next) => {
@@ -26,31 +15,32 @@ router.post('/login', async (req, res, next) => {
     );
     const user = result.rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      await logEvent(null, 'login_failed', username, 'Invalid credentials', ip);
+      await logActivity(null, 'login_failed', 'auth', null, username, 'Invalid credentials', ip);
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     if (!user.is_active) {
-      await logEvent(user.id, 'login_blocked', user.email, 'Account deactivated', ip);
+      await logActivity(user.id, 'login_blocked', 'auth', null, user.email, 'Account deactivated', ip);
       return res.status(403).json({ error: 'Account is deactivated' });
     }
     req.login(user, async err => {
       if (err) return next(err);
       await db.query('UPDATE users SET last_login=NOW() WHERE id=$1', [user.id]);
-      await logEvent(user.id, 'login', user.email, 'Login successful', ip);
+      await logActivity(user.id, 'login', 'auth', null, user.email, 'Login successful', ip);
       res.json({ ok: true });
     });
   } catch (err) { next(err); }
 });
 
 // ── LOGOUT ────────────────────────────────────────────────
-router.post('/logout', async (req, res, next) => {
+router.post('/logout', (req, res, next) => {
   if (req.isAuthenticated()) {
     const ip = getIP(req);
-    const userId = req.user.id, email = req.user.email;
-    req.logout(async err => {
+    const userId = req.user.id;
+    const email  = req.user.email;
+    req.logout(err => {
       if (err) return next(err);
-      req.session.destroy(async () => {
-        await logEvent(userId, 'logout', email, 'Logout', ip).catch(() => {});
+      req.session.destroy(() => {
+        logActivity(userId, 'logout', 'auth', null, email, 'Logout', ip).catch(() => {});
         res.json({ ok: true });
       });
     });
@@ -60,7 +50,7 @@ router.post('/logout', async (req, res, next) => {
 });
 
 // ── ME (includes per-module permissions for non-super_admin) ──
-router.get('/me', async (req, res) => {
+router.get('/me', async (req, res, next) => {
   if (!req.isAuthenticated())
     return res.status(401).json({ error: 'Not authenticated' });
   const { id, email, name, avatar_url, role, department, designation } = req.user;
@@ -77,13 +67,13 @@ router.get('/me', async (req, res) => {
           can_delete: row.can_delete,
         };
       }
-    } catch (_) { permissions = {}; }
+    } catch (err) { return next(err); }
   }
   res.json({ id, email, name, avatar_url, role, department, designation, permissions });
 });
 
 // ── CHANGE OWN PASSWORD ───────────────────────────────────
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', async (req, res, next) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password)
@@ -97,9 +87,9 @@ router.post('/change-password', async (req, res) => {
       return res.status(401).json({ error: 'Current password is incorrect' });
     const hash = await bcrypt.hash(new_password, 10);
     await db.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, req.user.id]);
-    await logEvent(req.user.id, 'password_changed', req.user.email, 'Password changed', getIP(req));
+    await logActivity(req.user.id, 'password_changed', 'auth', null, req.user.email, 'Password changed', getIP(req));
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

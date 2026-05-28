@@ -1543,12 +1543,15 @@ export default function Dashboard() {
         .then((d) =>
           setSectionRows((p) => ({ ...p, [id]: Array.isArray(d) ? d : [] })),
         )
-        .catch(() => setSectionRows((p) => ({ ...p, [id]: [] })))
+        .catch((e) => {
+          console.error(`Failed to load section ${id}:`, e.message);
+          setSectionRows((p) => ({ ...p, [id]: [] }));
+        })
         .finally(() => setSectionLoading((p) => ({ ...p, [id]: false })));
     }
   }, []);
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true);
     Promise.all([
       api.get("/api/reports/dashboard"),
@@ -1564,7 +1567,7 @@ export default function Dashboard() {
       })
       .catch((e) => toast(e.message, "error"))
       .finally(() => setLoading(false));
-  }
+  }, [canPerm, toast]);
 
   useEffect(() => {
     load();
@@ -1573,7 +1576,7 @@ export default function Dashboard() {
     };
     window.addEventListener("module-action", handler);
     return () => window.removeEventListener("module-action", handler);
-  }, []);
+  }, [load]);
 
   const systemsTotal = Number(data?.systems?.assignment?.total) || 0;
   const mobilesTotal = Number(data?.mobiles?.assignment?.total) || 0;

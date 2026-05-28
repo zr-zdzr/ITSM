@@ -38,7 +38,7 @@ async function genNetTag(purchase_date) {
 }
 
 // ── LIST ──────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { q, device_type, status } = req.query;
     let sql = 'SELECT * FROM network_devices WHERE 1=1';
@@ -48,7 +48,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (status)      { sql += ` AND status=$${i++}`;      params.push(status); }
     sql += ' ORDER BY created_at DESC';
     res.json((await db.query(sql, params)).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────
@@ -65,7 +65,7 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 });
 
 // ── EXPORT CSV ────────────────────────────────────────────
-router.get('/export/csv', requireAuth, async (req, res) => {
+router.get('/export/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT asset_tag, device_type, brand, model, serial_number, ip_address, mac_address,
@@ -75,11 +75,11 @@ router.get('/export/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=network_devices.csv');
     res.send(stringify(r.rows, { header: true }));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── IMPORT CSV ────────────────────────────────────────────
-router.post('/import/csv', requireAuth, perm('network','create'), upload.single('file'), async (req, res) => {
+router.post('/import/csv', requireAuth, perm('network','create'), upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
@@ -101,11 +101,11 @@ router.post('/import/csv', requireAuth, perm('network','create'), upload.single(
     }
     await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} network devices, skipped ${skipped}`);
     res.json({ inserted, skipped, errors });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ALL ────────────────────────────────────────────
-router.delete('/all', requireAuth, perm('network','delete'), async (req, res) => {
+router.delete('/all', requireAuth, perm('network','delete'), async (req, res, next) => {
   try {
     const all = await db.query('SELECT * FROM network_devices');
     await Promise.all(all.rows.map(row =>
@@ -114,20 +114,20 @@ router.delete('/all', requireAuth, perm('network','delete'), async (req, res) =>
     const r = await db.query('DELETE FROM network_devices RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Network Devices', `Deleted all ${r.rowCount} devices`);
     res.json({ deleted: r.rowCount });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── GET ONE ───────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query('SELECT * FROM network_devices WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── CREATE ────────────────────────────────────────────────
-router.post('/', requireAuth, perm('network','create'), async (req, res) => {
+router.post('/', requireAuth, perm('network','create'), async (req, res, next) => {
   try {
     const d = req.body;
     const tag = d.asset_tag || await genNetTag(d.purchase_date);
@@ -141,11 +141,11 @@ router.post('/', requireAuth, perm('network','create'), async (req, res) => {
     );
     await log(req.user.id, 'created', r.rows[0].id, tag, `Created ${d.device_type}`);
     res.status(201).json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── UPDATE ────────────────────────────────────────────────
-router.put('/:id', requireAuth, perm('network','update'), async (req, res) => {
+router.put('/:id', requireAuth, perm('network','update'), async (req, res, next) => {
   try {
     const d = req.body;
     const r = await db.query(`
@@ -161,18 +161,18 @@ router.put('/:id', requireAuth, perm('network','update'), async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await log(req.user.id, 'updated', r.rows[0].id, d.asset_tag || `${d.brand} ${d.model}`, 'Updated network device');
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, perm('network','delete'), async (req, res) => {
+router.delete('/:id', requireAuth, perm('network','delete'), async (req, res, next) => {
   try {
     const r = await db.query('DELETE FROM network_devices WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await saveToRecycleBin('network', 'network_devices', r.rows[0], `${r.rows[0].brand||''} ${r.rows[0].model||''}`.trim(), req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, `${r.rows[0].brand} ${r.rows[0].model}`, 'Deleted');
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

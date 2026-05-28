@@ -99,7 +99,7 @@ export default function Inventory() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     load();

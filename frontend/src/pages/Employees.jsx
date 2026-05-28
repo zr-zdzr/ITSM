@@ -3,16 +3,7 @@ import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import { api } from "../lib/api";
 import { PackageCheck, RotateCcw } from "lucide-react";
-import { cn } from "../lib/utils";
-
-function fmtDate(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-PK", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { cn, fmtDate } from "../lib/utils";
 
 const ASN_STATUS = {
   active: { bg: "rgba(34,197,94,0.1)", color: "#4ade80" },
@@ -30,7 +21,10 @@ function EmployeeAssignments({ row }) {
     api
       .get(`/api/assignments/employee/${row.id}`)
       .then(setAssignments)
-      .catch(() => setAssignments([]))
+      .catch((e) => {
+        console.error("Failed to load employee assignments:", e.message);
+        setAssignments([]);
+      })
       .finally(() => setLoading(false));
   }, [row?.id]);
 
@@ -154,15 +148,6 @@ function Fld({ label, required, children }) {
 }
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
-
-function SecHead({ title }) {
-  return (
-    <div className="col-span-2 form-sec-head">
-      <span>{title}</span>
-      <hr />
-    </div>
-  );
-}
 
 // ── Custom Form ───────────────────────────────────────────────
 function EmployeeForm({ vals, setVals }) {

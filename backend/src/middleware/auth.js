@@ -31,21 +31,8 @@ function perm(module, action) {
       );
       if (r.rows[0]?.[col]) return next();
       res.status(403).json({ error: 'Permission denied' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { next(err); }
   };
 }
 
-// Kept for backward compatibility
-function canWrite(req, res, next) {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot modify data' });
-  next();
-}
-
-function canDelete(req, res, next) {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot delete records' });
-  next();
-}
-
-module.exports = { requireAuth, requireRole, canWrite, canDelete, perm };
+module.exports = { requireAuth, requireRole, perm };

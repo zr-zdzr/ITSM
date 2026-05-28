@@ -84,7 +84,10 @@ export default function SeedModal({ open, onClose }) {
     api
       .get("/api/seed/status")
       .then(setStatus)
-      .catch(() => setStatus(null))
+      .catch((e) => {
+        console.error("Failed to load seed status:", e.message);
+        setStatus(null);
+      })
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -96,7 +99,10 @@ export default function SeedModal({ open, onClose }) {
       const r = await api.post("/api/seed", { force });
       setResults(r.results);
       // refresh status
-      const s = await api.get("/api/seed/status").catch(() => null);
+      const s = await api.get("/api/seed/status").catch((e) => {
+        console.error("Failed to refresh seed status:", e.message);
+        return null;
+      });
       if (s) setStatus(s);
     } catch (e) {
       setError(e.message || "Seed failed");

@@ -2,3 +2,5 @@
 node_modules/
 uploads/
 *.log
+frontend/dist/
+frontend-backup-*/

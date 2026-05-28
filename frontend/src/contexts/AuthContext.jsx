@@ -22,7 +22,9 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await api.post("/auth/logout").catch(() => {});
+    await api.post("/auth/logout").catch(() => {
+      // logout endpoint failure is non-fatal; clear local state regardless
+    });
     setUser(null);
   }
 
@@ -33,4 +35,8 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(Ctx);
+export function useAuth() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
+}

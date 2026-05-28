@@ -67,7 +67,7 @@ async function autoTag() {
 }
 
 // ── LIST ──────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { q, type, status, assigned_type } = req.query;
     let sql = `
@@ -83,7 +83,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (assigned_type) { sql += ` AND s.assigned_type=$${i++}`; params.push(assigned_type); }
     sql += ' ORDER BY s.created_at DESC';
     res.json((await db.query(sql, params)).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────
@@ -141,7 +141,7 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 });
 
 // ── EXPORT CSV ────────────────────────────────────────────
-router.get('/export/csv', requireAuth, async (req, res) => {
+router.get('/export/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT s.asset_tag, s.type, s.brand_type, s.manufacturer, s.model, s.serial_number, s.generation,
@@ -165,11 +165,11 @@ router.get('/export/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=systems.csv');
     res.send(stringify(r.rows, { header: true }));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── IMPORT CSV ────────────────────────────────────────────
-router.post('/import/csv', requireAuth, perm('systems','create'), upload.single('file'), async (req, res) => {
+router.post('/import/csv', requireAuth, perm('systems','create'), upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
@@ -295,11 +295,11 @@ router.post('/import/csv', requireAuth, perm('systems','create'), upload.single(
     }
     await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} new, updated ${updated} systems, skipped ${skipped}`);
     res.json({ inserted, updated, skipped, errors });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ALL ────────────────────────────────────────────
-router.delete('/all', requireAuth, perm('systems','delete'), async (req, res) => {
+router.delete('/all', requireAuth, perm('systems','delete'), async (req, res, next) => {
   try {
     const all = await db.query('SELECT * FROM systems');
     await Promise.all(all.rows.map(row =>
@@ -308,11 +308,11 @@ router.delete('/all', requireAuth, perm('systems','delete'), async (req, res) =>
     const r = await db.query('DELETE FROM systems RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Systems', `Deleted all ${r.rowCount} systems`);
     res.json({ deleted: r.rowCount });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── GET ONE ───────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT s.*, e.full_name AS assigned_user_name FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id WHERE s.id=$1`,
@@ -320,11 +320,11 @@ router.get('/:id', requireAuth, async (req, res) => {
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── CREATE ────────────────────────────────────────────────
-router.post('/', requireAuth, perm('systems','create'), async (req, res) => {
+router.post('/', requireAuth, perm('systems','create'), async (req, res, next) => {
   try {
     const d = req.body;
     if (!d.asset_tag) return res.status(400).json({ error: 'asset_tag is required' });
@@ -368,12 +368,12 @@ router.post('/', requireAuth, perm('systems','create'), async (req, res) => {
     res.status(201).json(r.rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Asset tag or serial number already exists' });
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // ── UPDATE ────────────────────────────────────────────────
-router.put('/:id', requireAuth, perm('systems','update'), async (req, res) => {
+router.put('/:id', requireAuth, perm('systems','update'), async (req, res, next) => {
   try {
     const d = req.body;
     const r = await db.query(`
@@ -410,18 +410,18 @@ router.put('/:id', requireAuth, perm('systems','update'), async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await log(req.user.id, 'updated', r.rows[0].id, r.rows[0].asset_tag||r.rows[0].serial_number, 'Updated system');
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, perm('systems','delete'), async (req, res) => {
+router.delete('/:id', requireAuth, perm('systems','delete'), async (req, res, next) => {
   try {
     const r = await db.query('DELETE FROM systems WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await saveToRecycleBin('systems', 'systems', r.rows[0], r.rows[0].asset_tag||r.rows[0].serial_number, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].asset_tag||r.rows[0].serial_number, 'Deleted system');
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Wrench, Plus, Trash2, X } from "lucide-react";
 import { api } from "../../lib/api";
 import { useToast } from "../../contexts/ToastContext";
-import { cn } from "../../lib/utils";
+import { cn, fmtDate } from "../../lib/utils";
 
 const EVENT_TYPES = [
   "repair_sent",
@@ -23,15 +23,6 @@ const EVENT_COLOR = {
   inspected: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
   other: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
 };
-
-function fmtDate(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const EMPTY_FORM = {
   event_type: "serviced",
@@ -55,7 +46,10 @@ export default function MaintenanceLog({ row, assetType }) {
     api
       .get(`/api/maintenance/${assetType}/${row.id}`)
       .then(setLogs)
-      .catch(() => setLogs([]))
+      .catch((e) => {
+        console.error("Failed to load maintenance log:", e.message);
+        setLogs([]);
+      })
       .finally(() => setLoading(false));
   }, [row?.id, assetType]);
 

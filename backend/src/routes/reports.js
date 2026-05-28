@@ -4,7 +4,7 @@ const db      = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 
 // ── DASHBOARD STATS ───────────────────────────────────────
-router.get('/dashboard', requireAuth, async (req, res) => {
+router.get('/dashboard', requireAuth, async (req, res, next) => {
   try {
     const [
       net, gws, gwsLic, gwsTyp, usr, warExp, warSoon, act24h,
@@ -97,11 +97,11 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         byType: empByType.rows,
       },
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── EMPLOYEE ASSETS REPORT ───────────────────────────────
-router.get('/employee-assets', requireAuth, async (req, res) => {
+router.get('/employee-assets', requireAuth, async (req, res, next) => {
   try {
     const { department, location } = req.query;
     const params = [];
@@ -141,11 +141,11 @@ router.get('/employee-assets', requireAuth, async (req, res) => {
       ${where}
       ORDER BY e.full_name`, params);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── EMPLOYEE ASSETS CSV ────────────────────────────────────
-router.get('/employee-assets/csv', requireAuth, async (req, res) => {
+router.get('/employee-assets/csv', requireAuth, async (req, res, next) => {
   try {
     const { department, location } = req.query;
     const params = [];
@@ -187,11 +187,11 @@ router.get('/employee-assets/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=employee-assets.csv');
     res.send(csv);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── WARRANTY CSV ───────────────────────────────────────────
-router.get('/warranty/csv', requireAuth, async (req, res) => {
+router.get('/warranty/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
@@ -217,11 +217,11 @@ router.get('/warranty/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=warranty-report.csv');
     res.send(csv);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SIM COSTS CSV ─────────────────────────────────────────
-router.get('/sim-costs/csv', requireAuth, async (req, res) => {
+router.get('/sim-costs/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT si.vendor, si.phone_number, si.package_name, si.service_type,
@@ -234,22 +234,22 @@ router.get('/sim-costs/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=sim-costs.csv');
     res.send(csv);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── FILTER OPTIONS ─────────────────────────────────────────
-router.get('/filter-options', requireAuth, async (req, res) => {
+router.get('/filter-options', requireAuth, async (req, res, next) => {
   try {
     const [depts, locs] = await Promise.all([
       db.query(`SELECT DISTINCT department FROM employees WHERE is_active=true AND department IS NOT NULL ORDER BY department`),
       db.query(`SELECT DISTINCT location  FROM employees WHERE is_active=true AND location  IS NOT NULL ORDER BY location`),
     ]);
     res.json({ departments: depts.rows.map(r => r.department), locations: locs.rows.map(r => r.location) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── UNASSIGNED INVENTORY ──────────────────────────────────
-router.get('/unassigned', requireAuth, async (req, res) => {
+router.get('/unassigned', requireAuth, async (req, res, next) => {
   try {
     const [sys, mob, sim] = await Promise.all([
       db.query(`SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
@@ -264,11 +264,11 @@ router.get('/unassigned', requireAuth, async (req, res) => {
                 FROM sims si WHERE si.assigned_type='inventory' ORDER BY si.phone_number`),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows, sims: sim.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DAMAGE & REPAIR REPORT ────────────────────────────────
-router.get('/damage', requireAuth, async (req, res) => {
+router.get('/damage', requireAuth, async (req, res, next) => {
   try {
     const [sys, mob] = await Promise.all([
       db.query(`SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
@@ -285,11 +285,11 @@ router.get('/damage', requireAuth, async (req, res) => {
                 ORDER BY m.asset_tag`),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DEPARTMENT ASSET SUMMARY ──────────────────────────────
-router.get('/department-summary', requireAuth, async (req, res) => {
+router.get('/department-summary', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT dept, category,
@@ -314,11 +314,11 @@ router.get('/department-summary', requireAuth, async (req, res) => {
       GROUP BY dept, category
       ORDER BY dept, category`);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── WARRANTY REPORT ───────────────────────────────────────
-router.get('/warranty', requireAuth, async (req, res) => {
+router.get('/warranty', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT 'System' AS category, s.asset_tag, s.type, s.manufacturer, s.model,
@@ -343,11 +343,11 @@ router.get('/warranty', requireAuth, async (req, res) => {
       WHERE nd.warranty_expiry IS NOT NULL
       ORDER BY warranty_expiry ASC`);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── ASSIGNMENTS REPORT ────────────────────────────────────
-router.get('/assignments', requireAuth, async (req, res) => {
+router.get('/assignments', requireAuth, async (req, res, next) => {
   try {
     const [sys, mob, sim] = await Promise.all([
       db.query(`SELECT e.full_name AS name,e.email,e.department, json_agg(json_build_object('type','System','label',s.serial_number,'status',s.status)) AS items FROM systems s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.full_name,e.email,e.department`),
@@ -355,11 +355,11 @@ router.get('/assignments', requireAuth, async (req, res) => {
       db.query(`SELECT e.full_name AS name,e.email,e.department, json_agg(json_build_object('type','SIM','label',s.phone_number,'vendor',s.vendor)) AS items FROM sims s JOIN employees e ON e.id=s.assigned_user_id GROUP BY e.id,e.full_name,e.email,e.department`),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows, sims: sim.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── FULL SUMMARY EXPORT ───────────────────────────────────
-router.get('/summary/csv', requireAuth, async (req, res) => {
+router.get('/summary/csv', requireAuth, async (req, res, next) => {
   try {
     const [sys, net, mob, sim, gws] = await Promise.all([
       db.query('SELECT * FROM systems ORDER BY created_at DESC'),
@@ -385,31 +385,31 @@ router.get('/summary/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=itms_full_report.csv');
     res.send(output);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── GWS REPORT ────────────────────────────────────────────
-router.get('/gws', requireAuth, async (req, res) => {
+router.get('/gws', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT *, (storage_used / NULLIF(storage_limit,0) * 100)::int AS storage_pct
       FROM gws_accounts ORDER BY storage_used DESC`);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SIM COST REPORT ───────────────────────────────────────
-router.get('/sim-costs', requireAuth, async (req, res) => {
+router.get('/sim-costs', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT vendor, COUNT(*) count, SUM(monthly_rate) total_monthly
       FROM sims WHERE status='active' GROUP BY vendor ORDER BY total_monthly DESC`);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── BY BRAND / MANUFACTURER ───────────────────────────────
-router.get('/by-brand', requireAuth, async (req, res) => {
+router.get('/by-brand', requireAuth, async (req, res, next) => {
   try {
     const [sys, mob, net] = await Promise.all([
       db.query(`SELECT manufacturer AS brand, COUNT(*) cnt FROM systems WHERE manufacturer IS NOT NULL GROUP BY manufacturer ORDER BY cnt DESC`),
@@ -417,11 +417,11 @@ router.get('/by-brand', requireAuth, async (req, res) => {
       db.query(`SELECT brand, COUNT(*) cnt FROM network_devices WHERE brand IS NOT NULL GROUP BY brand ORDER BY cnt DESC`),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows, network: net.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── BY ASSET TAG ──────────────────────────────────────────
-router.get('/by-asset-tag', requireAuth, async (req, res) => {
+router.get('/by-asset-tag', requireAuth, async (req, res, next) => {
   try {
     const { q } = req.query;
     const pattern = q ? `%${q}%` : '%';
@@ -440,11 +440,11 @@ router.get('/by-asset-tag', requireAuth, async (req, res) => {
       ),
     ]);
     res.json({ systems: sys.rows, mobiles: mob.rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── COST ANALYTICS ────────────────────────────────────────
-router.get('/cost-analytics', requireAuth, async (req, res) => {
+router.get('/cost-analytics', requireAuth, async (req, res, next) => {
   try {
     const [byType, byMonth, simByVendor, simTotal] = await Promise.all([
       // Maintenance costs by asset type
@@ -478,11 +478,11 @@ router.get('/cost-analytics', requireAuth, async (req, res) => {
       simByVendor: simByVendor.rows,
       simMonthlyTotal: Number(simTotal.rows[0]?.total || 0),
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── ELOG (Activity / Access Log) ──────────────────────────
-router.get('/elog', requireAuth, async (req, res) => {
+router.get('/elog', requireAuth, async (req, res, next) => {
   try {
     const { limit = 500, table_name, action } = req.query;
     let sql = `
@@ -499,7 +499,7 @@ router.get('/elog', requireAuth, async (req, res) => {
     params.push(Number(limit));
     const r = await db.query(sql, params);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

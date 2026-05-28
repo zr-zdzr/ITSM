@@ -87,7 +87,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
     api
       .get("/api/recycle-bin/count")
       .then((d) => setRecycleBinCount(d.count || 0))
-      .catch(() => {});
+      .catch((e) => console.error("Recycle bin count error:", e.message));
   }, []);
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
       api
         .get("/api/alerts/count")
         .then((d) => setAlertCount(d.count || 0))
-        .catch(() => {});
+        .catch((e) => console.error("Alerts count error:", e.message));
     }
     loadAlerts();
     const interval = setInterval(loadAlerts, 60000);
@@ -108,8 +108,14 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
       try {
         const data = await api.get("/api/alerts");
         setAlertData(data);
-      } catch {
-        /* silent */
+      } catch (e) {
+        console.error("Failed to load alerts:", e.message);
+        setAlertData({
+          totalCount: 0,
+          inventory: [],
+          overdueReturns: [],
+          warranties: [],
+        });
       }
     }
   }

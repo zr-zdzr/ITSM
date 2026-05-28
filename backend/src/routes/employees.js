@@ -4,7 +4,7 @@ const { saveToRecycleBin } = require('../utils/recycle');
 const { parse } = require('csv-parse/sync');
 const { stringify } = require('csv-stringify/sync');
 const db = require('../config/db');
-const { requireAuth, canWrite, canDelete } = require('../middleware/auth');
+const { requireAuth, perm } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -39,7 +39,7 @@ function pickEmpType(val) {
 }
 
 // ── LIST ─────────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { q, location, employment_type, status } = req.query;
     let sql = 'SELECT * FROM employees WHERE 1=1';
@@ -54,7 +54,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (status === 'inactive') sql += ' AND is_active=false';
     sql += ' ORDER BY full_name';
     res.json((await db.query(sql, params)).rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────────
@@ -76,7 +76,7 @@ router.get('/sample/csv', requireAuth, (req, res) => {
 });
 
 // ── EXPORT CSV ────────────────────────────────────────────────
-router.get('/export/csv', requireAuth, async (req, res) => {
+router.get('/export/csv', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT full_name, business_unit, department, designation, location,
@@ -99,11 +99,11 @@ router.get('/export/csv', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename=employees-export.csv');
     res.send(stringify(rows, { header: true, columns, quoted_string: true }));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── IMPORT CSV ────────────────────────────────────────────────
-router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (req, res) => {
+router.post('/import/csv', requireAuth, perm('employees','create'), upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
@@ -176,20 +176,20 @@ router.post('/import/csv', requireAuth, canWrite, upload.single('file'), async (
 
     await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} employees, updated ${updated}, skipped ${skipped}`);
     res.json({ inserted, updated, skipped, errors });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── GET ONE ───────────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query('SELECT * FROM employees WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── CREATE ────────────────────────────────────────────────────
-router.post('/', requireAuth, canWrite, async (req, res) => {
+router.post('/', requireAuth, perm('employees','create'), async (req, res, next) => {
   try {
     const d = req.body;
     const fullName = (d.full_name || '').trim().slice(0, 50);
@@ -208,11 +208,11 @@ router.post('/', requireAuth, canWrite, async (req, res) => {
     );
     await log(req.user.id, 'created', r.rows[0].id, fullName, `Dept: ${d.department}`);
     res.status(201).json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── UPDATE ────────────────────────────────────────────────────
-router.put('/:id', requireAuth, canWrite, async (req, res) => {
+router.put('/:id', requireAuth, perm('employees','update'), async (req, res, next) => {
   try {
     const d = req.body;
     const fullName = (d.full_name || '').trim().slice(0, 50);
@@ -234,11 +234,11 @@ router.put('/:id', requireAuth, canWrite, async (req, res) => {
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await log(req.user.id, 'updated', r.rows[0].id, fullName, 'Updated employee');
     res.json(r.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ALL ────────────────────────────────────────────────
-router.delete('/all', requireAuth, canDelete, async (req, res) => {
+router.delete('/all', requireAuth, perm('employees','delete'), async (req, res, next) => {
   try {
     const all = await db.query('SELECT * FROM employees');
     await Promise.all(all.rows.map(row =>
@@ -247,18 +247,18 @@ router.delete('/all', requireAuth, canDelete, async (req, res) => {
     const r = await db.query('DELETE FROM employees RETURNING id');
     await log(req.user.id, 'deleted_all', null, 'All Employees', `Deleted all ${r.rowCount} employees`);
     res.json({ deleted: r.rowCount });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // ── DELETE ONE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, canDelete, async (req, res) => {
+router.delete('/:id', requireAuth, perm('employees','delete'), async (req, res, next) => {
   try {
     const r = await db.query('DELETE FROM employees WHERE id=$1 RETURNING *', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await saveToRecycleBin('employees', 'employees', r.rows[0], r.rows[0].full_name, req.user.id);
     await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].full_name, 'Deleted employee');
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

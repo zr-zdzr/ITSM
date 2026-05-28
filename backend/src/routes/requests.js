@@ -40,7 +40,7 @@ const ITEMS_SQL = `
 
 // ── LIST ──────────────────────────────────────────────────
 
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { status, mine } = req.query;
     const isSuperAdmin = req.user.role === 'super_admin';
@@ -62,10 +62,10 @@ router.get('/', requireAuth, async (req, res) => {
 
     const r = await db.query(sql, params);
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.get('/queue', requireAuth, async (req, res) => {
+router.get('/queue', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `${REQUEST_DETAIL_SQL}
@@ -75,33 +75,33 @@ router.get('/queue', requireAuth, async (req, res) => {
          r.created_at ASC`
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.get('/count', requireAuth, async (req, res) => {
+router.get('/count', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       "SELECT COUNT(*) FROM inv_requests WHERE status IN ('submitted','in_review','approved')"
     );
     res.json({ count: parseInt(r.rows[0].count) });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── GET SINGLE ────────────────────────────────────────────
 
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`${REQUEST_DETAIL_SQL} WHERE r.id=$1`, [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     const req_row = r.rows[0];
     const items = await db.query(ITEMS_SQL, [req.params.id]);
     res.json({ ...req_row, items: items.rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── CREATE ────────────────────────────────────────────────
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -128,13 +128,13 @@ router.post('/', requireAuth, async (req, res) => {
     res.json(request);
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
 // ── REVIEW (approve / reject) ─────────────────────────────
 
-router.post('/:id/review', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/:id/review', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -187,13 +187,13 @@ router.post('/:id/review', requireAuth, perm('inventory', 'update'), async (req,
     res.json({ ok: true, status: newStatus });
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
 // ── FULFILL (deduct stock, create assignment) ─────────────
 
-router.post('/:id/fulfill', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/:id/fulfill', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -278,13 +278,13 @@ router.post('/:id/fulfill', requireAuth, perm('inventory', 'update'), async (req
     res.json({ ok: true, assignment: asn });
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
 // ── CANCEL ────────────────────────────────────────────────
 
-router.post('/:id/cancel', requireAuth, async (req, res) => {
+router.post('/:id/cancel', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query('SELECT * FROM inv_requests WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
@@ -317,7 +317,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     );
     await log(req.user.id, 'CANCEL', parseInt(req.params.id), row.req_number, 'Cancelled');
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

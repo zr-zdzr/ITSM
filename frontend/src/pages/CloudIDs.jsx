@@ -47,7 +47,7 @@ function CloudForm({ vals, setVals }) {
     api
       .get("/api/employees?status=active")
       .then(setEmployees)
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load employees:", e.message));
   }, []);
 
   function handleEmployeeSelect(e) {

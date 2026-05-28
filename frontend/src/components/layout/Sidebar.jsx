@@ -332,16 +332,14 @@ export default function Sidebar({
 
   useEffect(() => {
     if (!user) return;
-    api
-      .get("/api/requests/count")
-      .then((r) => setPendingCount(r.count || 0))
-      .catch(() => {});
-    const interval = setInterval(() => {
+    function fetchCount() {
       api
         .get("/api/requests/count")
         .then((r) => setPendingCount(r.count || 0))
-        .catch(() => {});
-    }, 60000);
+        .catch((e) => console.error("Requests count error:", e.message));
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 60000);
     return () => clearInterval(interval);
   }, [user]);
 

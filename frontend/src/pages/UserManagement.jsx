@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { UserPlus, Trash2, Shield, AlertTriangle, Check } from "lucide-react";
 import { api } from "../lib/api";
@@ -60,9 +60,7 @@ export default function UserManagement() {
   const [perms, setPerms] = useState(emptyPerms());
   const [permSaving, setPermSaving] = useState(false);
 
-  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const userList = await api.get("/api/users");
@@ -72,15 +70,24 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
-  useEffect(() => {
-    load();
+  function loadAvailableEmployees() {
     api
       .get("/api/users/employees/available")
       .then(setEmployees)
-      .catch(() => {});
-  }, []);
+      .catch((e) =>
+        console.error("Failed to load available employees:", e.message),
+      );
+  }
+
+  useEffect(() => {
+    if (me?.role !== "super_admin") return;
+    load();
+    loadAvailableEmployees();
+  }, [load, me?.role]);
+
+  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
 
   async function addUser() {
     if (!form.employee_id) return toast("Select an employee", "error");
@@ -93,10 +100,7 @@ export default function UserManagement() {
       setAddModal(false);
       setForm({ employee_id: "", role: "user", password: "" });
       await load();
-      api
-        .get("/api/users/employees/available")
-        .then(setEmployees)
-        .catch(() => {});
+      loadAvailableEmployees();
     } catch (e) {
       toast(e.message, "error");
     } finally {

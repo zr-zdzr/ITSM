@@ -4,15 +4,15 @@ const { requireAuth } = require('../middleware/auth');
 const { ALLOWED_TABLES } = require('../utils/recycle');
 
 // GET /count – lightweight badge
-router.get('/count', requireAuth, async (req, res) => {
+router.get('/count', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`SELECT COUNT(*) n FROM recycle_bin WHERE expires_at > NOW()`);
     res.json({ count: Number(r.rows[0].n) });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // GET / – full list with last action from activity_log
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT rb.id, rb.module, rb.table_name, rb.record_id, rb.record_name,
@@ -26,11 +26,11 @@ router.get('/', requireAuth, async (req, res) => {
       ORDER BY rb.deleted_at DESC
     `);
     res.json(r.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // POST /:id/restore
-router.post('/:id/restore', requireAuth, async (req, res) => {
+router.post('/:id/restore', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query('SELECT * FROM recycle_bin WHERE id=$1', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found in recycle bin' });
@@ -57,15 +57,15 @@ router.post('/:id/restore', requireAuth, async (req, res) => {
 
     await db.query('DELETE FROM recycle_bin WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 // DELETE /:id – permanently delete one item
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res, next) => {
   try {
     await db.query('DELETE FROM recycle_bin WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

@@ -66,7 +66,7 @@ export default function RecycleBinModal({ open, onClose, onCountChange }) {
 
   useEffect(() => {
     if (open) load();
-  }, [open]);
+  }, [open]); // load is stable (no external deps), so omitting is intentional
 
   async function restore(item) {
     try {

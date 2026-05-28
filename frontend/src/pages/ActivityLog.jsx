@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw, Search } from "lucide-react";
 import { api } from "../lib/api";
@@ -64,9 +64,7 @@ export default function ActivityLog() {
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
 
-  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
-
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.get("/api/users/activity/log");
@@ -76,11 +74,14 @@ export default function ActivityLog() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
 
   useEffect(() => {
+    if (me?.role !== "super_admin") return;
     load();
-  }, []);
+  }, [load, me?.role]);
+
+  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
 
   useEffect(() => {
     let out = logs;

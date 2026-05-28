@@ -40,7 +40,7 @@ async function checkAlerts(itemId, client) {
 
 // ── CATEGORIES ────────────────────────────────────────────
 
-router.get('/categories', requireAuth, async (req, res) => {
+router.get('/categories', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT c.*, p.name AS parent_name
@@ -50,10 +50,10 @@ router.get('/categories', requireAuth, async (req, res) => {
        ORDER BY c.sort_order, c.name`
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.post('/categories', requireAuth, perm('inventory', 'create'), async (req, res) => {
+router.post('/categories', requireAuth, perm('inventory', 'create'), async (req, res, next) => {
   try {
     const { name, parent_id, description, icon, sort_order } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
@@ -64,10 +64,10 @@ router.post('/categories', requireAuth, perm('inventory', 'create'), async (req,
     );
     await log(req.user.id, 'CREATE', r.rows[0].id, name, `Category created`);
     res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.put('/categories/:id', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.put('/categories/:id', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   try {
     const { name, parent_id, description, icon, sort_order, is_active } = req.body;
     const r = await db.query(
@@ -77,19 +77,19 @@ router.put('/categories/:id', requireAuth, perm('inventory', 'update'), async (r
     );
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.delete('/categories/:id', requireAuth, perm('inventory', 'delete'), async (req, res) => {
+router.delete('/categories/:id', requireAuth, perm('inventory', 'delete'), async (req, res, next) => {
   try {
     await db.query('UPDATE inv_categories SET is_active=false WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── ITEMS ─────────────────────────────────────────────────
 
-router.get('/items', requireAuth, async (req, res) => {
+router.get('/items', requireAuth, async (req, res, next) => {
   try {
     const { q, category_id, tracking_type } = req.query;
     let sql = `
@@ -116,10 +116,10 @@ router.get('/items', requireAuth, async (req, res) => {
     sql += ' ORDER BY i.name';
     const r = await db.query(sql, params);
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.post('/items', requireAuth, perm('inventory', 'create'), async (req, res) => {
+router.post('/items', requireAuth, perm('inventory', 'create'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -151,11 +151,11 @@ router.post('/items', requireAuth, perm('inventory', 'create'), async (req, res)
     res.json(item);
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
-router.put('/items/:id', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.put('/items/:id', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   try {
     const { name, category_id, description, model, manufacturer, sku, tracking_type, unit, reorder_level, reorder_qty } = req.body;
     const r = await db.query(
@@ -177,21 +177,21 @@ router.put('/items/:id', requireAuth, perm('inventory', 'update'), async (req, r
     }
     await checkAlerts(parseInt(req.params.id));
     res.json(r.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.delete('/items/:id', requireAuth, perm('inventory', 'delete'), async (req, res) => {
+router.delete('/items/:id', requireAuth, perm('inventory', 'delete'), async (req, res, next) => {
   try {
     const r = await db.query('UPDATE inv_items SET is_active=false WHERE id=$1 RETURNING name', [req.params.id]);
     if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
     await log(req.user.id, 'DELETE', parseInt(req.params.id), r.rows[0].name, 'Item deactivated');
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── STOCK ADJUSTMENT (add/remove stock manually) ──────────
 
-router.post('/items/:id/adjust', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/items/:id/adjust', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -237,13 +237,13 @@ router.post('/items/:id/adjust', requireAuth, perm('inventory', 'update'), async
     res.json({ ok: true });
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: e.message });
+    next(e);
   } finally { client.release(); }
 });
 
 // ── ITEM HISTORY ──────────────────────────────────────────
 
-router.get('/items/:id/history', requireAuth, async (req, res) => {
+router.get('/items/:id/history', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT a.*, u.name AS performed_by_name
@@ -254,12 +254,12 @@ router.get('/items/:id/history', requireAuth, async (req, res) => {
       [req.params.id]
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── ALERTS ────────────────────────────────────────────────
 
-router.get('/alerts', requireAuth, async (req, res) => {
+router.get('/alerts', requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT a.*, i.name AS item_name, c.name AS category_name
@@ -270,19 +270,19 @@ router.get('/alerts', requireAuth, async (req, res) => {
        ORDER BY a.alert_type DESC, a.created_at DESC`
     );
     res.json(r.rows);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
-router.post('/alerts/:id/resolve', requireAuth, perm('inventory', 'update'), async (req, res) => {
+router.post('/alerts/:id/resolve', requireAuth, perm('inventory', 'update'), async (req, res, next) => {
   try {
     await db.query('UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW() WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 // ── STATS ─────────────────────────────────────────────────
 
-router.get('/stats', requireAuth, async (req, res) => {
+router.get('/stats', requireAuth, async (req, res, next) => {
   try {
     const [items, stock, alerts, pending] = await Promise.all([
       db.query('SELECT COUNT(*) FROM inv_items WHERE is_active=true'),
@@ -305,7 +305,7 @@ router.get('/stats', requireAuth, async (req, res) => {
       active_alerts:   parseInt(alerts.rows[0].count)          || 0,
       pending_requests:parseInt(pending.rows[0].count)         || 0,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { next(e); }
 });
 
 module.exports = { router, checkAlerts };

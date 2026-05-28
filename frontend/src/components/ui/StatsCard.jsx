@@ -2,17 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
 
-const ICON_BG = {
-  brand: "#00AA2F",
-  emerald: "#22c55e",
-  amber: "#f59e0b",
-  rose: "#f43f5e",
-  purple: "#a855f7",
-  cyan: "#06b6d4",
-  sky: "#0ea5e9",
-};
-
-const ACCENT_COLOR = {
+const COLOR_MAP = {
   brand: "#00AA2F",
   emerald: "#22c55e",
   amber: "#f59e0b",
@@ -32,8 +22,8 @@ export default function StatsCard({
   onClick,
   active,
 }) {
-  const iconBg = ICON_BG[color] || ICON_BG.brand;
-  const accent = ACCENT_COLOR[color] || ACCENT_COLOR.brand;
+  const iconBg = COLOR_MAP[color] || COLOR_MAP.brand;
+  const accent = COLOR_MAP[color] || COLOR_MAP.brand;
 
   return (
     <motion.div

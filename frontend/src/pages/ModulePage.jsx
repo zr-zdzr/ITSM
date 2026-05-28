@@ -76,11 +76,17 @@ export default function ModulePage({ config }) {
     } finally {
       setLoading(false);
     }
-  }, [apiPath]);
+  }, [apiPath, toast]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleExport = useCallback(() => {
+    api
+      .download(`${apiPath}/export/csv`, exportFile || `${mod}-export.csv`)
+      .catch((e) => toast(e.message, "error"));
+  }, [apiPath, exportFile, mod, toast]);
 
   useEffect(() => {
     function handler(e) {
@@ -102,7 +108,7 @@ export default function ModulePage({ config }) {
     }
     window.addEventListener("module-action", handler);
     return () => window.removeEventListener("module-action", handler);
-  }, [canCreate, canDelete, load]);
+  }, [canCreate, canDelete, load, handleExport]);
 
   function openAdd() {
     setFormVals(EMPTY);
@@ -222,12 +228,6 @@ export default function ModulePage({ config }) {
     } finally {
       setBulkSaving(false);
     }
-  }
-
-  function handleExport() {
-    api
-      .download(`${apiPath}/export/csv`, exportFile || `${mod}-export.csv`)
-      .catch((e) => toast(e.message, "error"));
   }
 
   function downloadSample() {
