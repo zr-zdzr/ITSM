@@ -286,21 +286,9 @@ async function runMigrations() {
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`,
   );
-  // ── Employees: migrate to single full_name field ─────────
-  await db.query(
-    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS full_name VARCHAR(50)`,
-  );
-  await db.query(`
-    UPDATE employees
-    SET full_name = LEFT(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')), 50)
-    WHERE full_name IS NULL OR full_name = ''
-  `);
-  await db.query(
-    `UPDATE employees SET full_name = 'Unknown' WHERE full_name IS NULL OR TRIM(full_name) = ''`,
-  );
-  await db.query(`ALTER TABLE employees ALTER COLUMN full_name SET NOT NULL`);
-  await db.query(`ALTER TABLE employees ALTER COLUMN first_name DROP NOT NULL`);
-  await db.query(`ALTER TABLE employees ALTER COLUMN last_name  DROP NOT NULL`);
+  // ── Employees: drop legacy first_name/last_name columns ────
+  await db.query(`ALTER TABLE employees DROP COLUMN IF EXISTS first_name`);
+  await db.query(`ALTER TABLE employees DROP COLUMN IF EXISTS last_name`);
   await db.query(`CREATE SEQUENCE IF NOT EXISTS network_asset_seq START 1`);
   await db.query(
     `ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS asset_tag VARCHAR(50)`,

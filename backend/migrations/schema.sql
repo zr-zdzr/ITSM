@@ -209,16 +209,30 @@ END $$;
 CREATE SEQUENCE IF NOT EXISTS mobile_asset_seq START 1;
 
 -- ── PERFORMANCE INDEXES ───────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_systems_status      ON systems(status);
-CREATE INDEX IF NOT EXISTS idx_systems_warranty    ON systems(warranty_expiry);
-CREATE INDEX IF NOT EXISTS idx_systems_assigned    ON systems(assigned_user_id);
-CREATE INDEX IF NOT EXISTS idx_network_type        ON network_devices(device_type);
-CREATE INDEX IF NOT EXISTS idx_mobiles_status      ON mobiles(status);
-CREATE INDEX IF NOT EXISTS idx_mobiles_assigned    ON mobiles(assigned_user_id);
-CREATE INDEX IF NOT EXISTS idx_sims_status_vendor  ON sims(status, vendor);
-CREATE INDEX IF NOT EXISTS idx_sims_assigned       ON sims(assigned_user_id);
-CREATE INDEX IF NOT EXISTS idx_gws_status          ON gws_accounts(status);
-CREATE INDEX IF NOT EXISTS idx_activity_created    ON activity_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_employees_dept      ON employees(department);
-CREATE INDEX IF NOT EXISTS idx_employees_active    ON employees(is_active);
-CREATE INDEX IF NOT EXISTS idx_employees_location  ON employees(location);
+-- Device & asset indexes
+CREATE INDEX IF NOT EXISTS idx_systems_status         ON systems(status);
+CREATE INDEX IF NOT EXISTS idx_systems_warranty       ON systems(warranty_expiry);
+CREATE INDEX IF NOT EXISTS idx_systems_assigned       ON systems(assigned_user_id);
+CREATE INDEX IF NOT EXISTS idx_network_type           ON network_devices(device_type);
+CREATE INDEX IF NOT EXISTS idx_network_status         ON network_devices(status);
+CREATE INDEX IF NOT EXISTS idx_mobiles_status         ON mobiles(status);
+CREATE INDEX IF NOT EXISTS idx_mobiles_assigned       ON mobiles(assigned_user_id);
+CREATE INDEX IF NOT EXISTS idx_sims_status_vendor     ON sims(status, vendor);
+CREATE INDEX IF NOT EXISTS idx_sims_assigned          ON sims(assigned_user_id);
+CREATE INDEX IF NOT EXISTS idx_gws_status             ON gws_accounts(status);
+-- Employee indexes
+CREATE INDEX IF NOT EXISTS idx_employees_dept         ON employees(department);
+CREATE INDEX IF NOT EXISTS idx_employees_active       ON employees(is_active);
+CREATE INDEX IF NOT EXISTS idx_employees_location     ON employees(location);
+CREATE INDEX IF NOT EXISTS idx_employees_portal_user  ON employees(portal_user_id);
+-- Activity log indexes
+CREATE INDEX IF NOT EXISTS idx_activity_created       ON activity_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_user_created  ON activity_log(user_id, created_at DESC);
+-- Recycle bin indexes
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_expires    ON recycle_bin(expires_at);
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_deleted_by ON recycle_bin(deleted_by);
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_module     ON recycle_bin(module);
+-- Maintenance log indexes
+CREATE INDEX IF NOT EXISTS idx_maint_logged_by        ON maintenance_log(logged_by);
+-- GWS indexes
+CREATE INDEX IF NOT EXISTS idx_gws_assigned_user      ON gws_accounts(assigned_user_id) WHERE assigned_user_id IS NOT NULL;
