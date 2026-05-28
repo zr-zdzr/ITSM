@@ -42,16 +42,26 @@ export default function MaintenanceLog({ row, assetType }) {
 
   useEffect(() => {
     if (!row?.id) return;
+    let cancelled = false;
     setLoading(true);
     api
       .get(`/api/maintenance/${assetType}/${row.id}`)
-      .then(setLogs)
-      .catch((e) => {
-        console.error("Failed to load maintenance log:", e.message);
-        setLogs([]);
+      .then((d) => {
+        if (!cancelled) setLogs(d);
       })
-      .finally(() => setLoading(false));
-  }, [row?.id, assetType]);
+      .catch((e) => {
+        if (!cancelled) {
+          toast(e.message, "error");
+          setLogs([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row?.id, assetType, toast]);
 
   async function save() {
     setSaving(true);

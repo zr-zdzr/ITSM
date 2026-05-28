@@ -76,15 +76,15 @@ export default function UserManagement() {
     api
       .get("/api/users/employees/available")
       .then(setEmployees)
-      .catch((e) =>
-        console.error("Failed to load available employees:", e.message),
-      );
+      .catch((e) => toast(e.message, "error"));
   }
 
   useEffect(() => {
     if (me?.role !== "super_admin") return;
     load();
     loadAvailableEmployees();
+    // loadAvailableEmployees is defined in component scope and only uses stable refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, me?.role]);
 
   if (me?.role !== "super_admin") return <Navigate to="/" replace />;

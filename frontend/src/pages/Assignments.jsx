@@ -67,18 +67,26 @@ export default function Assignments() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, empFilter]);
+  }, [statusFilter, empFilter, toast]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    if (directModal)
-      api
-        .get("/api/inventory/items")
-        .then(setItems)
-        .catch((e) => toast(e.message, "error"));
+    if (!directModal) return;
+    let cancelled = false;
+    api
+      .get("/api/inventory/items")
+      .then((d) => {
+        if (!cancelled) setItems(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [directModal, toast]);
 
   async function openDetail(asn) {

@@ -77,6 +77,16 @@ export default function GlobalSearch({ open, onClose }) {
     }
   }, [open]);
 
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      clearTimeout(timerRef.current);
+    };
+  }, [open]);
+
   const search = useCallback((q) => {
     clearTimeout(timerRef.current);
     if (q.length < 2) {
@@ -88,13 +98,14 @@ export default function GlobalSearch({ open, onClose }) {
     timerRef.current = setTimeout(async () => {
       try {
         const data = await api.get(`/api/search?q=${encodeURIComponent(q)}`);
-        setResults(data);
-        setActiveIdx(0);
-      } catch (e) {
-        console.error("Global search error:", e.message);
-        setResults([]);
+        if (!cancelledRef.current) {
+          setResults(data);
+          setActiveIdx(0);
+        }
+      } catch {
+        if (!cancelledRef.current) setResults([]);
       } finally {
-        setLoading(false);
+        if (!cancelledRef.current) setLoading(false);
       }
     }, 280);
   }, []);

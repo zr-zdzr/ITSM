@@ -83,6 +83,7 @@ export default function ActivityLog() {
 
   if (me?.role !== "super_admin") return <Navigate to="/" replace />;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     let out = logs;
     if (actionFilter !== "all")

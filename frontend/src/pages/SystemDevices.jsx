@@ -4,6 +4,7 @@ import Badge from "../components/ui/Badge";
 import MaintenanceLog from "../components/ui/MaintenanceLog";
 import { genAssetTag } from "../lib/utils";
 import { api } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 // ── Helpers ───────────────────────────────────────────────
 function Fld({ label, required, children, half = true }) {
@@ -33,13 +34,22 @@ function SecHead({ title }) {
 // ── Custom Form ───────────────────────────────────────────
 function SystemDeviceForm({ vals, setVals }) {
   const [employees, setEmployees] = useState([]);
+  const { toast } = useToast();
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/employees")
-      .then((d) => setEmployees(Array.isArray(d) ? d : []))
-      .catch((e) => console.error("Failed to load employees:", e.message));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setEmployees(Array.isArray(d) ? d : []);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
   const needEmployee =

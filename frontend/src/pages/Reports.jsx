@@ -678,12 +678,22 @@ function WarrantyTab({ toast }) {
   const [catFilter, setCatFilter] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/warranty")
-      .then(setRows)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setRows(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const filtered = useMemo(() => {
     let out = rows;
@@ -883,12 +893,22 @@ function UnassignedTab({ toast }) {
   const [type, setType] = useState("all");
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/unassigned")
-      .then(setData)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const all = useMemo(() => {
     const merged = [
@@ -1066,12 +1086,22 @@ function DamageTab({ toast }) {
   const [type, setType] = useState("all");
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/damage")
-      .then(setData)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const all = useMemo(() => {
     const merged = [...(data.systems || []), ...(data.mobiles || [])];
@@ -1251,12 +1281,22 @@ function DepartmentTab({ toast }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/department-summary")
-      .then(setRows)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setRows(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const grouped = useMemo(() => {
     const map = {};
@@ -1371,12 +1411,22 @@ function SIMCostsTab({ toast }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/sim-costs")
-      .then(setRows)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setRows(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const total = rows.reduce((a, r) => a + Number(r.total_monthly || 0), 0);
 
@@ -1502,12 +1552,22 @@ function InvStockTab({ toast }) {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/inventory/items")
-      .then(setRows)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setRows(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const filtered = useMemo(() => {
     let out = rows;
@@ -1920,12 +1980,22 @@ function CostAnalyticsTab({ toast }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/reports/cost-analytics")
-      .then(setData)
-      .catch((e) => toast(e.message, "error"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   function fmtPKR(v) {
     const n = Number(v || 0);
@@ -2210,7 +2280,7 @@ export default function Reports() {
     api
       .get("/api/reports/filter-options")
       .then(setFilterOpts)
-      .catch((e) => console.error("Failed to load filter options:", e.message));
+      .catch((e) => toast(e.message, "error"));
 
     const handler = (e) => {
       if (e.detail?.action === "export")

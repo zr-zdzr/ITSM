@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import { api } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 const VALID_LICENSES = ["Starter", "Standard", "Vault", "Not Assigned"];
 
@@ -41,14 +42,23 @@ const sel = "form-select form-select-sm";
 
 function CloudForm({ vals, setVals }) {
   const [employees, setEmployees] = useState([]);
+  const { toast } = useToast();
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/employees?status=active")
-      .then(setEmployees)
-      .catch((e) => console.error("Failed to load employees:", e.message));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setEmployees(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   function handleEmployeeSelect(e) {
     const emp = employees.find((x) => String(x.id) === e.target.value);

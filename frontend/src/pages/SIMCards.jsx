@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import { api } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
@@ -28,13 +29,22 @@ function SecHead({ title }) {
 
 function SIMCardForm({ vals, setVals }) {
   const [employees, setEmployees] = useState([]);
+  const { toast } = useToast();
 
   useEffect(() => {
+    let cancelled = false;
     api
       .get("/api/employees")
-      .then((d) => setEmployees(Array.isArray(d) ? d : []))
-      .catch((e) => console.error("Failed to load employees:", e.message));
-  }, []);
+      .then((d) => {
+        if (!cancelled) setEmployees(Array.isArray(d) ? d : []);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
   const needEmployee = ["employee", "wfh", "user"].includes(vals.assigned_type);
