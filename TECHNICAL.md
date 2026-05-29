@@ -349,6 +349,28 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.3.4 — 2026-05-29
+
+#### Added
+
+- **Auto-fill department on employee assignment** — Selecting an employee in the System Devices, Mobile Devices, or SIM Cards form now automatically populates the Department field from that employee's record. Field remains editable if an override is needed.
+
+#### Fixed
+
+- **Recycle bin never purged expired records** — The UI stated "automatically purged after 30 days" but no code ever deleted expired rows. Weekly maintenance job now runs `DELETE FROM recycle_bin WHERE expires_at < NOW()` before VACUUM ANALYZE.
+
+---
+
+### v1.3.3 — 2026-05-29
+
+#### Fixed
+
+- **`schema.sql` fresh install crash** — Index `idx_gws_assigned_user` referenced `gws_accounts(assigned_user_id)` which does not exist in the table; corrected to `idx_gws_linked_user` on `linked_user_id`. Any new Docker deployment was failing at DB initialisation.
+- **Bulk edit silently failing for Vendors** — `vendors` was in the frontend table map but missing from the backend ALLOWED whitelist in `bulk.js`; selecting vendor records and clicking bulk edit returned `Invalid table`. Added `vendors` with editable fields `category` and `notes`.
+- **Reports › Inventory Stock tab wrong icon** — Tab was displaying a network topology icon; corrected to the Package icon.
+
+---
+
 ### v1.3.2 — 2026-05-29
 
 #### Fixed
