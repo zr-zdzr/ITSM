@@ -266,9 +266,8 @@ export default function ModulePage({ config }) {
       key: "_actions",
       label: "Actions",
       sortable: false,
-      className: "text-end",
       render: (_, row) => (
-        <div className="d-flex align-items-center gap-1 justify-content-end">
+        <div className="d-flex align-items-center gap-1">
           <button
             onClick={() => setViewRow(row)}
             title="View"

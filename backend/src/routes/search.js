@@ -1,13 +1,14 @@
-const router = require('express').Router();
-const db = require('../config/db');
-const { requireAuth } = require('../middleware/auth');
+const router = require("express").Router();
+const db = require("../config/db");
+const { requireAuth } = require("../middleware/auth");
 
-router.get('/', requireAuth, async (req, res, next) => {
-  const q = (req.query.q || '').trim();
+router.get("/", requireAuth, async (req, res, next) => {
+  const q = (req.query.q || "").trim();
   if (q.length < 2) return res.json([]);
   const like = `%${q}%`;
   try {
-    const r = await db.query(`
+    const r = await db.query(
+      `
       SELECT 'systems' AS module, '/systems' AS path, id::text,
              COALESCE(asset_tag, serial_number, 'System') AS label,
              CONCAT_WS(' · ', type, manufacturer, model, status) AS sub
@@ -28,7 +29,7 @@ router.get('/', requireAuth, async (req, res, next) => {
              COALESCE(asset_tag, serial_number, 'Mobile') AS label,
              CONCAT_WS(' · ', manufacturer, model, status) AS sub
       FROM mobiles
-      WHERE asset_tag ILIKE $1 OR serial_number ILIKE $1 OR manufacturer ILIKE $1 OR model ILIKE $1 OR imei1 ILIKE $1
+      WHERE asset_tag ILIKE $1 OR serial_number ILIKE $1 OR manufacturer ILIKE $1 OR model ILIKE $1 OR imei ILIKE $1
 
       UNION ALL
 
@@ -63,9 +64,13 @@ router.get('/', requireAuth, async (req, res, next) => {
       WHERE i.name ILIKE $1 OR i.model ILIKE $1 OR i.sku ILIKE $1
 
       LIMIT 50
-    `, [like]);
+    `,
+      [like],
+    );
     res.json(r.rows);
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 module.exports = router;
