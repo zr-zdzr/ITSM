@@ -46,7 +46,6 @@ function SIMCardForm({ vals, setVals }) {
           if (emp)
             setVals((p) => ({
               ...p,
-              sim_holder: emp.full_name || p.sim_holder,
               department: emp.department || p.department,
               location: emp.location || p.location,
             }));
@@ -112,7 +111,6 @@ function SIMCardForm({ vals, setVals }) {
                   (em) => String(em.id) === String(id),
                 );
                 if (emp) {
-                  if (emp.full_name) set("sim_holder", emp.full_name);
                   if (emp.department) set("department", emp.department);
                   if (emp.location) set("location", emp.location);
                 }
