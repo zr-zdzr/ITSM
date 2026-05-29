@@ -349,6 +349,14 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.3.5 — 2026-05-29
+
+#### Fixed
+
+- **Department auto-fill incomplete** — Auto-fill only triggered on `onChange` (new selections). Editing an existing record where an employee was already assigned did not fill the department field. Now also fills when the employee list loads, covering existing records without requiring the user to re-select the employee. Only fills if department is currently empty — manual overrides are preserved.
+
+---
+
 ### v1.3.4 — 2026-05-29
 
 #### Added
