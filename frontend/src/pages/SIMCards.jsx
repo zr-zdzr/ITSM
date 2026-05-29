@@ -46,9 +46,9 @@ function SIMCardForm({ vals, setVals }) {
           if (emp)
             setVals((p) => ({
               ...p,
-              sim_holder: p.sim_holder || emp.full_name || p.sim_holder,
-              department: p.department || emp.department || p.department,
-              location: p.location || emp.location || p.location,
+              sim_holder: emp.full_name || p.sim_holder,
+              department: emp.department || p.department,
+              location: emp.location || p.location,
             }));
         }
       })

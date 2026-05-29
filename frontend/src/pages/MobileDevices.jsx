@@ -48,8 +48,8 @@ function MobileDeviceForm({ vals, setVals }) {
           if (emp)
             setVals((p) => ({
               ...p,
-              department: p.department || emp.department || p.department,
-              location: p.location || emp.location || p.location,
+              department: emp.department || p.department,
+              location: emp.location || p.location,
             }));
         }
       })
