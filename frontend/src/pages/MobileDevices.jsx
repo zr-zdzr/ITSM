@@ -157,7 +157,14 @@ function MobileDeviceForm({ vals, setVals }) {
             <select
               className={sel}
               value={vals.assigned_user_id || ""}
-              onChange={(e) => set("assigned_user_id", e.target.value || null)}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                set("assigned_user_id", id);
+                const emp = employees.find(
+                  (em) => String(em.id) === String(id),
+                );
+                if (emp?.department) set("department", emp.department);
+              }}
             >
               <option value="">— Select Employee —</option>
               {employees.map((e) => (
