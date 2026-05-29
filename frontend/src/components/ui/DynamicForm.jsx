@@ -1,10 +1,12 @@
 import React from "react";
 
-export default function DynamicForm({ fields, values, onChange }) {
+export default function DynamicForm({ fields, values, onChange, errors = {} }) {
   return (
     <div className="row g-3">
       {fields.map((f) => {
         const val = values[f.name] ?? "";
+        const err = errors[f.name];
+        const invalid = !!err;
         const commonProps = {
           id: f.name,
           value: val,
@@ -20,7 +22,10 @@ export default function DynamicForm({ fields, values, onChange }) {
               {f.required && <span className="text-danger ms-1">*</span>}
             </label>
             {f.type === "select" ? (
-              <select {...commonProps} className="form-select">
+              <select
+                {...commonProps}
+                className={`form-select${invalid ? " is-invalid" : ""}`}
+              >
                 {!f.required && <option value="">— Select —</option>}
                 {f.options?.map((o) => {
                   const { val: optVal, label } =
@@ -36,15 +41,20 @@ export default function DynamicForm({ fields, values, onChange }) {
               <textarea
                 {...commonProps}
                 rows={3}
-                className="form-control"
+                className={`form-control${invalid ? " is-invalid" : ""}`}
                 style={{ resize: "none" }}
               />
             ) : (
               <input
                 {...commonProps}
                 type={f.type || "text"}
-                className="form-control"
+                className={`form-control${invalid ? " is-invalid" : ""}`}
               />
+            )}
+            {invalid && (
+              <div className="invalid-feedback d-block" style={{ fontSize: "0.75rem" }}>
+                {err}
+              </div>
             )}
           </div>
         );

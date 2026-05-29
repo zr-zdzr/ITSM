@@ -17,7 +17,11 @@ export function ToastProvider({ children }) {
   const toast = useCallback((message, type = "info") => {
     const id = Date.now();
     setToasts((p) => [...p, { id, message, type }]);
-    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 3800);
+    // Errors stay until dismissed; success/info/warning auto-dismiss
+    if (type !== "error") {
+      const ms = type === "success" ? 3000 : 4500;
+      setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), ms);
+    }
   }, []);
 
   const remove = (id) => setToasts((p) => p.filter((t) => t.id !== id));

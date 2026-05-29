@@ -58,6 +58,7 @@ export default function ModulePage({ config }) {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formVals, setFormVals] = useState(EMPTY);
+  const [formErrors, setFormErrors] = useState({});
   const [selectedIds, setSelectedIds] = useState(new Set());
 
   const [importModal, setImportModal] = useState(false);
@@ -123,6 +124,7 @@ export default function ModulePage({ config }) {
     setEditRow(null);
     setViewRow(null);
     setFormVals(EMPTY);
+    setFormErrors({});
   }
 
   async function save() {
@@ -130,11 +132,18 @@ export default function ModulePage({ config }) {
       const err = config.validate(formVals);
       if (err) return toast(err, "error");
     } else {
-      const missing = fields
+      const errors = {};
+      fields
         .filter((f) => f.required)
-        .find((f) => !formVals[f.name]);
-      if (missing) return toast(`${missing.label} is required`, "error");
+        .forEach((f) => {
+          if (!formVals[f.name]) errors[f.name] = `${f.label} is required`;
+        });
+      if (Object.keys(errors).length > 0) {
+        setFormErrors(errors);
+        return;
+      }
     }
+    setFormErrors({});
     setSaving(true);
     try {
       if (editRow) {
@@ -394,6 +403,13 @@ export default function ModulePage({ config }) {
         selectable={canDelete}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        onRowClick={setViewRow}
+        emptyTitle={`No ${title.toLowerCase()}s found`}
+        emptyMessage={
+          canCreate
+            ? `Get started by adding your first ${title.toLowerCase()}.`
+            : undefined
+        }
       />
 
       {/* Add / Edit Modal */}
@@ -409,7 +425,12 @@ export default function ModulePage({ config }) {
           <DynamicForm
             fields={fields}
             values={formVals}
-            onChange={(k, v) => setFormVals((p) => ({ ...p, [k]: v }))}
+            errors={formErrors}
+            onChange={(k, v) => {
+              setFormVals((p) => ({ ...p, [k]: v }));
+              if (formErrors[k])
+                setFormErrors((p) => ({ ...p, [k]: undefined }));
+            }}
           />
         )}
         <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
@@ -681,9 +702,28 @@ export default function ModulePage({ config }) {
       >
         <div className="d-flex gap-3">
           <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
-          <p className="small mb-0">
-            This record will be permanently deleted. Are you sure?
-          </p>
+          <div className="small mb-0">
+            <p className="mb-1">
+              Are you sure you want to delete this record? It will be moved to
+              the recycle bin.
+            </p>
+            {confirmDelete &&
+              (confirmDelete.asset_tag ||
+                confirmDelete.full_name ||
+                confirmDelete.name ||
+                confirmDelete.phone_number ||
+                confirmDelete.email) && (
+                <p className="mb-0 fw-semibold">
+                  "
+                  {confirmDelete.asset_tag ||
+                    confirmDelete.full_name ||
+                    confirmDelete.name ||
+                    confirmDelete.phone_number ||
+                    confirmDelete.email}
+                  "
+                </p>
+              )}
+          </div>
         </div>
         <div className="d-flex justify-content-end gap-2 mt-4">
           <button

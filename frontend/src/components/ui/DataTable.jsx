@@ -6,10 +6,42 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Inbox,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+function pageNumbers(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3)
+    return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
+}
+
+function SkeletonRow({ cols, selectable }) {
+  return (
+    <tr style={{ pointerEvents: "none" }}>
+      {selectable && (
+        <td>
+          <div
+            className="skeleton-box"
+            style={{ width: 16, height: 16, borderRadius: 3 }}
+          />
+        </td>
+      )}
+      {cols.map((_, i) => (
+        <td key={i}>
+          <div
+            className="skeleton-box"
+            style={{ height: 13, width: `${55 + (i * 17) % 40}%`, borderRadius: 4 }}
+          />
+        </td>
+      ))}
+    </tr>
+  );
+}
 
 export default function DataTable({
   columns,
@@ -19,10 +51,14 @@ export default function DataTable({
   selectable = false,
   selectedIds,
   onSelectionChange,
+  onRowClick,
+  emptyTitle = "No records found",
+  emptyMessage = "",
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState({ key: null, dir: "asc" });
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return data;
@@ -45,8 +81,12 @@ export default function DataTable({
     });
   }, [filtered, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => {
+    setPage(1);
+  }, [query, pageSize, data]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   const filteredIds = useMemo(
     () => filtered.map((r) => r.id).filter(Boolean),
@@ -102,30 +142,40 @@ export default function DataTable({
     );
   }
 
+  const isFiltered = query.trim().length > 0;
+  const showEmpty = !loading && paginated.length === 0;
+
   return (
     <div className="d-flex flex-column gap-3">
       {/* Search */}
-      <div className="position-relative">
-        <Search
-          size={14}
-          className="position-absolute text-secondary"
-          style={{
-            left: 10,
-            top: "50%",
-            transform: "translateY(-50%)",
-            pointerEvents: "none",
-          }}
-        />
-        <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(1);
-          }}
-          placeholder={searchPlaceholder}
-          className="form-control form-control-sm"
-          style={{ paddingLeft: "2rem" }}
-        />
+      <div className="d-flex align-items-center gap-2">
+        <div className="position-relative flex-grow-1">
+          <Search
+            size={14}
+            className="position-absolute text-secondary"
+            style={{
+              left: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="form-control form-control-sm"
+            style={{ paddingLeft: "2rem" }}
+          />
+        </div>
+        {isFiltered && (
+          <button
+            className="btn btn-sm btn-outline-secondary flex-shrink-0"
+            onClick={() => setQuery("")}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -167,39 +217,62 @@ export default function DataTable({
             </thead>
             <tbody>
               {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonRow key={i} cols={columns} selectable={selectable} />
+                ))
+              ) : showEmpty ? (
                 <tr>
                   <td
                     colSpan={columns.length + (selectable ? 1 : 0)}
-                    className="text-center py-4"
+                    className="text-center py-5"
                   >
-                    <div className="d-flex align-items-center justify-content-center gap-2 text-secondary">
-                      <div
-                        className="spinner-border spinner-border-sm text-primary"
-                        role="status"
-                      />
-                      Loading…
+                    <div className="d-flex flex-column align-items-center gap-2 text-secondary">
+                      <Inbox size={36} className="opacity-40" />
+                      <p className="small fw-medium mb-0">
+                        {isFiltered
+                          ? `No results for "${query}"`
+                          : emptyTitle}
+                      </p>
+                      {!isFiltered && emptyMessage && (
+                        <p
+                          className="small mb-0 opacity-75"
+                          style={{ fontSize: "0.75rem" }}
+                        >
+                          {emptyMessage}
+                        </p>
+                      )}
+                      {isFiltered && (
+                        <button
+                          className="btn btn-sm btn-link text-secondary p-0 mt-1"
+                          style={{ fontSize: "0.75rem" }}
+                          onClick={() => setQuery("")}
+                        >
+                          Clear search
+                        </button>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              ) : paginated.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns.length + (selectable ? 1 : 0)}
-                    className="text-center py-5 text-secondary"
-                  >
-                    {query ? `No results for "${query}"` : "No records found"}
                   </td>
                 </tr>
               ) : (
                 paginated.map((row, i) => (
                   <tr
                     key={row.id ?? i}
+                    onClick={() => onRowClick?.(row)}
+                    style={{
+                      cursor: onRowClick ? "pointer" : "default",
+                    }}
                     className={cn(
                       selectedIds?.has(row.id) ? "table-active" : "",
+                      onRowClick ? "row-clickable" : "",
                     )}
                   >
                     {selectable && (
-                      <td>
+                      <td
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleRow(row.id);
+                        }}
+                      >
                         <input
                           type="checkbox"
                           className="form-check-input"
@@ -213,6 +286,11 @@ export default function DataTable({
                         key={col.key}
                         className={cn("align-middle", col.className)}
                         style={{ whiteSpace: "nowrap" }}
+                        onClick={
+                          col.key === "_actions"
+                            ? (e) => e.stopPropagation()
+                            : undefined
+                        }
                       >
                         {col.render
                           ? col.render(row[col.key], row)
@@ -229,39 +307,73 @@ export default function DataTable({
         </div>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="d-flex align-items-center justify-content-between small text-secondary">
-          <span>
-            {sorted.length} record{sorted.length !== 1 ? "s" : ""}
-          </span>
-          <nav>
-            <ul className="pagination pagination-sm mb-0">
-              <li className={cn("page-item", page <= 1 && "disabled")}>
-                <button
-                  className="page-link"
-                  onClick={() => setPage((p) => p - 1)}
-                  disabled={page <= 1}
+      {/* Pagination footer */}
+      {sorted.length > 0 && (
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 small">
+          <div className="d-flex align-items-center gap-2 text-secondary">
+            <span>
+              {sorted.length} record{sorted.length !== 1 ? "s" : ""}
+            </span>
+            <select
+              className="form-select form-select-sm"
+              style={{ width: "auto", fontSize: "0.75rem" }}
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} / page
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {totalPages > 1 && (
+            <nav aria-label="Table pagination">
+              <ul className="pagination pagination-sm mb-0">
+                <li className={cn("page-item", page <= 1 && "disabled")}>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    <ChevronLeft size={13} />
+                  </button>
+                </li>
+                {pageNumbers(page, totalPages).map((p, i) =>
+                  p === "…" ? (
+                    <li key={`e${i}`} className="page-item disabled">
+                      <span className="page-link px-2">…</span>
+                    </li>
+                  ) : (
+                    <li
+                      key={p}
+                      className={cn("page-item", p === page && "active")}
+                    >
+                      <button
+                        className="page-link"
+                        style={{ minWidth: 36 }}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    </li>
+                  ),
+                )}
+                <li
+                  className={cn("page-item", page >= totalPages && "disabled")}
                 >
-                  <ChevronLeft size={14} />
-                </button>
-              </li>
-              <li className="page-item disabled">
-                <span className="page-link">
-                  {page} / {totalPages}
-                </span>
-              </li>
-              <li className={cn("page-item", page >= totalPages && "disabled")}>
-                <button
-                  className="page-link"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= totalPages}
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </li>
-            </ul>
-          </nav>
+                  <button
+                    className="page-link"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    <ChevronRight size={13} />
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          )}
         </div>
       )}
     </div>
