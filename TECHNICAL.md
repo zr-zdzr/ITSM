@@ -349,6 +349,25 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.4 — 2026-05-29
+
+#### Added
+
+- **Clickable table rows** — Click anywhere on a row to open its detail view. Previously required finding and clicking the eye icon in the Actions column. Actions column buttons still work independently.
+- **Numbered pagination** — Page numbers with ellipsis replace the plain "3 / 12" display: `‹ 1 2 3 … 12 ›`. Rows-per-page selector (25 / 50 / 100) added to every table.
+- **Skeleton loading** — Shimmer placeholder rows display while data loads, replacing the basic spinner.
+- **Empty states** — Tables now show an inbox icon with a contextual message ("Get started by adding your first System Device.") instead of plain "No records found" text.
+- **Search Clear button** — A Clear button appears in the search bar when a query is active.
+
+#### Improved
+
+- **Inline field validation** — Required fields now highlight red with an error message directly under the field instead of firing a toast. Error clears as you type.
+- **Error toasts stay until dismissed** — Error toasts no longer auto-dismiss after 3.8s. Success toasts dismiss in 3s, info/warning in 4.5s.
+- **Delete confirmation shows record name** — The confirmation modal now displays the asset tag, name, or email of the record being deleted.
+- **Clickable row hover tint** — Rows with click behaviour show a subtle green (brand colour) hover highlight.
+
+---
+
 ### v1.3.7 — 2026-05-29
 
 #### Fixed
