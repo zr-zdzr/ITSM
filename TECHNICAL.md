@@ -349,6 +349,14 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.3.6 — 2026-05-29
+
+#### Added
+
+- **Auto-fill Location and SIM Holder from employee** — Expanded employee auto-fill to cover all relevant fields. System Devices and Mobile Devices now auto-fill both Department and Location. SIM Cards additionally auto-fills SIM Holder with the employee's full name. All fields remain editable and only fill if currently empty.
+
+---
+
 ### v1.3.5 — 2026-05-29
 
 #### Fixed
