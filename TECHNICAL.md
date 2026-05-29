@@ -349,6 +349,14 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.4.2 — 2026-05-29
+
+#### Fixed
+
+- **SIM Cards — Inventory type missing everywhere** — All 110 SIM cards in the database have `assigned_type = 'inventory'` but the form dropdown, view panel, and table badge all had no mapping for it. Form dropdown now includes Inventory as the first option with default. Badge and view panel now display "Inventory" correctly. Default `assigned_type` on new SIMs changed from `service` to `inventory`.
+
+---
+
 ### v1.4.1 — 2026-05-29
 
 #### Fixed
