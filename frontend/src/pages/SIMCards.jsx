@@ -232,18 +232,17 @@ function SIMCardView(row) {
   const purposeLabel = { official: "Official", service: "Service" };
   const statusLabel = { active: "Active", suspended: "Suspended" };
 
-  const Field = ({ label, value }) =>
-    value ? (
-      <div className="col-6">
-        <dt
-          className="text-secondary fw-semibold text-uppercase mb-1"
-          style={{ fontSize: "11px", letterSpacing: "0.05em" }}
-        >
-          {label}
-        </dt>
-        <dd className="small mb-0">{value}</dd>
-      </div>
-    ) : null;
+  const Field = ({ label, value }) => (
+    <div className="col-6">
+      <dt
+        className="text-secondary fw-semibold text-uppercase mb-1"
+        style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+      >
+        {label}
+      </dt>
+      <dd className="small mb-0">{value || "—"}</dd>
+    </div>
+  );
 
   return (
     <dl className="row g-3">
@@ -252,15 +251,13 @@ function SIMCardView(row) {
         label="Named On"
         value={namedOnLabel[row.assigned_type] || row.assigned_type}
       />
-      {row.assigned_user_name && (
-        <Field label="Employee" value={row.assigned_user_name} />
-      )}
+      <Field label="Employee" value={row.assigned_user_name} />
       <Field label="SIM Holder" value={row.sim_holder} />
       <Field label="Department" value={row.department} />
+      <Field label="Location" value={row.location} />
       <Field label="Type" value={row.sim_type} />
       <Field label="Status" value={statusLabel[row.status] || row.status} />
       <Field label="Purpose" value={purposeLabel[row.purpose] || row.purpose} />
-      <Field label="Location" value={row.location} />
       {row.notes && (
         <div className="col-12">
           <dt
@@ -318,8 +315,9 @@ const config = {
       render: (_, row) => <NamedOnBadge row={row} />,
     },
     { key: "sim_holder", label: "SIM Holder", render: (v) => v || "—" },
-    { key: "sim_type", label: "Type", render: (v) => v || "—" },
+    { key: "department", label: "Department", render: (v) => v || "—" },
     { key: "location", label: "Location", render: (v) => v || "—" },
+    { key: "sim_type", label: "Type", render: (v) => v || "—" },
     {
       key: "purpose",
       label: "Purpose of Use",
