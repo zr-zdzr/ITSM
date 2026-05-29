@@ -349,12 +349,26 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
-### v1.3 — 2026-05-29
+### v1.3.2 — 2026-05-29
+
+#### Fixed
+
+- **`schema.sql` fresh install crash** — Index `idx_gws_assigned_user` referenced `gws_accounts(assigned_user_id)` which does not exist in the table; corrected to `idx_gws_linked_user` on `linked_user_id`. Any new Docker deployment was failing at DB initialisation.
+- **Bulk edit silently failing for Vendors** — `vendors` was in the frontend table map but missing from the backend ALLOWED whitelist in `bulk.js`; selecting vendor records and clicking bulk edit returned `Invalid table`. Added `vendors` with editable fields `category` and `notes`.
+- **Reports › Inventory Stock tab wrong icon** — Tab was displaying a network topology icon; corrected to the Package icon.
+
+---
+
+### v1.3.1 — 2026-05-29
 
 #### Fixed
 
 - **Global search broken** — `imei1` column reference in search query did not exist; corrected to `imei`. Every search was returning a 500 error silently.
 - **Actions column alignment** — Actions header and buttons are now left-aligned consistent with all other table columns.
+
+---
+
+### v1.3 — 2026-05-29
 
 #### Added
 
@@ -363,7 +377,7 @@ All changes are tracked in Git. Versions are grouped by release date.
 - **Weekly VACUUM** — Backend runs `VACUUM ANALYZE` on all tables 60 seconds after startup, then every 7 days. Prevents PostgreSQL dead-tuple bloat under active write load. No new dependency required.
 - **Technical documentation** — `TECHNICAL.md` created covering tech stack, architecture, all pages, components, conventions, and environment variables.
 
-#### Fixed (inventory & chat)
+#### Fixed
 
 - **ChatBot GROQ key** — Duplicate `GROQ_API_KEY` entries in `.env` caused the placeholder value to override the real key. Deduplicated.
 - **Warranty report** — Confirmed query is correct; was showing 0 records only because no warranty dates existed in data. Now shows results from imported network devices.
