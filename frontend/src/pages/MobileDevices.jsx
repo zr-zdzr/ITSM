@@ -45,10 +45,11 @@ function MobileDeviceForm({ vals, setVals }) {
           const emp = list.find(
             (em) => String(em.id) === String(vals.assigned_user_id),
           );
-          if (emp?.department)
+          if (emp)
             setVals((p) => ({
               ...p,
-              department: p.department || emp.department,
+              department: p.department || emp.department || p.department,
+              location: p.location || emp.location || p.location,
             }));
         }
       })
@@ -175,7 +176,10 @@ function MobileDeviceForm({ vals, setVals }) {
                 const emp = employees.find(
                   (em) => String(em.id) === String(id),
                 );
-                if (emp?.department) set("department", emp.department);
+                if (emp) {
+                  if (emp.department) set("department", emp.department);
+                  if (emp.location) set("location", emp.location);
+                }
               }}
             >
               <option value="">— Select Employee —</option>
