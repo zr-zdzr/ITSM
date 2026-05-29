@@ -5,7 +5,6 @@ import {
   FileDown,
   Trash2,
   Pencil,
-  Eye,
   AlertTriangle,
   CheckCircle2,
   XCircle,
@@ -113,10 +112,12 @@ export default function ModulePage({ config }) {
 
   function openAdd() {
     setFormVals(EMPTY);
+    setFormErrors({});
     setAddModal(true);
   }
   function openEdit(row) {
     setFormVals({ ...row });
+    setFormErrors({});
     setEditRow(row);
   }
   function closeModals() {
@@ -277,14 +278,6 @@ export default function ModulePage({ config }) {
       sortable: false,
       render: (_, row) => (
         <div className="d-flex align-items-center gap-1">
-          <button
-            onClick={() => setViewRow(row)}
-            title="View"
-            className="btn btn-link text-secondary p-1"
-            style={{ lineHeight: 1 }}
-          >
-            <Eye size={13} />
-          </button>
           {qrData && (
             <button
               onClick={() => setQrRow(row)}
