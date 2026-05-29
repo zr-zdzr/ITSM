@@ -179,7 +179,7 @@ const TABS = [
   { id: "unassigned", label: "Unassigned", icon: Package },
   { id: "damage", label: "Damage & Repair", icon: Wrench },
   { id: "department", label: "Department Summary", icon: Building2 },
-  { id: "inv-stock", label: "Inventory Stock", icon: Network },
+  { id: "inv-stock", label: "Inventory Stock", icon: Package },
   { id: "inv-assignments", label: "Inv. Assignments", icon: PackageCheck },
   { id: "sim-costs", label: "SIM Costs", icon: CreditCard },
   { id: "cost-analytics", label: "Cost Analytics", icon: DollarSign },

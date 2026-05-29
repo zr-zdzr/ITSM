@@ -235,4 +235,4 @@ CREATE INDEX IF NOT EXISTS idx_recycle_bin_module     ON recycle_bin(module);
 -- Maintenance log indexes
 CREATE INDEX IF NOT EXISTS idx_maint_logged_by        ON maintenance_log(logged_by);
 -- GWS indexes
-CREATE INDEX IF NOT EXISTS idx_gws_assigned_user      ON gws_accounts(assigned_user_id) WHERE assigned_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_gws_linked_user        ON gws_accounts(linked_user_id) WHERE linked_user_id IS NOT NULL;
