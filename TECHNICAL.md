@@ -349,6 +349,16 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.3.7 — 2026-05-29
+
+#### Fixed
+
+- **Employee fields now always override on form open** — Previously auto-fill used `existing || employee` so a saved department/location would block the sync. Reversed to `employee || existing` so the employee's current department and location always win when the form loads.
+- **SIM Cards view panel missing Department and Location** — Fields were hidden when empty. All fields now always display with `—` fallback. Employee, Department, and Location moved up to appear directly after Named On.
+- **SIM Cards table missing Department column** — Department column added between SIM Holder and Location.
+
+---
+
 ### v1.3.6 — 2026-05-29
 
 #### Added
