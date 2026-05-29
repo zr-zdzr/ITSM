@@ -1,5 +1,7 @@
 # ITMS — IT Management System
+
 ### Technical Documentation
+
 **Organization:** Bykea  
 **Maintained by:** IT Department
 
@@ -14,51 +16,56 @@ ITMS is an internal web portal for Bykea's IT department to manage and track all
 ## 2. Tech Stack
 
 ### Database
-| Technology | Version | Purpose |
-|---|---|---|
-| PostgreSQL | 16 (Alpine) | Primary relational database — all data |
-| connect-pg-simple | 9.x | Stores user sessions inside PostgreSQL (`session` table) |
+
+| Technology        | Version     | Purpose                                                  |
+| ----------------- | ----------- | -------------------------------------------------------- |
+| PostgreSQL        | 16 (Alpine) | Primary relational database — all data                   |
+| connect-pg-simple | 9.x         | Stores user sessions inside PostgreSQL (`session` table) |
 
 ### Backend
-| Technology | Purpose |
-|---|---|
-| Node.js | JavaScript runtime |
-| Express.js | HTTP server and REST API framework |
-| Passport.js | Authentication — Google OAuth2 and local (username + password) |
-| bcryptjs | Password hashing |
-| pg | PostgreSQL client with connection pooling |
-| express-session | Session management (cookie-based) |
-| multer | File upload handling (CSV imports) |
-| csv-parse | Parsing uploaded CSV files |
-| csv-stringify | Generating CSV export files |
-| dotenv | Loading environment variables from `.env` |
+
+| Technology      | Purpose                                                        |
+| --------------- | -------------------------------------------------------------- |
+| Node.js         | JavaScript runtime                                             |
+| Express.js      | HTTP server and REST API framework                             |
+| Passport.js     | Authentication — Google OAuth2 and local (username + password) |
+| bcryptjs        | Password hashing                                               |
+| pg              | PostgreSQL client with connection pooling                      |
+| express-session | Session management (cookie-based)                              |
+| multer          | File upload handling (CSV imports)                             |
+| csv-parse       | Parsing uploaded CSV files                                     |
+| csv-stringify   | Generating CSV export files                                    |
+| dotenv          | Loading environment variables from `.env`                      |
 
 ### Frontend
-| Technology | Purpose |
-|---|---|
-| React 18 | UI component framework |
+
+| Technology      | Purpose                                         |
+| --------------- | ----------------------------------------------- |
+| React 18        | UI component framework                          |
 | React Router v6 | Client-side page routing (no full-page reloads) |
-| Bootstrap 5 | CSS framework — layout, tables, forms, modals |
-| Lucide React | Icon library |
-| Framer Motion | Page and component animations |
-| Vite | Frontend build tool and development server |
+| Bootstrap 5     | CSS framework — layout, tables, forms, modals   |
+| Lucide React    | Icon library                                    |
+| Framer Motion   | Page and component animations                   |
+| Vite            | Frontend build tool and development server      |
 
 ### Infrastructure
-| Technology | Purpose |
-|---|---|
-| Docker | Container runtime |
-| Docker Compose | Orchestrates 3 containers (db, backend, frontend) |
-| Nginx | Serves the React build; reverse-proxies `/api` and `/auth` to the backend |
-| Groq API (llama-3.3-70b) | Powers the built-in ChatBot assistant |
+
+| Technology               | Purpose                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| Docker                   | Container runtime                                                         |
+| Docker Compose           | Orchestrates 3 containers (db, backend, frontend)                         |
+| Nginx                    | Serves the React build; reverse-proxies `/api` and `/auth` to the backend |
+| Groq API (llama-3.3-70b) | Powers the built-in ChatBot assistant                                     |
 
 ### Languages
-| Layer | Language |
-|---|---|
-| Backend | JavaScript (Node.js) |
-| Frontend | JavaScript (React / JSX) |
-| Styling | CSS (Bootstrap utilities + custom CSS variables) |
-| Database | SQL (PostgreSQL) |
-| Infrastructure | YAML (Docker Compose), Dockerfile |
+
+| Layer          | Language                                         |
+| -------------- | ------------------------------------------------ |
+| Backend        | JavaScript (Node.js)                             |
+| Frontend       | JavaScript (React / JSX)                         |
+| Styling        | CSS (Bootstrap utilities + custom CSS variables) |
+| Database       | SQL (PostgreSQL)                                 |
+| Infrastructure | YAML (Docker Compose), Dockerfile                |
 
 ---
 
@@ -89,11 +96,11 @@ All three services run as Docker containers and communicate over an internal Doc
 
 ## 4. Roles & Permissions
 
-| Role | Access |
-|---|---|
-| `super_admin` | Full access to everything — bypasses all permission checks |
-| `user` | Module-level CRUD permissions configured per-user in `user_permissions` table |
-| `viewer` | Read-only access to all modules |
+| Role          | Access                                                                        |
+| ------------- | ----------------------------------------------------------------------------- |
+| `super_admin` | Full access to everything — bypasses all permission checks                    |
+| `user`        | Module-level CRUD permissions configured per-user in `user_permissions` table |
+| `viewer`      | Read-only access to all modules                                               |
 
 Permissions are enforced on both the backend (`perm()` middleware) and the frontend (`canPerm()` hook in `AuthContext`).
 
@@ -102,7 +109,9 @@ Permissions are enforced on both the backend (`perm()` middleware) and the front
 ## 5. Pages — What Each Page Does
 
 ### Login (`/login`)
+
 Entry point for the portal. Supports two login methods:
+
 - **Local login** — admin username and password (configured in `.env`)
 - **Google OAuth** — restricted to `@bykea.com` accounts only
 
@@ -111,6 +120,7 @@ The `SUPER_ADMIN_EMAIL` in `.env` is automatically promoted to `super_admin` on 
 ---
 
 ### Dashboard (`/`)
+
 The home page. Gives a real-time overview of the entire IT inventory at a glance.
 
 - **Summary cards** — total count of Systems, Network Devices, Mobiles, SIM Cards, Cloud IDs, and Employees
@@ -122,6 +132,7 @@ The home page. Gives a real-time overview of the entire IT inventory at a glance
 ---
 
 ### System Devices (`/systems`)
+
 Manages all laptops, desktops, servers, and workstations.
 
 - Add, edit, delete systems with full hardware specs: CPU (up to 2), RAM (up to 4 slots with serial/bus), storage (up to 3 disks), manufacturer, model, serial number, asset tag
@@ -136,6 +147,7 @@ Manages all laptops, desktops, servers, and workstations.
 ---
 
 ### Network Devices (`/network`)
+
 Manages network infrastructure: switches, routers, firewalls, WiFi controllers, access points, UPS units, NAS devices.
 
 - Track device type, brand, model, serial number, IP address, MAC address, VLAN, firmware version, rack location
@@ -148,6 +160,7 @@ Manages network infrastructure: switches, routers, firewalls, WiFi controllers, 
 ---
 
 ### Mobile Devices (`/mobiles`)
+
 Manages smartphones and tablets issued by the company.
 
 - Track manufacturer, model, serial number, IMEI (primary and secondary), color, storage, OS and OS version
@@ -160,6 +173,7 @@ Manages smartphones and tablets issued by the company.
 ---
 
 ### SIM Cards (`/sims`)
+
 Manages all company SIM cards across all operators.
 
 - Track phone number, ICCID, vendor (Jazz / Telenor / Ufone / Zong / Other)
@@ -172,6 +186,7 @@ Manages all company SIM cards across all operators.
 ---
 
 ### Cloud IDs (`/gws`)
+
 Manages all Google Workspace accounts linked to the organization.
 
 - Track first name, last name, email, org unit, phone number
@@ -183,6 +198,7 @@ Manages all Google Workspace accounts linked to the organization.
 ---
 
 ### Employees (`/employees`)
+
 The company staff directory — source of truth for assignment targets.
 
 - Full employee profile: name, email, designation, department, business unit, mobile number, location, employment type, joining date
@@ -194,6 +210,7 @@ The company staff directory — source of truth for assignment targets.
 ---
 
 ### Inventory Stock (`/inventory`)
+
 Tracks consumable and returnable stock items (cables, peripherals, stationery, etc.).
 
 - **Categories** — organise items into a hierarchy (e.g. Cables > Networking)
@@ -206,6 +223,7 @@ Tracks consumable and returnable stock items (cables, peripherals, stationery, e
 ---
 
 ### Requests (`/requests`)
+
 Handles employee requests for inventory items.
 
 - Any logged-in user can raise a request for one or more inventory items
@@ -218,6 +236,7 @@ Handles employee requests for inventory items.
 ---
 
 ### Assignments (`/assignments`)
+
 Tracks inventory assignments created when requests are fulfilled.
 
 - Each fulfilled request creates an assignment record (e.g. `ASN-2026-0001`)
@@ -229,23 +248,25 @@ Tracks inventory assignments created when requests are fulfilled.
 ---
 
 ### Reports (`/reports`)
+
 Generates cross-module reports for management and audits.
 
-| Tab | What it shows |
-|---|---|
-| **Warranty** | All assets (systems, mobiles, network devices) with warranty expiry dates; highlights expired and expiring within 90 days |
-| **Unassigned Assets** | All systems, mobiles, and SIMs currently sitting in inventory (not assigned to anyone) |
-| **Damaged Assets** | All assets currently in `repair` or `retired` / `damaged` status |
-| **By Department** | Asset count broken down by department |
-| **SIM Costs** | Monthly SIM card billing — total spend per vendor and per employee |
-| **Inventory Stock** | Current stock levels for all inventory items |
-| **Cost Analytics** | Purchase cost analysis across asset types |
+| Tab                   | What it shows                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Warranty**          | All assets (systems, mobiles, network devices) with warranty expiry dates; highlights expired and expiring within 90 days |
+| **Unassigned Assets** | All systems, mobiles, and SIMs currently sitting in inventory (not assigned to anyone)                                    |
+| **Damaged Assets**    | All assets currently in `repair` or `retired` / `damaged` status                                                          |
+| **By Department**     | Asset count broken down by department                                                                                     |
+| **SIM Costs**         | Monthly SIM card billing — total spend per vendor and per employee                                                        |
+| **Inventory Stock**   | Current stock levels for all inventory items                                                                              |
+| **Cost Analytics**    | Purchase cost analysis across asset types                                                                                 |
 
 All reports can be exported as CSV or PDF.
 
 ---
 
 ### User Management (`/users`)
+
 Manages portal login accounts and their permissions.
 
 - View all portal users (admin, regular users, viewers)
@@ -257,6 +278,7 @@ Manages portal login accounts and their permissions.
 ---
 
 ### Activity Log (`/logs`)
+
 Full audit trail of every action taken in the portal.
 
 - Records who did what, on which record, at what time, from which IP address
@@ -267,6 +289,7 @@ Full audit trail of every action taken in the portal.
 ---
 
 ### Vendors (`/vendors`)
+
 Manages the list of IT vendors and suppliers.
 
 - Track vendor name, contact person, email, phone, website, category, address, notes
@@ -276,18 +299,18 @@ Manages the list of IT vendors and suppliers.
 
 ## 6. Shared UI Components
 
-| Component | Purpose |
-|---|---|
-| `DataTable` | Reusable table with client-side search, sort, and pagination (25 rows/page) |
-| `ModulePage` | Generic CRUD page — most hardware modules use this for list + add/edit/delete |
-| `DynamicForm` | Renders a form from a field config array (type: text, select, date, textarea, number) |
-| `Modal` | Standard modal wrapper used across all pages |
-| `GlobalSearch` | Full-portal search (Ctrl+K) — searches systems, network, mobiles, SIMs, GWS, employees, inventory simultaneously |
-| `ChatBot` | Floating AI assistant (bottom-right) — powered by Groq, answers questions about how to use the portal |
-| `MaintenanceLog` | Maintenance history log panel, used by Systems and Mobile Devices |
-| `RecycleBinModal` | Browse and restore soft-deleted records (30-day retention) |
-| `QRModal` | Generates and downloads a QR code for any asset |
-| `Badge` | Coloured status/type badges used in all tables |
+| Component         | Purpose                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `DataTable`       | Reusable table with client-side search, sort, and pagination (25 rows/page)                                      |
+| `ModulePage`      | Generic CRUD page — most hardware modules use this for list + add/edit/delete                                    |
+| `DynamicForm`     | Renders a form from a field config array (type: text, select, date, textarea, number)                            |
+| `Modal`           | Standard modal wrapper used across all pages                                                                     |
+| `GlobalSearch`    | Full-portal search (Ctrl+K) — searches systems, network, mobiles, SIMs, GWS, employees, inventory simultaneously |
+| `ChatBot`         | Floating AI assistant (bottom-right) — powered by Groq, answers questions about how to use the portal            |
+| `MaintenanceLog`  | Maintenance history log panel, used by Systems and Mobile Devices                                                |
+| `RecycleBinModal` | Browse and restore soft-deleted records (30-day retention)                                                       |
+| `QRModal`         | Generates and downloads a QR code for any asset                                                                  |
+| `Badge`           | Coloured status/type badges used in all tables                                                                   |
 
 ---
 
@@ -303,17 +326,121 @@ Manages the list of IT vendors and suppliers.
 
 ## 8. Environment Variables (`.env`)
 
-| Variable | Purpose |
-|---|---|
-| `ADMIN_USERNAME` | Local admin login username |
-| `ADMIN_PASSWORD` | Local admin login password |
-| `POSTGRES_DB` | PostgreSQL database name |
-| `POSTGRES_USER` | PostgreSQL username |
-| `POSTGRES_PASSWORD` | PostgreSQL password |
-| `SESSION_SECRET` | Secret key for signing session cookies (use a long random string) |
-| `GOOGLE_CLIENT_ID` | Google OAuth app client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth app client secret |
-| `GOOGLE_CALLBACK_URL` | OAuth redirect URL (e.g. `http://localhost/auth/google/callback`) |
-| `ALLOWED_DOMAIN` | Only this email domain can log in via Google (e.g. `bykea.com`) |
-| `SUPER_ADMIN_EMAIL` | This Google account gets `super_admin` role on first login |
-| `GROQ_API_KEY` | API key for the ChatBot assistant (get from console.groq.com) |
+| Variable               | Purpose                                                           |
+| ---------------------- | ----------------------------------------------------------------- |
+| `ADMIN_USERNAME`       | Local admin login username                                        |
+| `ADMIN_PASSWORD`       | Local admin login password                                        |
+| `POSTGRES_DB`          | PostgreSQL database name                                          |
+| `POSTGRES_USER`        | PostgreSQL username                                               |
+| `POSTGRES_PASSWORD`    | PostgreSQL password                                               |
+| `SESSION_SECRET`       | Secret key for signing session cookies (use a long random string) |
+| `GOOGLE_CLIENT_ID`     | Google OAuth app client ID                                        |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth app client secret                                    |
+| `GOOGLE_CALLBACK_URL`  | OAuth redirect URL (e.g. `http://localhost/auth/google/callback`) |
+| `ALLOWED_DOMAIN`       | Only this email domain can log in via Google (e.g. `bykea.com`)   |
+| `SUPER_ADMIN_EMAIL`    | This Google account gets `super_admin` role on first login        |
+| `GROQ_API_KEY`         | API key for the ChatBot assistant (get from console.groq.com)     |
+
+---
+
+## 9. Changelog
+
+All changes are tracked in Git. Versions are grouped by release date.
+
+---
+
+### v1.3 — 2026-05-29
+
+#### Fixed
+
+- **Global search broken** — `imei1` column reference in search query did not exist; corrected to `imei`. Every search was returning a 500 error silently.
+- **Actions column alignment** — Actions header and buttons are now left-aligned consistent with all other table columns.
+
+#### Added
+
+- **Network Devices populated** — 7 devices imported from sample CSV; form fields corrected (device type and status options now match DB constraints; added vlan, firmware version, rack location, vendor, warranty expiry fields; removed phantom `assigned_to` field).
+- **Light mode support** — Added `--surface-overlay`, `--surface-subtle`, `--surface-input`, `--surface-hover` CSS variables. Replaced 20+ hardcoded `rgba(255,255,255,x)` dark-mode-only backgrounds across ChatBot, Dashboard, ModulePage, SystemDevices, GlobalSearch, Header, Sidebar, Employees, and the loading spinner.
+- **Weekly VACUUM** — Backend runs `VACUUM ANALYZE` on all tables 60 seconds after startup, then every 7 days. Prevents PostgreSQL dead-tuple bloat under active write load. No new dependency required.
+- **Technical documentation** — `TECHNICAL.md` created covering tech stack, architecture, all pages, components, conventions, and environment variables.
+
+#### Fixed (inventory & chat)
+
+- **ChatBot GROQ key** — Duplicate `GROQ_API_KEY` entries in `.env` caused the placeholder value to override the real key. Deduplicated.
+- **Warranty report** — Confirmed query is correct; was showing 0 records only because no warranty dates existed in data. Now shows results from imported network devices.
+
+---
+
+### v1.2 — 2026-05-28
+
+#### Added
+
+- **Code quality audit** — All route catch blocks converted from silent `res.status(500)` to `next(err)`. Global Express error handler added to `server.js`.
+- **Shared utilities extracted** — `logActivity()` and `getIP()` deduplicated into `backend/src/utils/activity.js`. `fmtDate()` deduplicated into `frontend/src/lib/utils.js`.
+- **Frontend async safety** — Cancelled-flag pattern applied to all async `useEffect` hooks across Reports, Assignments, CloudIDs, MobileDevices, SIMCards, SystemDevices, UserManagement, GlobalSearch, MaintenanceLog.
+- **React hooks fixes** — Rules of Hooks violations fixed in ActivityLog and UserManagement (hooks were called after early return).
+- **GitHub repository** — Project pushed to `github.com/zr-zdzr/ITSM`.
+
+#### Database
+
+- **Legacy columns dropped** — `first_name` and `last_name` removed from `employees` table (superseded by `full_name` in v1.1).
+- **27 FK indexes added** — All unindexed foreign key columns indexed; total indexes raised from 55 to 82.
+- **VACUUM ANALYZE run** — Dead tuples cleared (49 in mobiles, 14 in users).
+- **10 performance indexes added** to `schema.sql` for fresh installs.
+
+#### Fixed
+
+- `vendors.js` — wrong column reference `u.display_name` corrected to `u.name`.
+- `seed.js` — wrong column `quantity` corrected to `qty_available`.
+
+---
+
+### v1.1 — 2026-05-16 to 2026-05-19
+
+#### Added
+
+- **Inventory, Requests & Assignments modules** — full stock management workflow: categories, items, stock adjustments, employee requests, IT approval/rejection, fulfillment, assignment tracking, returns.
+- **QR code generation** — every asset can generate a scannable QR code with tag + specs, downloadable as PNG or printable as a 1 cm sticker.
+- **Global search** (`Ctrl+K`) — searches across systems, network, mobiles, SIMs, GWS accounts, employees, and inventory simultaneously.
+- **Alert center** — header notification bell showing low/out-of-stock inventory alerts, overdue returns, and expiring warranties.
+- **Maintenance log** — per-device repair and maintenance history for Systems and Mobile Devices.
+- **Vendor module** — manage IT suppliers and service providers.
+- **Bulk edit/delete** — select multiple rows and apply actions in one step.
+- **Cost analytics report tab** — purchase cost breakdown by asset type.
+- **Bykea B logo** — brand logo integrated into sidebar and login page.
+- **Dashboard accordion panels** — clicking any stat card expands a live data panel with charts and breakdowns.
+- **Warranty alerts** extended to Mobile Devices and Network Devices (previously Systems only).
+- **SIM billing report** — monthly cost per vendor and per employee.
+- **Employee assignments panel** — view all assets assigned to an employee from their record.
+- **Per-module menu visibility** — users only see sidebar items for modules they have permission to access.
+
+#### Changed
+
+- **Employees** — `first_name` + `last_name` merged into single `full_name` field.
+- **Mobile Devices** — renamed from "Mobiles", columns reshuffled, IMEI 1 and IMEI 2 merged display, assignment popup added.
+- **Cloud IDs** — Display Name moved to first column, clickable to open full detail popup.
+- **SIM Cards** — column reorder, phone number and username clickable.
+- **Dashboard** — inventory widget added, pagination on all data panels.
+
+---
+
+### v1.0 — 2026-05-11
+
+Initial release.
+
+#### Modules
+
+- System Devices, Mobile Devices, SIM Cards, Cloud IDs (Google Workspace), Employees
+- Reports (warranty, unassigned, damaged, department breakdown)
+- User Management with role-based access (`super_admin`, `user`, `viewer`)
+- Activity Log — full audit trail
+- Dashboard with live stats
+
+#### Infrastructure
+
+- Docker Compose stack: PostgreSQL 16, Express backend, Nginx + React frontend
+- Google OAuth restricted to `@bykea.com` domain
+- Local admin fallback login
+- Session persistence via PostgreSQL (`connect-pg-simple`)
+- Soft delete via recycle bin (30-day retention)
+- CSV import/export on all asset modules
+- Dark/light theme toggle
