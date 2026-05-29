@@ -529,7 +529,7 @@ function SystemDeviceView({ row }) {
                 <div
                   key={n}
                   className="d-flex gap-3 small rounded-2 px-3 py-2"
-                  style={{ background: "rgba(255,255,255,0.04)" }}
+                  style={{ background: "var(--surface-subtle)" }}
                 >
                   <span className="text-secondary fw-medium">Slot {n}</span>
                   <span>{row[`ram${n}_size`]}GB</span>
@@ -568,7 +568,7 @@ function SystemDeviceView({ row }) {
                 <div
                   key={n}
                   className="d-flex gap-3 small rounded-2 px-3 py-2"
-                  style={{ background: "rgba(255,255,255,0.04)" }}
+                  style={{ background: "var(--surface-subtle)" }}
                 >
                   <span className="text-secondary fw-medium">Disk {n}</span>
                   {row[`disk${n}_type`] && <span>{row[`disk${n}_type`]}</span>}

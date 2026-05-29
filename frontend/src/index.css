@@ -16,6 +16,10 @@
   --card-bg: #18181b;
   --sidebar-bg: #09090b;
   --header-bg: rgba(24, 24, 27, 0.9);
+  --surface-overlay: rgba(255, 255, 255, 0.08);
+  --surface-subtle: rgba(255, 255, 255, 0.04);
+  --surface-input: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.05);
 }
 
 [data-bs-theme="light"] {
@@ -25,6 +29,10 @@
   --sidebar-bg: #ffffff;
   --header-bg: rgba(255, 255, 255, 0.9);
   --bs-border-color: #e4e4e7;
+  --surface-overlay: rgba(0, 0, 0, 0.06);
+  --surface-subtle: rgba(0, 0, 0, 0.04);
+  --surface-input: rgba(0, 0, 0, 0.04);
+  --surface-hover: rgba(0, 0, 0, 0.04);
 }
 
 /* Override Bootstrap primary */

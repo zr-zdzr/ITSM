@@ -108,7 +108,7 @@ export default function ChatBot() {
           {/* Header */}
           <div
             className="d-flex align-items-center gap-2 px-3 py-2 border-bottom flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.04)" }}
+            style={{ background: "var(--surface-subtle)" }}
           >
             <div
               className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
@@ -172,7 +172,7 @@ export default function ChatBot() {
                     background:
                       m.role === "user"
                         ? "var(--brand)"
-                        : "rgba(255,255,255,0.08)",
+                        : "var(--surface-overlay)",
                     color: m.role === "user" ? "#fff" : "inherit",
                     borderRadius:
                       m.role === "user"
@@ -196,7 +196,7 @@ export default function ChatBot() {
                 <div
                   className="rounded-3 px-3 py-2 d-flex align-items-center gap-1"
                   style={{
-                    background: "rgba(255,255,255,0.08)",
+                    background: "var(--surface-overlay)",
                     borderRadius: "0.75rem 0.75rem 0.75rem 0.25rem",
                   }}
                 >
@@ -223,7 +223,7 @@ export default function ChatBot() {
           <div className="flex-shrink-0 px-3 pb-3 pt-2 border-top">
             <div
               className="d-flex align-items-end gap-2 rounded-3 px-3 py-2"
-              style={{ background: "rgba(255,255,255,0.06)" }}
+              style={{ background: "var(--surface-input)" }}
             >
               <textarea
                 ref={inputRef}
@@ -251,7 +251,7 @@ export default function ChatBot() {
                   background:
                     input.trim() && !loading
                       ? "var(--brand)"
-                      : "rgba(255,255,255,0.08)",
+                      : "var(--surface-overlay)",
                   color: input.trim() && !loading ? "#fff" : "#71717a",
                   cursor: input.trim() && !loading ? "pointer" : "not-allowed",
                   transition: "background 0.15s",

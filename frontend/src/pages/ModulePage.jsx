@@ -518,7 +518,7 @@ export default function ModulePage({ config }) {
           <div
             className="p-3 rounded-3"
             style={{
-              background: "rgba(255,255,255,0.04)",
+              background: "var(--surface-subtle)",
               border: "1px solid var(--bs-border-color)",
             }}
           >
@@ -541,7 +541,7 @@ export default function ModulePage({ config }) {
           <div
             className="p-3 rounded-3"
             style={{
-              background: "rgba(255,255,255,0.04)",
+              background: "var(--surface-subtle)",
               border: "1px solid var(--bs-border-color)",
             }}
           >
@@ -597,7 +597,7 @@ export default function ModulePage({ config }) {
             <div
               className="p-3 rounded-3"
               style={{
-                background: "rgba(255,255,255,0.04)",
+                background: "var(--surface-subtle)",
                 border: "1px solid var(--bs-border-color)",
               }}
             >

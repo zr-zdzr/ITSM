@@ -459,6 +459,20 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: err.message || "Internal server error" });
 });
 
+function scheduleWeeklyVacuum() {
+  const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+  async function runVacuum() {
+    try {
+      await db.query("VACUUM ANALYZE");
+      console.log("Weekly VACUUM ANALYZE completed");
+    } catch (e) {
+      console.error("VACUUM ANALYZE failed:", e.message);
+    }
+    setTimeout(runVacuum, WEEK_MS);
+  }
+  setTimeout(runVacuum, 60_000);
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, async () => {
   console.log(`ITMS backend running on :${PORT}`);
@@ -466,4 +480,5 @@ app.listen(PORT, async () => {
     console.error("Migration error:", err.message),
   );
   await seedAdmin().catch((err) => console.error("Seed error:", err.message));
+  scheduleWeeklyVacuum();
 });

@@ -294,10 +294,10 @@ function NavItem({ item, collapsed, canPerm }) {
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = s.danger
                           ? "rgba(239,68,68,0.1)"
-                          : "rgba(255,255,255,0.05)";
+                          : "var(--surface-hover)";
                         e.currentTarget.style.color = s.danger
                           ? "#f87171"
-                          : "#f4f4f5";
+                          : "var(--bs-body-color)";
                         e.currentTarget.style.opacity = "1";
                       }}
                       onMouseLeave={(e) => {

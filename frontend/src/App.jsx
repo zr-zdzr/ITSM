@@ -25,7 +25,7 @@ function Guard({ children }) {
     return (
       <div
         className="d-flex align-items-center justify-content-center"
-        style={{ minHeight: "100vh", background: "#09090b" }}
+        style={{ minHeight: "100vh", background: "var(--bs-body-bg, #09090b)" }}
       >
         <div
           className="spinner-border text-primary"

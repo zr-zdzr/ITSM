@@ -71,7 +71,7 @@ function EmployeeAssignments({ row }) {
                   className="d-flex align-items-center justify-content-between px-3 py-2"
                   style={{
                     borderBottom: "1px solid var(--bs-border-color)",
-                    background: "rgba(255,255,255,0.03)",
+                    background: "var(--surface-subtle)",
                   }}
                 >
                   <span className="font-monospace small text-secondary">

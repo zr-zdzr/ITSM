@@ -278,7 +278,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               fontWeight: 600,
                               textTransform: "uppercase",
                               letterSpacing: "0.05em",
-                              background: "rgba(255,255,255,0.03)",
+                              background: "var(--surface-subtle)",
                             }}
                           >
                             <Package size={10} className="text-secondary" />{" "}
@@ -295,7 +295,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               style={{ transition: "background 0.15s" }}
                               onMouseEnter={(e) =>
                                 (e.currentTarget.style.background =
-                                  "rgba(255,255,255,0.04)")
+                                  "var(--surface-subtle)")
                               }
                               onMouseLeave={(e) =>
                                 (e.currentTarget.style.background =
@@ -336,7 +336,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               fontWeight: 600,
                               textTransform: "uppercase",
                               letterSpacing: "0.05em",
-                              background: "rgba(255,255,255,0.03)",
+                              background: "var(--surface-subtle)",
                             }}
                           >
                             <RotateCcw size={10} className="text-secondary" />{" "}
@@ -353,7 +353,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               style={{ transition: "background 0.15s" }}
                               onMouseEnter={(e) =>
                                 (e.currentTarget.style.background =
-                                  "rgba(255,255,255,0.04)")
+                                  "var(--surface-subtle)")
                               }
                               onMouseLeave={(e) =>
                                 (e.currentTarget.style.background =
@@ -394,7 +394,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               fontWeight: 600,
                               textTransform: "uppercase",
                               letterSpacing: "0.05em",
-                              background: "rgba(255,255,255,0.03)",
+                              background: "var(--surface-subtle)",
                             }}
                           >
                             <Clock size={10} className="text-secondary" />{" "}
@@ -411,7 +411,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
                               style={{ transition: "background 0.15s" }}
                               onMouseEnter={(e) =>
                                 (e.currentTarget.style.background =
-                                  "rgba(255,255,255,0.04)")
+                                  "var(--surface-subtle)")
                               }
                               onMouseLeave={(e) =>
                                 (e.currentTarget.style.background =

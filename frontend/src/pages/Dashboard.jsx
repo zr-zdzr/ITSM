@@ -99,7 +99,7 @@ function BarList({ rows, keyField, valueField = "n", colorHex = "#00AA2F" }) {
             </span>
             <div
               className="flex-grow-1 rounded-pill overflow-hidden"
-              style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
+              style={{ height: 6, background: "var(--surface-overlay)" }}
             >
               <div
                 className="h-100 rounded-pill"
@@ -747,7 +747,7 @@ function MobilesContent({ data, navigate }) {
                 </span>
                 <div
                   className="flex-grow-1 rounded-pill overflow-hidden"
-                  style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
+                  style={{ height: 6, background: "var(--surface-overlay)" }}
                 >
                   <div
                     className="h-100 rounded-pill"
@@ -1224,7 +1224,7 @@ function CloudContent({ gws, gwsLicense, gwsType }) {
                   </span>
                   <div
                     className="flex-grow-1 rounded-pill overflow-hidden"
-                    style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
+                    style={{ height: 6, background: "var(--surface-overlay)" }}
                   >
                     <div
                       className="h-100 rounded-pill"
@@ -1335,7 +1335,7 @@ function Activity24h({ logs, loading }) {
               <div
                 key={a.id ?? i}
                 className="d-flex align-items-start gap-2 px-3 py-2 border-bottom"
-                style={{ borderColor: "rgba(255,255,255,0.04) !important" }}
+                style={{ borderColor: "var(--bs-border-color) !important" }}
               >
                 <div
                   className="rounded-circle mt-1 flex-shrink-0"

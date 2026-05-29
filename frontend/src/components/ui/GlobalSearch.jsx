@@ -227,7 +227,7 @@ export default function GlobalSearch({ open, onClose }) {
                   <div
                     className="d-flex align-items-center gap-2 px-3 py-2 border-bottom"
                     style={{
-                      background: "rgba(255,255,255,0.02)",
+                      background: "var(--surface-subtle)",
                       fontSize: "10px",
                     }}
                   >
@@ -260,7 +260,7 @@ export default function GlobalSearch({ open, onClose }) {
                         onMouseEnter={(e) => {
                           if (globalIdx !== activeIdx)
                             e.currentTarget.style.background =
-                              "rgba(255,255,255,0.03)";
+                              "var(--surface-subtle)";
                         }}
                         onMouseLeave={(e) => {
                           if (globalIdx !== activeIdx)
