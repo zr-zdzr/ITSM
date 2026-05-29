@@ -36,7 +36,19 @@ function SIMCardForm({ vals, setVals }) {
     api
       .get("/api/employees")
       .then((d) => {
-        if (!cancelled) setEmployees(Array.isArray(d) ? d : []);
+        if (cancelled) return;
+        const list = Array.isArray(d) ? d : [];
+        setEmployees(list);
+        if (vals.assigned_user_id) {
+          const emp = list.find(
+            (em) => String(em.id) === String(vals.assigned_user_id),
+          );
+          if (emp?.department)
+            setVals((p) => ({
+              ...p,
+              department: p.department || emp.department,
+            }));
+        }
       })
       .catch((e) => {
         if (!cancelled) toast(e.message, "error");
