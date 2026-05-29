@@ -349,6 +349,15 @@ All changes are tracked in Git. Versions are grouped by release date.
 
 ---
 
+### v1.4.1 — 2026-05-29
+
+#### Fixed
+
+- **Stale validation errors on reopen** — `openAdd()` and `openEdit()` now clear `formErrors` on every open, so a previous failed-save's inline errors no longer bleed into the next form.
+- **Redundant eye button removed** — The eye icon in the Actions column was removed since clicking the row already opens the detail view. Actions column now shows only QR Code, Edit, and Delete.
+
+---
+
 ### v1.4 — 2026-05-29
 
 #### Added
