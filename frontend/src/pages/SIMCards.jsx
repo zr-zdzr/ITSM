@@ -84,13 +84,14 @@ function SIMCardForm({ vals, setVals }) {
         <Fld label="Named On">
           <select
             className={sel}
-            value={vals.assigned_type || "service"}
+            value={vals.assigned_type || "inventory"}
             onChange={(e) => {
               set("assigned_type", e.target.value);
               if (!["employee", "wfh", "user"].includes(e.target.value))
                 set("assigned_user_id", null);
             }}
           >
+            <option value="inventory">Inventory</option>
             <option value="employee">Employee</option>
             <option value="wfh">WFH (Work From Home)</option>
             <option value="service">Service</option>
@@ -222,6 +223,7 @@ function SIMCardForm({ vals, setVals }) {
 
 function SIMCardView(row) {
   const namedOnLabel = {
+    inventory: "Inventory",
     employee: "Employee",
     user: "Employee",
     wfh: "WFH",
@@ -281,6 +283,7 @@ function NamedOnBadge({ row }) {
       label: row.assigned_user_name || "Employee",
       cls: "badge-assign-employee",
     },
+    inventory: { label: "Inventory", cls: "badge-assign-inventory" },
     wfh: { label: row.assigned_user_name || "WFH", cls: "badge-assign-wfh" },
     service: { label: "Service", cls: "badge-assign-service" },
   };
