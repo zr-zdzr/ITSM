@@ -31,7 +31,14 @@ function buildComposite(qrCanvas, label) {
   return c;
 }
 
-export default function QRModal({ open, onClose, value, label, details = [] }) {
+const EMPTY_DETAILS = [];
+export default function QRModal({
+  open,
+  onClose,
+  value,
+  label,
+  details = EMPTY_DETAILS,
+}) {
   const wrapRef = useRef(null);
 
   function getQRCanvas() {

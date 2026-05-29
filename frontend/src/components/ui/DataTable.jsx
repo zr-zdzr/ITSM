@@ -12,6 +12,16 @@ import { cn } from "../../lib/utils";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
+function SortIcon({ colKey, sort }) {
+  if (sort.key !== colKey)
+    return <ChevronsUpDown size={12} className="opacity-30" />;
+  return sort.dir === "asc" ? (
+    <ChevronUp size={12} style={{ color: "var(--brand)" }} />
+  ) : (
+    <ChevronDown size={12} style={{ color: "var(--brand)" }} />
+  );
+}
+
 function pageNumbers(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
@@ -35,7 +45,11 @@ function SkeletonRow({ cols, selectable }) {
         <td key={i}>
           <div
             className="skeleton-box"
-            style={{ height: 13, width: `${55 + (i * 17) % 40}%`, borderRadius: 4 }}
+            style={{
+              height: 13,
+              width: `${55 + ((i * 17) % 40)}%`,
+              borderRadius: 4,
+            }}
           />
         </td>
       ))}
@@ -74,7 +88,7 @@ export default function DataTable({
 
   const sorted = useMemo(() => {
     if (!sort.key) return filtered;
-    return [...filtered].sort((a, b) => {
+    return filtered.toSorted((a, b) => {
       const va = String(a[sort.key] ?? ""),
         vb = String(b[sort.key] ?? "");
       return sort.dir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -130,16 +144,6 @@ export default function DataTable({
         : { key, dir: "asc" },
     );
     setPage(1);
-  }
-
-  function SortIcon({ colKey }) {
-    if (sort.key !== colKey)
-      return <ChevronsUpDown size={12} className="opacity-30" />;
-    return sort.dir === "asc" ? (
-      <ChevronUp size={12} style={{ color: "var(--brand)" }} />
-    ) : (
-      <ChevronDown size={12} style={{ color: "var(--brand)" }} />
-    );
   }
 
   const isFiltered = query.trim().length > 0;
@@ -209,7 +213,9 @@ export default function DataTable({
                   >
                     <div className="d-flex align-items-center gap-1">
                       {col.label}
-                      {col.sortable !== false && <SortIcon colKey={col.key} />}
+                      {col.sortable !== false && (
+                        <SortIcon colKey={col.key} sort={sort} />
+                      )}
                     </div>
                   </th>
                 ))}
@@ -229,9 +235,7 @@ export default function DataTable({
                     <div className="d-flex flex-column align-items-center gap-2 text-secondary">
                       <Inbox size={36} className="opacity-40" />
                       <p className="small fw-medium mb-0">
-                        {isFiltered
-                          ? `No results for "${query}"`
-                          : emptyTitle}
+                        {isFiltered ? `No results for "${query}"` : emptyTitle}
                       </p>
                       {!isFiltered && emptyMessage && (
                         <p

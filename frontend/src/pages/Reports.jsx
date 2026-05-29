@@ -24,8 +24,10 @@ import { cn, fmtDate } from "../lib/utils";
 
 // ── PDF export helper ─────────────────────────────────────
 async function exportPDF(title, head, body) {
-  const { default: jsPDF } = await import("jspdf");
-  const { default: autoTable } = await import("jspdf-autotable");
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
   const doc = new jsPDF({
     orientation: body[0]?.length > 6 ? "landscape" : "portrait",
   });
@@ -2313,7 +2315,7 @@ export default function Reports() {
                 background: active ? "rgba(0,170,47,0.05)" : "transparent",
                 borderColor: active ? "var(--brand)" : "transparent",
                 color: active ? "var(--brand)" : "#71717a",
-                transition: "all 0.15s",
+                transition: "color 0.15s, background 0.15s, border-color 0.15s",
                 cursor: "pointer",
               }}
               onMouseEnter={(e) => {

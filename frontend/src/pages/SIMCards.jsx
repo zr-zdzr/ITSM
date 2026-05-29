@@ -221,18 +221,8 @@ function SIMCardForm({ vals, setVals }) {
   );
 }
 
-function SIMCardView(row) {
-  const namedOnLabel = {
-    inventory: "Inventory",
-    employee: "Employee",
-    user: "Employee",
-    wfh: "WFH",
-    service: "Service",
-  };
-  const purposeLabel = { official: "Official", service: "Service" };
-  const statusLabel = { active: "Active", suspended: "Suspended" };
-
-  const Field = ({ label, value }) => (
+function Field({ label, value }) {
+  return (
     <div className="col-6">
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
@@ -243,6 +233,18 @@ function SIMCardView(row) {
       <dd className="small mb-0">{value || "—"}</dd>
     </div>
   );
+}
+
+function SIMCardView(row) {
+  const namedOnLabel = {
+    inventory: "Inventory",
+    employee: "Employee",
+    user: "Employee",
+    wfh: "WFH",
+    service: "Service",
+  };
+  const purposeLabel = { official: "Official", service: "Service" };
+  const statusLabel = { active: "Active", suspended: "Suspended" };
 
   return (
     <dl className="row g-3">

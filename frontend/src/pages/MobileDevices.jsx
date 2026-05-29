@@ -291,6 +291,21 @@ function MobileDeviceForm({ vals, setVals }) {
   );
 }
 
+function Field({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="col-6">
+      <dt
+        className="text-secondary fw-semibold text-uppercase mb-1"
+        style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+      >
+        {label}
+      </dt>
+      <dd className="small mb-0">{value}</dd>
+    </div>
+  );
+}
+
 function MobileDeviceView(row) {
   const assignLabel = {
     employee: "Employee",
@@ -305,19 +320,6 @@ function MobileDeviceView(row) {
     personal: "Personal",
     qa_testing: "QA Testing",
   };
-  const Field = ({ label, value }) =>
-    value ? (
-      <div className="col-6">
-        <dt
-          className="text-secondary fw-semibold text-uppercase mb-1"
-          style={{ fontSize: "11px", letterSpacing: "0.05em" }}
-        >
-          {label}
-        </dt>
-        <dd className="small mb-0">{value}</dd>
-      </div>
-    ) : null;
-
   return (
     <dl className="row g-3">
       <Field label="Asset Tag" value={row.asset_tag} />

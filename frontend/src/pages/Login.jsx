@@ -231,7 +231,6 @@ export default function Login() {
                 <input
                   type="text"
                   autoComplete="username"
-                  autoFocus
                   required
                   value={form.username}
                   onChange={(e) =>

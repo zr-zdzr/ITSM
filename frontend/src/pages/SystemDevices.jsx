@@ -458,19 +458,8 @@ function SystemDeviceForm({ vals, setVals }) {
   );
 }
 
-// ── View Renderer ─────────────────────────────────────────
-function SystemDeviceView({ row }) {
-  const assignedDisplay = () => {
-    if (row.assigned_type === "employee" || row.assigned_type === "user")
-      return row.assigned_user_name || "—";
-    if (row.assigned_type === "wfh")
-      return `WFH${row.assigned_user_name ? " — " + row.assigned_user_name : ""}`;
-    if (row.assigned_type === "inventory") return "Inventory";
-    if (row.assigned_type === "damaged") return "Damaged";
-    return "—";
-  };
-
-  const DT = ({ label, value }) => (
+function DetailCell({ label, value }) {
+  return (
     <div className="col-6">
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
@@ -483,6 +472,19 @@ function SystemDeviceView({ row }) {
       </dd>
     </div>
   );
+}
+
+// ── View Renderer ─────────────────────────────────────────
+function SystemDeviceView({ row }) {
+  const assignedDisplay = () => {
+    if (row.assigned_type === "employee" || row.assigned_type === "user")
+      return row.assigned_user_name || "—";
+    if (row.assigned_type === "wfh")
+      return `WFH${row.assigned_user_name ? " — " + row.assigned_user_name : ""}`;
+    if (row.assigned_type === "inventory") return "Inventory";
+    if (row.assigned_type === "damaged") return "Damaged";
+    return "—";
+  };
 
   const ramCount = [1, 2, 3, 4].filter((n) => row[`ram${n}_size`]).length;
   const diskCount = [1, 2, 3].filter(
@@ -492,23 +494,26 @@ function SystemDeviceView({ row }) {
   return (
     <div className="d-flex flex-column gap-4">
       <dl className="row g-3">
-        <DT label="Asset Tag" value={row.asset_tag} />
-        <DT label="Assigned To" value={assignedDisplay()} />
-        <DT label="Type" value={row.type} />
-        <DT label="Brand" value={row.brand_type} />
-        <DT label="Manufacturer" value={row.manufacturer} />
-        <DT label="Model" value={row.model} />
-        <DT label="Serial No." value={row.serial_number?.toUpperCase()} />
-        <DT label="Generation" value={row.generation} />
-        <DT label="Department" value={row.department} />
-        <DT label="Location" value={row.location} />
-        <DT
+        <DetailCell label="Asset Tag" value={row.asset_tag} />
+        <DetailCell label="Assigned To" value={assignedDisplay()} />
+        <DetailCell label="Type" value={row.type} />
+        <DetailCell label="Brand" value={row.brand_type} />
+        <DetailCell label="Manufacturer" value={row.manufacturer} />
+        <DetailCell label="Model" value={row.model} />
+        <DetailCell
+          label="Serial No."
+          value={row.serial_number?.toUpperCase()}
+        />
+        <DetailCell label="Generation" value={row.generation} />
+        <DetailCell label="Department" value={row.department} />
+        <DetailCell label="Location" value={row.location} />
+        <DetailCell
           label="Status"
           value={<Badge status={row.status}>{row.status || "—"}</Badge>}
         />
-        <DT label="Condition" value={row.condition} />
-        <DT label="Purpose" value={row.purpose} />
-        <DT label="Warranty Expiry" value={row.warranty_expiry} />
+        <DetailCell label="Condition" value={row.condition} />
+        <DetailCell label="Purpose" value={row.purpose} />
+        <DetailCell label="Warranty Expiry" value={row.warranty_expiry} />
       </dl>
 
       {/* CPU */}

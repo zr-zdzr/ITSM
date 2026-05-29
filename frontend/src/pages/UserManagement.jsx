@@ -57,7 +57,7 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false);
 
   const [permTarget, setPermTarget] = useState(null);
-  const [perms, setPerms] = useState(emptyPerms());
+  const [perms, setPerms] = useState(() => emptyPerms());
   const [permSaving, setPermSaving] = useState(false);
 
   const load = useCallback(async () => {

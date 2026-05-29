@@ -21,7 +21,9 @@ export default function ChatBot() {
   }, [messages, loading]);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 150);
+    if (!open) return;
+    const id = setTimeout(() => inputRef.current?.focus(), 150);
+    return () => clearTimeout(id);
   }, [open]);
 
   async function send() {

@@ -215,8 +215,8 @@ function CloudForm({ vals, setVals }) {
   );
 }
 
-function CloudView({ row }) {
-  const DT = ({ label, value }) => (
+function DetailCell({ label, value }) {
+  return (
     <div className="col-6">
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
@@ -229,14 +229,17 @@ function CloudView({ row }) {
       </dd>
     </div>
   );
+}
+
+function CloudView({ row }) {
   return (
     <dl className="row g-3">
-      <DT label="Employee Name" value={row.employee_name} />
-      <DT label="Email" value={row.email} />
-      <DT label="First Name" value={row.first_name} />
-      <DT label="Last Name" value={row.last_name} />
-      <DT label="Org Unit" value={row.org_unit} />
-      <DT label="Phone Number" value={row.phone_number} />
+      <DetailCell label="Employee Name" value={row.employee_name} />
+      <DetailCell label="Email" value={row.email} />
+      <DetailCell label="First Name" value={row.first_name} />
+      <DetailCell label="Last Name" value={row.last_name} />
+      <DetailCell label="Org Unit" value={row.org_unit} />
+      <DetailCell label="Phone Number" value={row.phone_number} />
       <div className="col-6">
         <dt
           className="text-secondary fw-semibold text-uppercase mb-1"

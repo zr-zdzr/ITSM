@@ -9,11 +9,12 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { pathname } = location;
 
   // Close mobile sidebar on route change
   React.useEffect(() => {
     setMobileOpen(false);
-  }, [location.pathname]);
+  }, [pathname]);
 
   function handleRefresh() {
     navigate(location.pathname + location.search, { replace: true });

@@ -1,6 +1,12 @@
 import React from "react";
 
-export default function DynamicForm({ fields, values, onChange, errors = {} }) {
+const EMPTY_ERRORS = {};
+export default function DynamicForm({
+  fields,
+  values,
+  onChange,
+  errors = EMPTY_ERRORS,
+}) {
   return (
     <div className="row g-3">
       {fields.map((f) => {
@@ -52,7 +58,10 @@ export default function DynamicForm({ fields, values, onChange, errors = {} }) {
               />
             )}
             {invalid && (
-              <div className="invalid-feedback d-block" style={{ fontSize: "0.75rem" }}>
+              <div
+                className="invalid-feedback d-block"
+                style={{ fontSize: "0.75rem" }}
+              >
                 {err}
               </div>
             )}

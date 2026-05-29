@@ -296,9 +296,8 @@ function EmployeeForm({ vals, setVals }) {
   );
 }
 
-// ── View Renderer ─────────────────────────────────────────────
-function EmployeeView({ row }) {
-  const DT = ({ label, value }) => (
+function DetailCell({ label, value }) {
+  return (
     <div className="col-6">
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
@@ -311,16 +310,20 @@ function EmployeeView({ row }) {
       </dd>
     </div>
   );
+}
+
+// ── View Renderer ─────────────────────────────────────────────
+function EmployeeView({ row }) {
   return (
     <dl className="row g-3">
-      <DT label="Employee Name" value={row.full_name} />
-      <DT label="Email" value={row.email} />
-      <DT label="Mobile" value={row.mobile_number} />
-      <DT label="Designation" value={row.designation} />
-      <DT label="Department" value={row.department} />
-      <DT label="Business Unit" value={row.business_unit} />
-      <DT label="Location" value={row.location} />
-      <DT
+      <DetailCell label="Employee Name" value={row.full_name} />
+      <DetailCell label="Email" value={row.email} />
+      <DetailCell label="Mobile" value={row.mobile_number} />
+      <DetailCell label="Designation" value={row.designation} />
+      <DetailCell label="Department" value={row.department} />
+      <DetailCell label="Business Unit" value={row.business_unit} />
+      <DetailCell label="Location" value={row.location} />
+      <DetailCell
         label="Type"
         value={
           row.employment_type === "Permanent"
@@ -328,7 +331,7 @@ function EmployeeView({ row }) {
             : row.employment_type
         }
       />
-      <DT label="Joining Date" value={fmtDate(row.joining_date)} />
+      <DetailCell label="Joining Date" value={fmtDate(row.joining_date)} />
       <div className="col-6">
         <dt
           className="text-secondary fw-semibold text-uppercase mb-1"

@@ -11,7 +11,7 @@ export const fmtDate = (d) =>
       })
     : "—";
 
-export const debounce = (fn, ms = 300) => {
+const debounce = (fn, ms = 300) => {
   let t;
   return (...a) => {
     clearTimeout(t);

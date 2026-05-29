@@ -81,9 +81,6 @@ export default function ActivityLog() {
     load();
   }, [load, me?.role]);
 
-  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     let out = logs;
     if (actionFilter !== "all")
@@ -102,6 +99,8 @@ export default function ActivityLog() {
     }
     setFiltered(out);
   }, [logs, search, actionFilter]);
+
+  if (me?.role !== "super_admin") return <Navigate to="/" replace />;
 
   const actions = [
     "all",
