@@ -443,6 +443,34 @@ function SystemDeviceForm({ vals, setVals }) {
         </Fld>
       </div>
 
+      <div className="col-md-6">
+        <Fld label="Purchase Price (PKR)">
+          <input
+            type="number"
+            className={inp}
+            value={vals.purchase_price_pkr || ""}
+            onChange={(e) => set("purchase_price_pkr", e.target.value)}
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+          />
+        </Fld>
+      </div>
+
+      <div className="col-md-6">
+        <Fld label="Useful Life (Years)">
+          <input
+            type="number"
+            className={inp}
+            value={vals.useful_life_years || ""}
+            onChange={(e) => set("useful_life_years", e.target.value)}
+            placeholder="5"
+            min="1"
+            max="30"
+          />
+        </Fld>
+      </div>
+
       <div className="col-12">
         <Fld label="Notes" half={false}>
           <textarea

@@ -17,6 +17,8 @@ import {
   Network,
   DollarSign,
   History,
+  TrendingDown,
+  BarChart2,
 } from "lucide-react";
 import {
   BarChart,
@@ -862,6 +864,8 @@ const TABS = [
   { id: "stock-movements", label: "Stock Movements", icon: Package },
   { id: "dept-utilization", label: "Dept. Utilization", icon: Building2 },
   { id: "asset-history", label: "Asset History", icon: History },
+  { id: "forecast", label: "Forecast", icon: TrendingDown },
+  { id: "cost-summary", label: "Cost Summary", icon: BarChart2 },
   { id: "full-export", label: "Full Export", icon: FileText },
 ];
 
@@ -2945,6 +2949,543 @@ function FullExportTab({ toast }) {
   );
 }
 
+// ── FORECAST TAB ─────────────────────────────────────────
+function ForecastTab({ toast }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [months, setMonths] = useState("6");
+  const [search, setSearch] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(await api.get(`/api/reports/forecast?months=${months}`));
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [months, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.toLowerCase();
+    return rows.filter(
+      (r) =>
+        r.name?.toLowerCase().includes(q) ||
+        r.category_name?.toLowerCase().includes(q),
+    );
+  }, [rows, search]);
+
+  function urgencyColor(days) {
+    if (days === null || days === undefined) return "#71717a";
+    const d = Number(days);
+    if (d <= 0) return "#f87171";
+    if (d <= 14) return "#f87171";
+    if (d <= 30) return "#fbbf24";
+    if (d <= 90) return "#fb923c";
+    return "#4ade80";
+  }
+
+  function urgencyLabel(days) {
+    if (days === null || days === undefined) return "No movement";
+    const d = Number(days);
+    if (d <= 0) return "Out of stock";
+    if (d <= 14) return "Critical";
+    if (d <= 30) return "Low";
+    if (d <= 90) return "Moderate";
+    return "OK";
+  }
+
+  const critical = filtered.filter(
+    (r) =>
+      r.days_until_stockout !== null && Number(r.days_until_stockout) <= 30,
+  ).length;
+  const noMovement = filtered.filter(
+    (r) => r.days_until_stockout === null,
+  ).length;
+
+  async function pdfExport() {
+    try {
+      const head = [
+        "Item",
+        "Category",
+        "Available",
+        "Avg Daily",
+        "Days Left",
+        "Projected Stockout",
+      ];
+      const body = filtered.map((r) => [
+        r.name,
+        r.category_name || "—",
+        String(r.qty_available ?? 0),
+        Number(r.avg_daily_consumption) > 0
+          ? Number(r.avg_daily_consumption).toFixed(3)
+          : "0",
+        r.days_until_stockout !== null ? String(r.days_until_stockout) : "N/A",
+        r.projected_stockout_date ? fmtDate(r.projected_stockout_date) : "N/A",
+      ]);
+      await exportPDF("Inventory Forecast", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      <div className="itms-card p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Consumption Period</label>
+            <select
+              className="form-select form-select-sm"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            >
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="24">Last 24 months</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-4">
+            <label className="form-label small mb-1">Search</label>
+            <div className="position-relative">
+              <Search
+                size={13}
+                className="position-absolute text-secondary"
+                style={{
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Item or category…"
+                className="form-control form-control-sm"
+                style={{ paddingLeft: 28 }}
+              />
+            </div>
+          </div>
+          <div className="col-auto">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={pdfExport}
+              disabled={loading || filtered.length === 0}
+            >
+              <FileDown size={13} className="me-1" />
+              PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {!loading && rows.length > 0 && (
+        <div className="row g-2">
+          {[
+            {
+              label: "Items Tracked",
+              value: filtered.length,
+              color: "#7dd3fc",
+              bg: "rgba(14,165,233,0.1)",
+            },
+            {
+              label: "Critical (≤30 days)",
+              value: critical,
+              color: "#f87171",
+              bg: "rgba(239,68,68,0.1)",
+            },
+            {
+              label: "No Recent Movement",
+              value: noMovement,
+              color: "#a1a1aa",
+              bg: "rgba(113,113,122,0.1)",
+            },
+          ].map((s) => (
+            <div key={s.label} className="col-6 col-md-3">
+              <div className="rounded-3 px-3 py-2" style={{ background: s.bg }}>
+                <span
+                  className="fw-bold d-block"
+                  style={{ fontSize: "1.2rem", color: s.color }}
+                >
+                  {s.value}
+                </span>
+                <span
+                  style={{ fontSize: "0.72rem", color: s.color, opacity: 0.85 }}
+                >
+                  {s.label}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table
+            className="table table-hover mb-0"
+            style={{ fontSize: "0.8rem" }}
+          >
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th className="text-end">Available</th>
+                <th className="text-end">Avg Daily</th>
+                <th className="text-end">Days Left</th>
+                <th>Projected Stockout</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-4">
+                    Loading…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-4">
+                    No items
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((r) => {
+                  const color = urgencyColor(r.days_until_stockout);
+                  const label = urgencyLabel(r.days_until_stockout);
+                  return (
+                    <tr key={r.item_id}>
+                      <td
+                        className="align-middle fw-medium small"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {r.name}
+                      </td>
+                      <td
+                        className="align-middle text-secondary small"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {r.category_name || "—"}
+                      </td>
+                      <td
+                        className="align-middle text-end fw-bold small"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {r.qty_available ?? 0}
+                      </td>
+                      <td
+                        className="align-middle text-end text-secondary small font-monospace"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {Number(r.avg_daily_consumption) > 0
+                          ? Number(r.avg_daily_consumption).toFixed(3)
+                          : "—"}
+                      </td>
+                      <td
+                        className="align-middle text-end fw-bold small"
+                        style={{ padding: "0.5rem 0.75rem", color }}
+                      >
+                        {r.days_until_stockout !== null
+                          ? r.days_until_stockout
+                          : "—"}
+                      </td>
+                      <td
+                        className="align-middle small text-secondary"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {r.projected_stockout_date
+                          ? fmtDate(r.projected_stockout_date)
+                          : "—"}
+                      </td>
+                      <td
+                        className="align-middle"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        <span
+                          className="badge px-1"
+                          style={{
+                            background: `${color}20`,
+                            color,
+                            fontSize: "10px",
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── COST SUMMARY TAB ─────────────────────────────────────
+function CostSummaryTab({ toast }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/api/reports/cost-summary")
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) toast(e.message, "error");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+
+  function fmtPKR(v) {
+    const n = Number(v || 0);
+    if (n >= 1_000_000) return `PKR ${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `PKR ${(n / 1_000).toFixed(1)}K`;
+    return `PKR ${n.toLocaleString()}`;
+  }
+
+  const TYPE_COLOR = {
+    system: { bg: "rgba(0,170,47,0.1)", color: "#4ade80", label: "Systems" },
+    mobile: { bg: "rgba(34,197,94,0.1)", color: "#34d399", label: "Mobiles" },
+    network: {
+      bg: "rgba(14,165,233,0.1)",
+      color: "#7dd3fc",
+      label: "Network Devices",
+    },
+  };
+
+  async function pdfExport() {
+    if (!data) return;
+    try {
+      const head = [
+        "Asset Type",
+        "Category",
+        "Total",
+        "Priced",
+        "Total Cost",
+        "Depreciation",
+        "Net Value",
+      ];
+      const body = data.byCategory.map((r) => [
+        r.asset_type,
+        r.category || "—",
+        String(r.total_assets),
+        String(r.priced_assets),
+        fmtPKR(r.total_cost),
+        fmtPKR(r.total_depreciation),
+        fmtPKR(r.net_book_value),
+      ]);
+      await exportPDF("Hardware Cost Summary", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  if (loading)
+    return (
+      <div className="text-center text-secondary py-5 small">Loading…</div>
+    );
+  if (!data) return null;
+
+  const grandTotal = Number(data.totals?.grand_total_cost || 0);
+  const grandDepreciation = data.byCategory.reduce(
+    (s, r) => s + Number(r.total_depreciation || 0),
+    0,
+  );
+  const grandNBV = data.byCategory.reduce(
+    (s, r) => s + Number(r.net_book_value || 0),
+    0,
+  );
+
+  const grouped = {};
+  data.byCategory.forEach((r) => {
+    if (!grouped[r.asset_type]) grouped[r.asset_type] = [];
+    grouped[r.asset_type].push(r);
+  });
+
+  return (
+    <div className="d-flex flex-column gap-4">
+      <div className="d-flex justify-content-end">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={pdfExport}
+        >
+          <FileDown size={13} className="me-1" />
+          PDF
+        </button>
+      </div>
+
+      <div className="row g-3">
+        {[
+          {
+            label: "Total Purchase Value",
+            value: fmtPKR(grandTotal),
+            sub: `${data.totals?.priced_assets || 0} of ${data.totals?.total_assets || 0} assets priced`,
+            color: "#4ade80",
+          },
+          {
+            label: "Total Depreciation",
+            value: fmtPKR(grandDepreciation),
+            sub: "Straight-line to date",
+            color: "#f87171",
+          },
+          {
+            label: "Net Book Value",
+            value: fmtPKR(grandNBV),
+            sub: "Current estimated value",
+            color: "#7dd3fc",
+          },
+        ].map((c, i) => (
+          <div key={i} className="col-md-4">
+            <div className="itms-card p-3">
+              <p
+                className="text-secondary text-uppercase fw-semibold mb-1"
+                style={{ fontSize: "10px", letterSpacing: "0.08em" }}
+              >
+                {c.label}
+              </p>
+              <p className="h4 fw-bold mb-1" style={{ color: c.color }}>
+                {c.value}
+              </p>
+              <p className="small text-secondary mb-0">{c.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {Object.entries(grouped).map(([type, typeRows]) => {
+        const tc = TYPE_COLOR[type] || {
+          bg: "rgba(113,113,122,0.2)",
+          color: "#a1a1aa",
+          label: type,
+        };
+        const typeTotal = typeRows.reduce(
+          (s, r) => s + Number(r.total_cost || 0),
+          0,
+        );
+        const typeDepr = typeRows.reduce(
+          (s, r) => s + Number(r.total_depreciation || 0),
+          0,
+        );
+        const typeNBV = typeRows.reduce(
+          (s, r) => s + Number(r.net_book_value || 0),
+          0,
+        );
+        return (
+          <div key={type} className="itms-card overflow-hidden">
+            <div className="px-4 py-3 border-bottom d-flex align-items-center gap-2 flex-wrap">
+              <span
+                className="badge px-2 text-capitalize"
+                style={{
+                  background: tc.bg,
+                  color: tc.color,
+                  fontSize: "11px",
+                }}
+              >
+                {tc.label}
+              </span>
+              <span className="small text-secondary">
+                {typeRows.reduce((s, r) => s + Number(r.total_assets), 0)}{" "}
+                assets · Cost: {fmtPKR(typeTotal)} · Depr: {fmtPKR(typeDepr)} ·
+                NBV: {fmtPKR(typeNBV)}
+              </span>
+            </div>
+            <div className="table-responsive">
+              <table
+                className="table table-hover mb-0"
+                style={{ fontSize: "0.8rem" }}
+              >
+                <thead>
+                  <tr>
+                    <Th>Category</Th>
+                    <Th>Total</Th>
+                    <Th>Priced</Th>
+                    <Th>Total Cost</Th>
+                    <Th>Avg Cost</Th>
+                    <Th>Depreciation</Th>
+                    <Th>Net Book Value</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {typeRows.map((r, i) => (
+                    <tr key={i}>
+                      <td
+                        className="align-middle small fw-medium"
+                        style={{ padding: "0.5rem 0.75rem" }}
+                      >
+                        {r.category || "—"}
+                      </td>
+                      <Td>{r.total_assets}</Td>
+                      <Td dim>{r.priced_assets}</Td>
+                      <td
+                        className="align-middle small fw-semibold"
+                        style={{
+                          padding: "0.5rem 0.75rem",
+                          color: "#4ade80",
+                        }}
+                      >
+                        {fmtPKR(r.total_cost)}
+                      </td>
+                      <Td dim>{fmtPKR(r.avg_cost)}</Td>
+                      <td
+                        className="align-middle small"
+                        style={{
+                          padding: "0.5rem 0.75rem",
+                          color: "#f87171",
+                        }}
+                      >
+                        {fmtPKR(r.total_depreciation)}
+                      </td>
+                      <td
+                        className="align-middle small fw-semibold"
+                        style={{
+                          padding: "0.5rem 0.75rem",
+                          color: "#7dd3fc",
+                        }}
+                      >
+                        {fmtPKR(r.net_book_value)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+
+      {grandTotal === 0 && (
+        <div className="itms-card p-4 text-center text-secondary small">
+          No purchase prices recorded yet. Add <code>Purchase Price (PKR)</code>{" "}
+          when creating or editing hardware assets (Systems, Mobiles, Network
+          Devices).
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN REPORTS PAGE ─────────────────────────────────────
 export default function Reports() {
   const { toast } = useToast();
@@ -3035,6 +3576,8 @@ export default function Reports() {
           {tab === "asset-history" && (
             <AssetHistoryTab filterOpts={filterOpts} toast={toast} />
           )}
+          {tab === "forecast" && <ForecastTab toast={toast} />}
+          {tab === "cost-summary" && <CostSummaryTab toast={toast} />}
           {tab === "full-export" && <FullExportTab toast={toast} />}
         </motion.div>
       </AnimatePresence>

@@ -120,6 +120,18 @@ const config = {
     },
     { name: "purchase_date", label: "Purchase Date", type: "date" },
     { name: "warranty_expiry", label: "Warranty Expiry", type: "date" },
+    {
+      name: "purchase_price_pkr",
+      label: "Purchase Price (PKR)",
+      type: "number",
+      placeholder: "0.00",
+    },
+    {
+      name: "useful_life_years",
+      label: "Useful Life (Years)",
+      type: "number",
+      placeholder: "7",
+    },
     { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
   ],
   viewExtra: (row) => (

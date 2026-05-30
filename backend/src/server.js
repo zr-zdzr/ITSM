@@ -450,6 +450,26 @@ async function runMigrations() {
     `ALTER TABLE gws_accounts ADD CONSTRAINT gws_accounts_license_check CHECK (license IS NULL OR license IN ('Starter','Standard','Vault','Not Assigned'))`,
   );
 
+  // ── Phase 3: purchase price + useful life on hardware assets ─
+  await db.query(
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS purchase_price_pkr NUMERIC(12,2)`,
+  );
+  await db.query(
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 5`,
+  );
+  await db.query(
+    `ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS purchase_price_pkr NUMERIC(12,2)`,
+  );
+  await db.query(
+    `ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 3`,
+  );
+  await db.query(
+    `ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS purchase_price_pkr NUMERIC(12,2)`,
+  );
+  await db.query(
+    `ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 7`,
+  );
+
   // ── Asset History ─────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS asset_history (

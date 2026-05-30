@@ -747,4 +747,145 @@ router.get("/department-utilization", requireAuth, async (req, res, next) => {
   }
 });
 
+// ── FORECAST ─────────────────────────────────────────────
+// Projected stockout date per inventory item based on avg daily consumption
+router.get("/forecast", requireAuth, async (req, res, next) => {
+  try {
+    const months = Math.min(24, Math.max(1, parseInt(req.query.months) || 6));
+    const r = await db.query(
+      `
+      WITH consumption AS (
+        SELECT
+          a.item_id,
+          SUM(CASE WHEN a.type = 'assignment' THEN ABS(a.qty_change) ELSE 0 END) AS total_issued,
+          SUM(CASE WHEN a.type IN ('damaged','lost','retired') THEN ABS(a.qty_change) ELSE 0 END) AS total_consumed,
+          COUNT(DISTINCT DATE(a.created_at)) AS active_days
+        FROM inv_adjustments a
+        WHERE a.created_at >= NOW() - ($1 || ' months')::INTERVAL
+        GROUP BY a.item_id
+      )
+      SELECT
+        i.id         AS item_id,
+        i.name,
+        i.unit,
+        c.name       AS category_name,
+        s.qty_available,
+        s.reorder_level,
+        COALESCE(con.total_issued, 0)   AS total_issued,
+        COALESCE(con.total_consumed, 0) AS total_consumed,
+        COALESCE(con.active_days, 0)    AS active_days,
+        ROUND(
+          COALESCE(con.total_issued, 0)::numeric
+          / GREATEST(($1::numeric * 30), 1),
+          4
+        ) AS avg_daily_consumption,
+        CASE
+          WHEN COALESCE(con.total_issued, 0) = 0 THEN NULL
+          ELSE CURRENT_DATE + (
+            s.qty_available::numeric
+            / GREATEST(
+                COALESCE(con.total_issued, 0)::numeric / GREATEST(($1::numeric * 30), 1),
+                0.001
+              )
+          )::integer
+        END AS projected_stockout_date,
+        CASE
+          WHEN COALESCE(con.total_issued, 0) = 0 THEN NULL
+          ELSE ROUND(
+            s.qty_available::numeric
+            / GREATEST(
+                COALESCE(con.total_issued, 0)::numeric / GREATEST(($1::numeric * 30), 1),
+                0.001
+              ),
+            0
+          )
+        END AS days_until_stockout
+      FROM inv_items i
+      LEFT JOIN inv_stock      s   ON s.item_id   = i.id
+      LEFT JOIN inv_categories c   ON c.id         = i.category_id
+      LEFT JOIN consumption    con ON con.item_id  = i.id
+      WHERE i.is_active = true
+        AND s.qty_available IS NOT NULL
+      ORDER BY
+        CASE WHEN COALESCE(con.total_issued, 0) = 0 THEN 1 ELSE 0 END,
+        days_until_stockout ASC NULLS LAST
+    `,
+      [months],
+    );
+    res.json(r.rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── COST SUMMARY ─────────────────────────────────────────
+// Hardware asset purchase value + straight-line depreciation
+router.get("/cost-summary", requireAuth, async (req, res, next) => {
+  try {
+    const r = await db.query(`
+      SELECT
+        asset_type,
+        category,
+        COUNT(*)                                        AS total_assets,
+        COUNT(*) FILTER (WHERE purchase_price_pkr IS NOT NULL) AS priced_assets,
+        COALESCE(SUM(purchase_price_pkr), 0)           AS total_cost,
+        COALESCE(AVG(purchase_price_pkr), 0)           AS avg_cost,
+        COALESCE(SUM(
+          LEAST(
+            purchase_price_pkr,
+            GREATEST(0,
+              purchase_price_pkr
+              * EXTRACT(EPOCH FROM (NOW() - purchase_date::timestamptz))
+              / (useful_life_years * 365.25 * 86400)
+            )
+          )
+        ) FILTER (WHERE purchase_price_pkr IS NOT NULL AND purchase_date IS NOT NULL), 0) AS total_depreciation,
+        COALESCE(SUM(
+          purchase_price_pkr - LEAST(
+            purchase_price_pkr,
+            GREATEST(0,
+              purchase_price_pkr
+              * EXTRACT(EPOCH FROM (NOW() - purchase_date::timestamptz))
+              / (useful_life_years * 365.25 * 86400)
+            )
+          )
+        ) FILTER (WHERE purchase_price_pkr IS NOT NULL AND purchase_date IS NOT NULL), 0) AS net_book_value
+      FROM (
+        SELECT 'system'  AS asset_type, type AS category,
+               purchase_price_pkr, purchase_date, useful_life_years
+        FROM systems
+        UNION ALL
+        SELECT 'mobile'  AS asset_type, os AS category,
+               purchase_price_pkr, purchase_date, useful_life_years
+        FROM mobiles
+        UNION ALL
+        SELECT 'network' AS asset_type, device_type AS category,
+               purchase_price_pkr, purchase_date, useful_life_years
+        FROM network_devices
+      ) t
+      GROUP BY asset_type, category
+      ORDER BY asset_type, total_cost DESC
+    `);
+
+    // Overall totals
+    const totals = await db.query(`
+      SELECT
+        COALESCE(SUM(purchase_price_pkr), 0) AS grand_total_cost,
+        COUNT(*) FILTER (WHERE purchase_price_pkr IS NOT NULL) AS priced_assets,
+        COUNT(*) AS total_assets
+      FROM (
+        SELECT purchase_price_pkr FROM systems
+        UNION ALL
+        SELECT purchase_price_pkr FROM mobiles
+        UNION ALL
+        SELECT purchase_price_pkr FROM network_devices
+      ) t
+    `);
+
+    res.json({ byCategory: r.rows, totals: totals.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
