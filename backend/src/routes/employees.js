@@ -489,6 +489,32 @@ router.delete(
   },
 );
 
+// ── REACTIVATE ────────────────────────────────────────────────
+router.patch(
+  "/:id/reactivate",
+  requireAuth,
+  perm("employees", "update"),
+  async (req, res, next) => {
+    try {
+      const r = await db.query(
+        `UPDATE employees SET is_active=true, leaving_date=NULL WHERE id=$1 RETURNING *`,
+        [req.params.id],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await log(
+        req.user.id,
+        "reactivated",
+        r.rows[0].id,
+        r.rows[0].full_name,
+        "Reactivated employee",
+      );
+      res.json(r.rows[0]);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ── DELETE ONE → soft-delete as Ex-Employee ───────────────────
 router.delete(
   "/:id",

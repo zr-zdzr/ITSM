@@ -482,9 +482,20 @@ function TypeBadge({ value }) {
 }
 
 // ── Employee Clearance Panel ──────────────────────────────────
-function EmployeeClearance({ row }) {
+function EmployeeClearance({ row, onReactivated }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reactivating, setReactivating] = useState(false);
+
+  async function reactivate() {
+    setReactivating(true);
+    try {
+      await api.patch(`/api/employees/${row.id}/reactivate`);
+      onReactivated?.();
+    } catch (e) {
+      setReactivating(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -620,12 +631,22 @@ function EmployeeClearance({ row }) {
             <>✓ Clearance Complete — no outstanding assets</>
           )}
         </span>
-        <button
-          onClick={exportPDF}
-          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
-        >
-          <FileDown size={13} /> Clearance PDF
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            onClick={exportPDF}
+            className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+          >
+            <FileDown size={13} /> Clearance PDF
+          </button>
+          <button
+            onClick={reactivate}
+            disabled={reactivating}
+            className="btn btn-sm btn-outline-success d-flex align-items-center gap-1"
+          >
+            <RotateCcw size={13} />
+            {reactivating ? "Reactivating…" : "Reactivate Employee"}
+          </button>
+        </div>
       </div>
 
       {/* Hardware still assigned */}
@@ -952,7 +973,7 @@ const config = {
   renderView: (row) => <EmployeeView row={row} />,
 };
 
-function makeConfig(exMode) {
+function makeConfig(exMode, onReactivated) {
   return {
     ...config,
     apiPath: exMode
@@ -960,7 +981,7 @@ function makeConfig(exMode) {
       : "/api/employees?status=active",
     title: exMode ? "Ex-Employee" : "Employee",
     viewExtra: exMode
-      ? (row) => <EmployeeClearance row={row} />
+      ? (row) => <EmployeeClearance row={row} onReactivated={onReactivated} />
       : (row) => (
           <>
             <EmployeeAssignments row={row} />
@@ -972,10 +993,16 @@ function makeConfig(exMode) {
 
 export default function Employees() {
   const [exMode, setExMode] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  function onReactivated() {
+    setReloadKey((k) => k + 1);
+  }
+
   return (
     <ModulePage
-      key={exMode ? "ex" : "active"}
-      config={makeConfig(exMode)}
+      key={`${exMode ? "ex" : "active"}-${reloadKey}`}
+      config={makeConfig(exMode, onReactivated)}
       headerExtra={
         <div className="d-flex rounded-2 overflow-hidden border border-secondary">
           <button
