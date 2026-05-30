@@ -470,6 +470,11 @@ async function runMigrations() {
     `ALTER TABLE network_devices ADD COLUMN IF NOT EXISTS useful_life_years INTEGER DEFAULT 7`,
   );
 
+  // ── Ex-Employee tracking ──────────────────────────────────
+  await db.query(
+    `ALTER TABLE employees ADD COLUMN IF NOT EXISTS leaving_date DATE`,
+  );
+
   // ── Asset History ─────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS asset_history (

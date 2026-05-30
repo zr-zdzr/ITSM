@@ -9,6 +9,10 @@ import {
   Monitor,
   Smartphone,
   Network,
+  UserX,
+  Users,
+  FileDown,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, fmtDate } from "../lib/utils";
 
@@ -385,8 +389,18 @@ function EmployeeForm({ vals, setVals }) {
             onChange={(e) => set("is_active", e.target.value === "active")}
           >
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="inactive">Inactive / Ex-Employee</option>
           </select>
+        </Fld>
+      </div>
+      <div className="col-md-6">
+        <Fld label="Leaving Date">
+          <input
+            type="date"
+            className={inp}
+            value={vals.leaving_date || ""}
+            onChange={(e) => set("leaving_date", e.target.value)}
+          />
         </Fld>
       </div>
     </div>
@@ -429,6 +443,9 @@ function EmployeeView({ row }) {
         }
       />
       <DetailCell label="Joining Date" value={fmtDate(row.joining_date)} />
+      {row.leaving_date && (
+        <DetailCell label="Leaving Date" value={fmtDate(row.leaving_date)} />
+      )}
       <div className="col-6">
         <dt
           className="text-secondary fw-semibold text-uppercase mb-1"
@@ -438,7 +455,7 @@ function EmployeeView({ row }) {
         </dt>
         <dd className="small mb-0">
           <Badge status={row.is_active ? "active" : "inactive"}>
-            {row.is_active ? "Active" : "Inactive"}
+            {row.is_active ? "Active" : "Ex-Employee"}
           </Badge>
         </dd>
       </div>
@@ -461,6 +478,398 @@ function TypeBadge({ value }) {
     >
       {isPerm ? "Permanent" : "Contractual"}
     </span>
+  );
+}
+
+// ── Employee Clearance Panel ──────────────────────────────────
+function EmployeeClearance({ row }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get(`/api/employees/${row.id}/clearance`)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.id]);
+
+  async function exportPDF() {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    const emp = data.employee;
+    doc.setFontSize(14);
+    doc.text("Employee Asset Clearance Report", 14, 16);
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      `${emp.full_name} · ${emp.designation} · ${emp.department} · ${emp.location}`,
+      14,
+      23,
+    );
+    doc.text(
+      `Leaving Date: ${emp.leaving_date ? fmtDate(emp.leaving_date) : "N/A"} · Generated: ${new Date().toLocaleString("en-GB")}`,
+      14,
+      29,
+    );
+    let y = 36;
+    if (data.hardware.length > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Hardware Assets (Currently Assigned)", 14, y);
+      autoTable(doc, {
+        startY: y + 3,
+        head: [["Type", "Asset Tag", "Brand", "Model", "Serial No.", "Status"]],
+        body: data.hardware.map((h) => [
+          h.asset_type,
+          h.asset_tag || "—",
+          h.manufacturer || "—",
+          h.model || "—",
+          h.serial_number || "—",
+          h.status || "—",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [239, 68, 68] },
+        margin: { left: 14, right: 14 },
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    }
+    if (data.inventoryItems.length > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Inventory Items (Outstanding)", 14, y);
+      autoTable(doc, {
+        startY: y + 3,
+        head: [["ASN #", "Item", "Qty", "Issued Date"]],
+        body: data.inventoryItems.map((i) => [
+          i.asn_number,
+          i.item_name,
+          `${i.qty} ${i.unit}`,
+          fmtDate(i.assigned_date),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 11] },
+        margin: { left: 14, right: 14 },
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    }
+    if (data.assetHistory.length > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Asset History", 14, y);
+      autoTable(doc, {
+        startY: y + 3,
+        head: [["Asset", "Event", "From", "To", "Date"]],
+        body: data.assetHistory.map((h) => [
+          h.asset_label || "—",
+          h.event_type?.replace(/_/g, " "),
+          h.from_name || "—",
+          h.to_name || "—",
+          fmtDate(h.created_at),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [100, 100, 100] },
+        margin: { left: 14, right: 14 },
+      });
+    }
+    doc.save(
+      `clearance-${emp.full_name.replace(/\s+/g, "-").toLowerCase()}.pdf`,
+    );
+  }
+
+  if (loading)
+    return (
+      <div className="text-center text-secondary py-3 small">
+        Loading clearance data…
+      </div>
+    );
+  if (!data) return null;
+
+  const hasHardware = data.hardware.length > 0;
+  const hasInv = data.inventoryItems.length > 0;
+
+  return (
+    <div className="mt-2">
+      {/* Header */}
+      <div
+        className="px-4 py-3 d-flex align-items-center justify-content-between"
+        style={{ borderTop: "1px solid var(--bs-border-color)" }}
+      >
+        <span
+          className="small fw-semibold d-flex align-items-center gap-2"
+          style={{ color: hasHardware || hasInv ? "#f87171" : "#4ade80" }}
+        >
+          {hasHardware || hasInv ? (
+            <>
+              <AlertTriangle size={14} /> Clearance Pending —{" "}
+              {data.hardware.length + data.inventoryItems.length} item(s) to
+              recover
+            </>
+          ) : (
+            <>✓ Clearance Complete — no outstanding assets</>
+          )}
+        </span>
+        <button
+          onClick={exportPDF}
+          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+        >
+          <FileDown size={13} /> Clearance PDF
+        </button>
+      </div>
+
+      {/* Hardware still assigned */}
+      {hasHardware && (
+        <div style={{ borderTop: "1px solid var(--bs-border-color)" }}>
+          <p
+            className="px-4 pt-3 pb-1 small fw-semibold text-uppercase mb-0"
+            style={{ fontSize: "11px", color: "#f87171" }}
+          >
+            <Monitor size={11} className="me-1" />
+            Hardware to Recover ({data.hardware.length})
+          </p>
+          <div className="table-responsive">
+            <table
+              className="table table-hover mb-0"
+              style={{ fontSize: "0.78rem" }}
+            >
+              <thead>
+                <tr>
+                  {[
+                    "Type",
+                    "Asset Tag",
+                    "Brand",
+                    "Model",
+                    "Serial No.",
+                    "Status",
+                    "Condition",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-uppercase text-secondary text-nowrap"
+                      style={{
+                        fontSize: "10px",
+                        letterSpacing: "0.05em",
+                        padding: "0.5rem 0.75rem",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.hardware.map((h, i) => (
+                  <tr key={i}>
+                    <td
+                      className="align-middle small text-capitalize"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.asset_type}
+                    </td>
+                    <td
+                      className="align-middle font-monospace"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.asset_tag || "—"}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.manufacturer || "—"}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.model || "—"}
+                    </td>
+                    <td
+                      className="align-middle font-monospace small"
+                      style={{ padding: "0.45rem 0.75rem", color: "#fbbf24" }}
+                    >
+                      {h.serial_number || "—"}
+                    </td>
+                    <td
+                      className="align-middle"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      <span
+                        className="badge px-1"
+                        style={{
+                          background: "rgba(239,68,68,0.12)",
+                          color: "#f87171",
+                          fontSize: "10px",
+                        }}
+                      >
+                        {h.status || "—"}
+                      </span>
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.condition || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Inventory items outstanding */}
+      {hasInv && (
+        <div style={{ borderTop: "1px solid var(--bs-border-color)" }}>
+          <p
+            className="px-4 pt-3 pb-1 small fw-semibold text-uppercase mb-0"
+            style={{ fontSize: "11px", color: "#fbbf24" }}
+          >
+            <PackageCheck size={11} className="me-1" />
+            Inventory Items to Return ({data.inventoryItems.length})
+          </p>
+          <div className="table-responsive">
+            <table
+              className="table table-hover mb-0"
+              style={{ fontSize: "0.78rem" }}
+            >
+              <thead>
+                <tr>
+                  {["ASN #", "Item", "Qty", "Issued Date"].map((h) => (
+                    <th
+                      key={h}
+                      className="text-uppercase text-secondary text-nowrap"
+                      style={{
+                        fontSize: "10px",
+                        letterSpacing: "0.05em",
+                        padding: "0.5rem 0.75rem",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.inventoryItems.map((item, i) => (
+                  <tr key={i}>
+                    <td
+                      className="align-middle font-monospace small"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {item.asn_number}
+                    </td>
+                    <td
+                      className="align-middle small fw-medium"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {item.item_name}
+                    </td>
+                    <td
+                      className="align-middle small"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {item.qty} {item.unit}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {fmtDate(item.assigned_date)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Asset history */}
+      {data.assetHistory.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--bs-border-color)" }}>
+          <p
+            className="px-4 pt-3 pb-1 small fw-semibold text-uppercase mb-0"
+            style={{ fontSize: "11px", color: "#71717a" }}
+          >
+            <History size={11} className="me-1" />
+            Asset History ({data.assetHistory.length} events)
+          </p>
+          <div className="table-responsive">
+            <table
+              className="table table-hover mb-0"
+              style={{ fontSize: "0.78rem" }}
+            >
+              <thead>
+                <tr>
+                  {["Asset", "Event", "From", "To", "Date"].map((h) => (
+                    <th
+                      key={h}
+                      className="text-uppercase text-secondary text-nowrap"
+                      style={{
+                        fontSize: "10px",
+                        letterSpacing: "0.05em",
+                        padding: "0.5rem 0.75rem",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.assetHistory.map((h, i) => (
+                  <tr key={i}>
+                    <td
+                      className="align-middle font-monospace small"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.asset_label || "—"}
+                    </td>
+                    <td
+                      className="align-middle small text-capitalize"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.event_type?.replace(/_/g, " ")}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.from_name || "—"}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {h.to_name || "—"}
+                    </td>
+                    <td
+                      className="align-middle small text-secondary"
+                      style={{ padding: "0.45rem 0.75rem" }}
+                    >
+                      {fmtDate(h.created_at)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -541,14 +950,60 @@ const config = {
 
   renderForm: (vals, setVals) => <EmployeeForm vals={vals} setVals={setVals} />,
   renderView: (row) => <EmployeeView row={row} />,
-  viewExtra: (row) => (
-    <>
-      <EmployeeAssignments row={row} />
-      <EmployeeHardwareHistory row={row} />
-    </>
-  ),
 };
 
+function makeConfig(exMode) {
+  return {
+    ...config,
+    apiPath: exMode
+      ? "/api/employees?status=inactive"
+      : "/api/employees?status=active",
+    title: exMode ? "Ex-Employee" : "Employee",
+    viewExtra: exMode
+      ? (row) => <EmployeeClearance row={row} />
+      : (row) => (
+          <>
+            <EmployeeAssignments row={row} />
+            <EmployeeHardwareHistory row={row} />
+          </>
+        ),
+  };
+}
+
 export default function Employees() {
-  return <ModulePage config={config} />;
+  const [exMode, setExMode] = useState(false);
+  return (
+    <ModulePage
+      key={exMode ? "ex" : "active"}
+      config={makeConfig(exMode)}
+      headerExtra={
+        <div className="d-flex rounded-2 overflow-hidden border border-secondary">
+          <button
+            onClick={() => setExMode(false)}
+            className="btn btn-sm px-3 py-1 d-flex align-items-center gap-1"
+            style={{
+              borderRadius: 0,
+              background: !exMode ? "var(--brand)" : "transparent",
+              color: !exMode ? "#fff" : "#71717a",
+              fontSize: "12px",
+            }}
+          >
+            <Users size={12} /> Active
+          </button>
+          <button
+            onClick={() => setExMode(true)}
+            className="btn btn-sm px-3 py-1 d-flex align-items-center gap-1"
+            style={{
+              borderRadius: 0,
+              background: exMode ? "#ef4444" : "transparent",
+              color: exMode ? "#fff" : "#71717a",
+              fontSize: "12px",
+            }}
+          >
+            <UserX size={12} /> Ex-Employees
+          </button>
+        </div>
+      }
+    />
+  );
 }

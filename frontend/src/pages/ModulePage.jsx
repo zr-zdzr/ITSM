@@ -23,7 +23,7 @@ import QRModal from "../components/ui/QRModal";
 
 const EMPTY = {};
 
-export default function ModulePage({ config }) {
+export default function ModulePage({ config, headerExtra }) {
   const {
     apiPath,
     module: mod,
@@ -147,15 +147,20 @@ export default function ModulePage({ config }) {
     setFormErrors({});
     setSaving(true);
     try {
+      let saved;
       if (editRow) {
-        await api.put(`${apiPath}/${editRow.id}`, formVals);
+        saved = await api.put(`${apiPath}/${editRow.id}`, formVals);
         toast(`${title} updated`, "success");
       } else {
-        await api.post(apiPath, formVals);
+        saved = await api.post(apiPath, formVals);
         toast(`${title} added`, "success");
       }
       closeModals();
       await load();
+      // Auto-show QR when an asset is assigned to an employee
+      if (qrData && saved?.assigned_user_id) {
+        setQrRow(saved);
+      }
     } catch (e) {
       toast(e.message, "error");
     } finally {
@@ -166,7 +171,10 @@ export default function ModulePage({ config }) {
   async function deleteRow(row) {
     try {
       await api.del(`${apiPath}/${row.id}`);
-      toast("Deleted", "success");
+      toast(
+        mod === "employees" ? "Moved to Ex-Employees" : "Deleted",
+        "success",
+      );
       setConfirmDelete(null);
       setRows((p) => p.filter((r) => r.id !== row.id));
     } catch (e) {
@@ -321,6 +329,7 @@ export default function ModulePage({ config }) {
     >
       {/* Toolbar */}
       <div className="d-flex flex-wrap align-items-center gap-2">
+        {headerExtra && headerExtra}
         <span className="flex-grow-1 small text-secondary">
           {loading ? "Loading…" : `${rows.length} records`}
           {selectedIds.size > 0 && (
@@ -690,15 +699,16 @@ export default function ModulePage({ config }) {
       <Modal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        title="Confirm Delete"
+        title={mod === "employees" ? "Move to Ex-Employee" : "Confirm Delete"}
         size="sm"
       >
         <div className="d-flex gap-3">
           <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
           <div className="small mb-0">
             <p className="mb-1">
-              Are you sure you want to delete this record? It will be moved to
-              the recycle bin.
+              {mod === "employees"
+                ? "This will mark the employee as an Ex-Employee. Their record and asset history will be preserved and accessible from the Ex-Employees list."
+                : "Are you sure you want to delete this record? It will be moved to the recycle bin."}
             </p>
             {confirmDelete &&
               (confirmDelete.asset_tag ||
@@ -729,7 +739,7 @@ export default function ModulePage({ config }) {
             className="btn btn-danger btn-sm"
             onClick={() => deleteRow(confirmDelete)}
           >
-            Delete
+            {mod === "employees" ? "Move to Ex-Employee" : "Delete"}
           </button>
         </div>
       </Modal>

@@ -146,8 +146,17 @@ export default function Inventory() {
   async function saveStock() {
     setSaving(true);
     try {
-      await api.post(`/api/inventory/items/${stockModal.id}/adjust`, stockForm);
-      toast("Stock updated", "success");
+      const payload =
+        stockForm.type === "write_off"
+          ? { type: "write_off", qty_change: 0, notes: stockForm.notes }
+          : stockForm;
+      await api.post(`/api/inventory/items/${stockModal.id}/adjust`, payload);
+      toast(
+        stockForm.type === "write_off"
+          ? "Item written off and archived"
+          : "Stock updated",
+        "success",
+      );
       setStockModal(null);
       setStockForm({ type: "purchase", qty_change: "", notes: "" });
       load();
@@ -919,30 +928,49 @@ export default function Inventory() {
               <option value="damaged">Mark Damaged (−)</option>
               <option value="lost">Mark Lost (−)</option>
               <option value="retired">Retire / Dispose (−)</option>
+              <option value="write_off">
+                Write Off — item discontinued / fully gone
+              </option>
             </select>
           </div>
-          <div>
-            <label className="form-label small fw-medium mb-1">
-              Quantity{" "}
-              {stockForm.type === "purchase" || stockForm.type === "correction"
-                ? "(positive = add)"
-                : "(units to remove)"}
-            </label>
-            <input
-              type="number"
-              value={stockForm.qty_change}
-              onChange={(e) => fs("qty_change", e.target.value)}
-              placeholder="e.g. 20"
-              className={inp}
-            />
-            {stockModal && (
-              <p className="small text-secondary mt-1 mb-0">
-                Current available:{" "}
-                <strong>{stockModal.qty_available ?? 0}</strong>{" "}
-                {stockModal.unit}
-              </p>
-            )}
-          </div>
+          {stockForm.type === "write_off" ? (
+            <div
+              className="rounded-3 p-3 small"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                color: "#f87171",
+              }}
+            >
+              This will zero all remaining stock and archive the item. It will
+              no longer appear in active inventory. Use this when the item is
+              discontinued or completely gone with no plans to restock.
+            </div>
+          ) : (
+            <div>
+              <label className="form-label small fw-medium mb-1">
+                Quantity{" "}
+                {stockForm.type === "purchase" ||
+                stockForm.type === "correction"
+                  ? "(positive = add)"
+                  : "(units to remove)"}
+              </label>
+              <input
+                type="number"
+                value={stockForm.qty_change}
+                onChange={(e) => fs("qty_change", e.target.value)}
+                placeholder="e.g. 20"
+                className={inp}
+              />
+              {stockModal && (
+                <p className="small text-secondary mt-1 mb-0">
+                  Current available:{" "}
+                  <strong>{stockModal.qty_available ?? 0}</strong>{" "}
+                  {stockModal.unit}
+                </p>
+              )}
+            </div>
+          )}
           <div>
             <label className="form-label small fw-medium mb-1">Notes</label>
             <input
@@ -961,10 +989,17 @@ export default function Inventory() {
             </button>
             <button
               onClick={saveStock}
-              disabled={saving || !stockForm.qty_change}
-              className="btn btn-primary btn-sm"
+              disabled={
+                saving ||
+                (stockForm.type !== "write_off" && !stockForm.qty_change)
+              }
+              className={`btn btn-sm ${stockForm.type === "write_off" ? "btn-danger" : "btn-primary"}`}
             >
-              {saving ? "Saving…" : "Apply Adjustment"}
+              {saving
+                ? "Saving…"
+                : stockForm.type === "write_off"
+                  ? "Write Off Item"
+                  : "Apply Adjustment"}
             </button>
           </div>
         </div>
