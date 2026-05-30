@@ -16,6 +16,7 @@ import {
   PackageCheck,
   Network,
   DollarSign,
+  History,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
@@ -174,6 +175,221 @@ function ExportBtn({
   );
 }
 
+// ── ASSET HISTORY TAB ────────────────────────────────────
+function AssetHistoryTab({ filterOpts, toast }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [assetType, setAssetType] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const p = new URLSearchParams();
+    if (assetType) p.set("asset_type", assetType);
+    if (employeeId) p.set("employee_id", employeeId);
+    if (eventType) p.set("event_type", eventType);
+    if (fromDate) p.set("from_date", fromDate);
+    if (toDate) p.set("to_date", toDate);
+    p.set("limit", "200");
+    try {
+      const data = await api.get(`/api/asset-history?${p}`);
+      setRows(data.rows || []);
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [assetType, employeeId, eventType, fromDate, toDate, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function pdfExport() {
+    try {
+      const head = [
+        "Asset",
+        "Type",
+        "Event",
+        "From",
+        "To",
+        "Reason",
+        "By",
+        "Date",
+      ];
+      const body = rows.map((r) => [
+        r.asset_label || "—",
+        r.asset_type,
+        r.event_type?.replace(/_/g, " "),
+        r.from_employee_name || "—",
+        r.to_employee_name || "—",
+        r.reason || "—",
+        r.performed_by_name || "—",
+        fmtDate(r.created_at),
+      ]);
+      await exportPDF("Asset History Report", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  const sel = "form-select form-select-sm";
+  const inp = "form-control form-control-sm";
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      {/* Filters */}
+      <div className="itms-card p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Asset Type</label>
+            <select
+              className={sel}
+              value={assetType}
+              onChange={(e) => setAssetType(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="system">Systems</option>
+              <option value="mobile">Mobiles</option>
+              <option value="network">Network</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-3">
+            <label className="form-label small mb-1">Employee</label>
+            <select
+              className={sel}
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+            >
+              <option value="">All Employees</option>
+              {(filterOpts?.employees || []).map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Event</label>
+            <select
+              className={sel}
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value)}
+            >
+              <option value="">All Events</option>
+              <option value="assigned">Assigned</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="transferred">Transferred</option>
+              <option value="replaced">Replaced</option>
+              <option value="repaired">Repaired</option>
+              <option value="disposed">Disposed</option>
+              <option value="status_change">Status Change</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">From</label>
+            <input
+              type="date"
+              className={inp}
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">To</label>
+            <input
+              type="date"
+              className={inp}
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          <div className="col-6 col-md-1">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary w-100"
+              onClick={pdfExport}
+              disabled={loading || rows.length === 0}
+            >
+              <FileDown size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table
+            className="table table-hover mb-0"
+            style={{ fontSize: "0.8rem" }}
+          >
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Type</th>
+                <th>Event</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Reason</th>
+                <th>Performed By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="text-center text-secondary py-4">
+                    Loading…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center text-secondary py-4">
+                    No records found
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="font-monospace">{r.asset_label || "—"}</td>
+                    <td className="text-capitalize">{r.asset_type}</td>
+                    <td className="text-capitalize">
+                      {r.event_type?.replace(/_/g, " ")}
+                    </td>
+                    <td>
+                      {r.from_employee_name || (
+                        <span className="text-secondary">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.to_employee_name || (
+                        <span className="text-secondary">—</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.reason || <span className="text-secondary">—</span>}
+                    </td>
+                    <td>
+                      {r.performed_by_name || (
+                        <span className="text-secondary">—</span>
+                      )}
+                    </td>
+                    <td className="text-secondary">{fmtDate(r.created_at)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab bar ───────────────────────────────────────────────
 const TABS = [
   { id: "employee-assets", label: "Employee Assets", icon: Users },
@@ -185,6 +401,7 @@ const TABS = [
   { id: "inv-assignments", label: "Inv. Assignments", icon: PackageCheck },
   { id: "sim-costs", label: "SIM Costs", icon: CreditCard },
   { id: "cost-analytics", label: "Cost Analytics", icon: DollarSign },
+  { id: "asset-history", label: "Asset History", icon: History },
   { id: "full-export", label: "Full Export", icon: FileText },
 ];
 
@@ -2351,6 +2568,9 @@ export default function Reports() {
           {tab === "inv-assignments" && <InvAssignmentsTab toast={toast} />}
           {tab === "sim-costs" && <SIMCostsTab toast={toast} />}
           {tab === "cost-analytics" && <CostAnalyticsTab toast={toast} />}
+          {tab === "asset-history" && (
+            <AssetHistoryTab filterOpts={filterOpts} toast={toast} />
+          )}
           {tab === "full-export" && <FullExportTab toast={toast} />}
         </motion.div>
       </AnimatePresence>

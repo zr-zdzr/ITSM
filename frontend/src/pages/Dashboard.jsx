@@ -16,6 +16,8 @@ import {
   ArrowRight,
   Layers,
   Database,
+  RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1518,6 +1520,7 @@ const SECTION_API = {
   sims: "/api/sims",
   employees: "/api/employees",
   inventory: "/api/inventory/items",
+  replacements: "/api/asset-history/stats/replacements",
 };
 
 export default function Dashboard() {
@@ -1794,6 +1797,115 @@ export default function Dashboard() {
             navigate={navigate}
           />
         </ContentPanel>
+      )}
+
+      {/* Replacement Analysis */}
+      {canPerm("systems", "read") && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="itms-card overflow-hidden"
+        >
+          <button
+            type="button"
+            className="w-100 d-flex align-items-center justify-content-between p-3 border-0 bg-transparent text-start"
+            onClick={() => toggle("replacements")}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <RefreshCw size={14} style={{ color: "#fb923c" }} />
+              <span className="fw-semibold" style={{ fontSize: "0.875rem" }}>
+                Replacement Analysis
+              </span>
+              <span className="text-secondary small">
+                · Employees with most hardware replacements
+              </span>
+            </div>
+            <ChevronDown
+              size={14}
+              className="text-secondary"
+              style={{
+                transform:
+                  openSection === "replacements"
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
+                transition: "transform 0.2s",
+              }}
+            />
+          </button>
+          <AnimatePresence>
+            {openSection === "replacements" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ overflow: "hidden" }}
+              >
+                <div className="border-top p-3">
+                  {sectionLoading["replacements"] ? (
+                    <p className="text-secondary small mb-0">Loading…</p>
+                  ) : (sectionRows["replacements"] || []).length === 0 ? (
+                    <p className="text-secondary small mb-0">
+                      No replacement events recorded yet.
+                    </p>
+                  ) : (
+                    <div className="table-responsive">
+                      <table
+                        className="table table-sm mb-0"
+                        style={{ fontSize: "0.8rem" }}
+                      >
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th className="text-end">Replacements</th>
+                            <th>Last Replacement</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sectionRows["replacements"] || []).map((r, i) => (
+                            <tr key={r.employee_id}>
+                              <td className="text-secondary">{i + 1}</td>
+                              <td className="fw-medium">{r.full_name}</td>
+                              <td className="text-secondary">
+                                {r.department || "—"}
+                              </td>
+                              <td className="text-end">
+                                <span
+                                  className="badge px-2"
+                                  style={{
+                                    background: "rgba(251,146,60,0.15)",
+                                    color: "#fb923c",
+                                    fontSize: "11px",
+                                  }}
+                                >
+                                  {r.replacement_count}
+                                </span>
+                              </td>
+                              <td className="text-secondary">
+                                {r.last_replacement_at
+                                  ? new Date(
+                                      r.last_replacement_at,
+                                    ).toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {/* Network chart + 24h log */}

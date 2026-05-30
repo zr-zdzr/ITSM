@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
+import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
 import { api } from "../lib/api";
 import { genAssetTag } from "../lib/utils";
 import { useToast } from "../contexts/ToastContext";
@@ -497,6 +498,9 @@ const config = {
     <MobileDeviceForm vals={vals} setVals={setVals} />
   ),
   renderView: (row) => <MobileDeviceView {...row} />,
+  viewExtra: (row) => (
+    <AssetHistoryTimeline assetType="mobile" assetId={row.id} />
+  ),
 };
 
 export default function MobileDevices() {

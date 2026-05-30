@@ -43,6 +43,7 @@ app.use("/api/recycle-bin", require("./routes/recycle-bin"));
 app.use("/api/inventory", require("./routes/inventory").router);
 app.use("/api/requests", require("./routes/requests"));
 app.use("/api/assignments", require("./routes/assignments"));
+app.use("/api/asset-history", require("./routes/asset-history"));
 app.use("/api/maintenance", require("./routes/maintenance"));
 app.use("/api/search", require("./routes/search"));
 app.use("/api/alerts", require("./routes/alerts"));
@@ -447,6 +448,34 @@ async function runMigrations() {
   );
   await db.query(
     `ALTER TABLE gws_accounts ADD CONSTRAINT gws_accounts_license_check CHECK (license IS NULL OR license IN ('Starter','Standard','Vault','Not Assigned'))`,
+  );
+
+  // ── Asset History ─────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS asset_history (
+      id               SERIAL PRIMARY KEY,
+      asset_type       VARCHAR NOT NULL,
+      asset_id         INTEGER NOT NULL,
+      asset_label      VARCHAR,
+      event_type       VARCHAR NOT NULL,
+      from_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+      to_employee_id   INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+      from_status      VARCHAR,
+      to_status        VARCHAR,
+      reason           VARCHAR,
+      notes            TEXT,
+      performed_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at       TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_asset_history_asset    ON asset_history(asset_type, asset_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_asset_history_employee ON asset_history(to_employee_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_asset_history_created  ON asset_history(created_at DESC)`,
   );
 }
 

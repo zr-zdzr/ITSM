@@ -1,6 +1,7 @@
 import React from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
+import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
 import { genAssetTag } from "../lib/utils";
 
 const config = {
@@ -121,6 +122,9 @@ const config = {
     { name: "warranty_expiry", label: "Warranty Expiry", type: "date" },
     { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
   ],
+  viewExtra: (row) => (
+    <AssetHistoryTimeline assetType="network" assetId={row.id} />
+  ),
 };
 
 export default function NetworkDevices() {

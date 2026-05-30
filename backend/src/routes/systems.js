@@ -1,147 +1,257 @@
-const router = require('express').Router();
-const multer = require('multer');
-const { saveToRecycleBin } = require('../utils/recycle');
-const { parse } = require('csv-parse/sync');
-const { stringify } = require('csv-stringify/sync');
-const db = require('../config/db');
-const { requireAuth, perm } = require('../middleware/auth');
+const router = require("express").Router();
+const multer = require("multer");
+const { saveToRecycleBin } = require("../utils/recycle");
+const { logAssetEvent } = require("../utils/assetHistory");
+const { parse } = require("csv-parse/sync");
+const { stringify } = require("csv-stringify/sync");
+const db = require("../config/db");
+const { requireAuth, perm } = require("../middleware/auth");
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 async function log(userId, action, id, label, details) {
   await db.query(
-    'INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)',
-    [userId, action, 'systems', id, label, details]
+    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
+    [userId, action, "systems", id, label, details],
   );
 }
 
 function normalizeRow(raw) {
   const out = {};
   for (const [k, v] of Object.entries(raw))
-    out[k.trim().toLowerCase().replace(/[\s\-]+/g, '_')] = typeof v === 'string' ? v.trim() : v;
+    out[
+      k
+        .trim()
+        .toLowerCase()
+        .replace(/[\s\-]+/g, "_")
+    ] = typeof v === "string" ? v.trim() : v;
   return out;
 }
 
 function pickType(val) {
-  if (!val) return 'System';
+  if (!val) return "System";
   const v = val.toLowerCase();
-  if (v === 'laptop') return 'Laptop';
-  if (v === 'server') return 'Server';
-  if (v === 'pc') return 'PC';
-  if (v === 'workstation') return 'Workstation';
-  if (v === 'other device') return 'Other Device';
-  return 'System';
+  if (v === "laptop") return "Laptop";
+  if (v === "server") return "Server";
+  if (v === "pc") return "PC";
+  if (v === "workstation") return "Workstation";
+  if (v === "other device") return "Other Device";
+  return "System";
 }
 
 function pickCondition(val) {
   if (!val) return null;
-  return val.toLowerCase() === 'damaged' ? 'Damaged' : 'Working';
+  return val.toLowerCase() === "damaged" ? "Damaged" : "Working";
 }
 
 function pickAssignedType(val) {
-  if (!val) return 'inventory';
+  if (!val) return "inventory";
   const v = val.toLowerCase();
-  if (v === 'employee') return 'employee';
-  if (v === 'wfh' || v === 'work from home') return 'wfh';
-  if (v === 'damaged') return 'damaged';
-  if (v.includes('user')) return 'user';
-  return 'inventory';
+  if (v === "employee") return "employee";
+  if (v === "wfh" || v === "work from home") return "wfh";
+  if (v === "damaged") return "damaged";
+  if (v.includes("user")) return "user";
+  return "inventory";
 }
 
 function pickStatus(val) {
   const map = {
-    in_use: 'in_use', 'in use': 'in_use',
-    available: 'available',
-    assigned: 'assigned',
-    repair: 'repair',
-    retired: 'retired',
-    lost: 'lost',
+    in_use: "in_use",
+    "in use": "in_use",
+    available: "available",
+    assigned: "assigned",
+    repair: "repair",
+    retired: "retired",
+    lost: "lost",
   };
-  if (!val) return 'available';
-  return map[val.toLowerCase()] || 'available';
+  if (!val) return "available";
+  return map[val.toLowerCase()] || "available";
 }
 
 async function autoTag() {
   const r = await db.query("SELECT nextval('system_asset_seq') AS n");
-  return `IT-SYS-${String(r.rows[0].n).padStart(4,'0')}`;
+  return `IT-SYS-${String(r.rows[0].n).padStart(4, "0")}`;
 }
 
 // ── LIST ──────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res, next) => {
+router.get("/", requireAuth, async (req, res, next) => {
   try {
     const { q, type, status, assigned_type } = req.query;
     let sql = `
       SELECT s.*, e.full_name AS assigned_user_name, e.email AS assigned_user_email
       FROM systems s LEFT JOIN employees e ON e.id = s.assigned_user_id WHERE 1=1`;
-    const params = []; let i = 1;
+    const params = [];
+    let i = 1;
     if (q) {
       sql += ` AND (s.serial_number ILIKE $${i} OR s.manufacturer ILIKE $${i} OR s.model ILIKE $${i} OR s.cpu ILIKE $${i} OR s.asset_tag ILIKE $${i} OR s.department ILIKE $${i} OR s.brand_type ILIKE $${i})`;
-      params.push(`%${q}%`); i++;
+      params.push(`%${q}%`);
+      i++;
     }
-    if (type)          { sql += ` AND s.type=$${i++}`;          params.push(type); }
-    if (status)        { sql += ` AND s.status=$${i++}`;        params.push(status); }
-    if (assigned_type) { sql += ` AND s.assigned_type=$${i++}`; params.push(assigned_type); }
-    sql += ' ORDER BY s.created_at DESC';
+    if (type) {
+      sql += ` AND s.type=$${i++}`;
+      params.push(type);
+    }
+    if (status) {
+      sql += ` AND s.status=$${i++}`;
+      params.push(status);
+    }
+    if (assigned_type) {
+      sql += ` AND s.assigned_type=$${i++}`;
+      params.push(assigned_type);
+    }
+    sql += " ORDER BY s.created_at DESC";
     res.json((await db.query(sql, params)).rows);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── SAMPLE CSV ────────────────────────────────────────────
-router.get('/sample/csv', requireAuth, (req, res) => {
-  const csv = stringify([
-    {
-      asset_tag: 'IT-SYS-0001', type: 'Laptop', brand_type: 'Branded',
-      manufacturer: 'Dell', model: 'Latitude 5540', serial_number: 'SN-DELL-001',
-      generation: '12th Gen', assigned_type: 'employee', department: 'Engineering',
-      location: 'HQ Floor 2', purpose: 'Daily use', notes: '',
-      cpu: 'Intel Core i7-1255U', cpu_cores: '10', cpu2: '', cpu2_cores: '',
-      ram1_size: '16', ram1_bus: '3200MHz', ram1_slot: 'A1', ram1_serial: '',
-      ram2_size: '16', ram2_bus: '3200MHz', ram2_slot: 'A2', ram2_serial: '',
-      ram3_size: '', ram3_bus: '', ram3_slot: '', ram3_serial: '',
-      ram4_size: '', ram4_bus: '', ram4_slot: '', ram4_serial: '',
-      disk1_size: '512GB', disk1_type: 'NVMe',
-      disk2_size: '', disk2_type: '',
-      disk3_size: '', disk3_type: '',
-      status: 'assigned', warranty_expiry: '2027-01-01',
-    },
-    {
-      asset_tag: 'IT-SYS-0002', type: 'PC', brand_type: 'Unbranded',
-      manufacturer: 'Custom', model: 'Desktop Build', serial_number: 'SN-CST-002',
-      generation: '10th Gen', assigned_type: 'inventory', department: 'IT',
-      location: 'HQ Floor 3', purpose: 'Dev workstation', notes: '',
-      cpu: 'Intel Core i5-10400', cpu_cores: '6', cpu2: '', cpu2_cores: '',
-      ram1_size: '8', ram1_bus: '2666MHz', ram1_slot: 'A1', ram1_serial: '',
-      ram2_size: '8', ram2_bus: '2666MHz', ram2_slot: 'B1', ram2_serial: '',
-      ram3_size: '', ram3_bus: '', ram3_slot: '', ram3_serial: '',
-      ram4_size: '', ram4_bus: '', ram4_slot: '', ram4_serial: '',
-      disk1_size: '256GB', disk1_type: 'SSD',
-      disk2_size: '1TB', disk2_type: 'SATA',
-      disk3_size: '', disk3_type: '',
-      status: 'available', warranty_expiry: '',
-    },
-    {
-      asset_tag: 'IT-SYS-0003', type: 'Server', brand_type: 'Branded',
-      manufacturer: 'Dell', model: 'PowerEdge R740', serial_number: 'SN-SRV-001',
-      generation: '2nd Gen', assigned_type: 'inventory', department: 'IT',
-      location: 'Server Room', purpose: 'Production', notes: 'Rack unit 3',
-      cpu: 'Intel Xeon Gold 6230', cpu_cores: '20', cpu2: 'Intel Xeon Gold 6230', cpu2_cores: '20',
-      ram1_size: '32', ram1_bus: '2933MHz', ram1_slot: 'A1', ram1_serial: 'SN-RAM-001',
-      ram2_size: '32', ram2_bus: '2933MHz', ram2_slot: 'A2', ram2_serial: 'SN-RAM-002',
-      ram3_size: '32', ram3_bus: '2933MHz', ram3_slot: 'B1', ram3_serial: '',
-      ram4_size: '32', ram4_bus: '2933MHz', ram4_slot: 'B2', ram4_serial: '',
-      disk1_size: '1.2TB', disk1_type: 'SATA',
-      disk2_size: '1.2TB', disk2_type: 'SATA',
-      disk3_size: '480GB', disk3_type: 'SSD',
-      status: 'in_use', warranty_expiry: '2026-06-30',
-    },
-  ], { header: true });
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=systems_sample.csv');
+router.get("/sample/csv", requireAuth, (req, res) => {
+  const csv = stringify(
+    [
+      {
+        asset_tag: "IT-SYS-0001",
+        type: "Laptop",
+        brand_type: "Branded",
+        manufacturer: "Dell",
+        model: "Latitude 5540",
+        serial_number: "SN-DELL-001",
+        generation: "12th Gen",
+        assigned_type: "employee",
+        department: "Engineering",
+        location: "HQ Floor 2",
+        purpose: "Daily use",
+        notes: "",
+        cpu: "Intel Core i7-1255U",
+        cpu_cores: "10",
+        cpu2: "",
+        cpu2_cores: "",
+        ram1_size: "16",
+        ram1_bus: "3200MHz",
+        ram1_slot: "A1",
+        ram1_serial: "",
+        ram2_size: "16",
+        ram2_bus: "3200MHz",
+        ram2_slot: "A2",
+        ram2_serial: "",
+        ram3_size: "",
+        ram3_bus: "",
+        ram3_slot: "",
+        ram3_serial: "",
+        ram4_size: "",
+        ram4_bus: "",
+        ram4_slot: "",
+        ram4_serial: "",
+        disk1_size: "512GB",
+        disk1_type: "NVMe",
+        disk2_size: "",
+        disk2_type: "",
+        disk3_size: "",
+        disk3_type: "",
+        status: "assigned",
+        warranty_expiry: "2027-01-01",
+      },
+      {
+        asset_tag: "IT-SYS-0002",
+        type: "PC",
+        brand_type: "Unbranded",
+        manufacturer: "Custom",
+        model: "Desktop Build",
+        serial_number: "SN-CST-002",
+        generation: "10th Gen",
+        assigned_type: "inventory",
+        department: "IT",
+        location: "HQ Floor 3",
+        purpose: "Dev workstation",
+        notes: "",
+        cpu: "Intel Core i5-10400",
+        cpu_cores: "6",
+        cpu2: "",
+        cpu2_cores: "",
+        ram1_size: "8",
+        ram1_bus: "2666MHz",
+        ram1_slot: "A1",
+        ram1_serial: "",
+        ram2_size: "8",
+        ram2_bus: "2666MHz",
+        ram2_slot: "B1",
+        ram2_serial: "",
+        ram3_size: "",
+        ram3_bus: "",
+        ram3_slot: "",
+        ram3_serial: "",
+        ram4_size: "",
+        ram4_bus: "",
+        ram4_slot: "",
+        ram4_serial: "",
+        disk1_size: "256GB",
+        disk1_type: "SSD",
+        disk2_size: "1TB",
+        disk2_type: "SATA",
+        disk3_size: "",
+        disk3_type: "",
+        status: "available",
+        warranty_expiry: "",
+      },
+      {
+        asset_tag: "IT-SYS-0003",
+        type: "Server",
+        brand_type: "Branded",
+        manufacturer: "Dell",
+        model: "PowerEdge R740",
+        serial_number: "SN-SRV-001",
+        generation: "2nd Gen",
+        assigned_type: "inventory",
+        department: "IT",
+        location: "Server Room",
+        purpose: "Production",
+        notes: "Rack unit 3",
+        cpu: "Intel Xeon Gold 6230",
+        cpu_cores: "20",
+        cpu2: "Intel Xeon Gold 6230",
+        cpu2_cores: "20",
+        ram1_size: "32",
+        ram1_bus: "2933MHz",
+        ram1_slot: "A1",
+        ram1_serial: "SN-RAM-001",
+        ram2_size: "32",
+        ram2_bus: "2933MHz",
+        ram2_slot: "A2",
+        ram2_serial: "SN-RAM-002",
+        ram3_size: "32",
+        ram3_bus: "2933MHz",
+        ram3_slot: "B1",
+        ram3_serial: "",
+        ram4_size: "32",
+        ram4_bus: "2933MHz",
+        ram4_slot: "B2",
+        ram4_serial: "",
+        disk1_size: "1.2TB",
+        disk1_type: "SATA",
+        disk2_size: "1.2TB",
+        disk2_type: "SATA",
+        disk3_size: "480GB",
+        disk3_type: "SSD",
+        status: "in_use",
+        warranty_expiry: "2026-06-30",
+      },
+    ],
+    { header: true },
+  );
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=systems_sample.csv",
+  );
   res.send(csv);
 });
 
 // ── EXPORT CSV ────────────────────────────────────────────
-router.get('/export/csv', requireAuth, async (req, res, next) => {
+router.get("/export/csv", requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT s.asset_tag, s.type, s.brand_type, s.manufacturer, s.model, s.serial_number, s.generation,
@@ -162,44 +272,63 @@ router.get('/export/csv', requireAuth, async (req, res, next) => {
              s.warranty_expiry, s.status, s.purchase_date, s.invoice_number, s.notes,
              e.full_name AS assigned_user_name
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id ORDER BY s.created_at DESC`);
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=systems.csv');
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=systems.csv");
     res.send(stringify(r.rows, { header: true }));
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── IMPORT CSV ────────────────────────────────────────────
-router.post('/import/csv', requireAuth, perm('systems','create'), upload.single('file'), async (req, res, next) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const records = parse(req.file.buffer, { columns: true, skip_empty_lines: true, trim: true });
-    let inserted = 0, updated = 0, skipped = 0, errors = [];
+router.post(
+  "/import/csv",
+  requireAuth,
+  perm("systems", "create"),
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      const records = parse(req.file.buffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+      let inserted = 0,
+        updated = 0,
+        skipped = 0,
+        errors = [];
 
-    for (const raw of records) {
-      const d      = normalizeRow(raw);
-      const tag    = d.asset_tag || null;
-      const serial = (d.serial_number || d.serial || d.sn || '').toUpperCase() || null;
-      const mfr    = d.manufacturer || null;
-      const model  = d.model || null;
+      for (const raw of records) {
+        const d = normalizeRow(raw);
+        const tag = d.asset_tag || null;
+        const serial =
+          (d.serial_number || d.serial || d.sn || "").toUpperCase() || null;
+        const mfr = d.manufacturer || null;
+        const model = d.model || null;
 
-      try {
-        // Locate existing record by asset_tag OR by brand+model+serial
-        let existing = null;
-        if (tag) {
-          const r = await db.query('SELECT id FROM systems WHERE asset_tag=$1', [tag]);
-          existing = r.rows[0];
-        }
-        if (!existing && mfr && model && serial) {
-          const r = await db.query(
-            'SELECT id FROM systems WHERE manufacturer=$1 AND model=$2 AND serial_number=$3',
-            [mfr, model, serial]
-          );
-          existing = r.rows[0];
-        }
+        try {
+          // Locate existing record by asset_tag OR by brand+model+serial
+          let existing = null;
+          if (tag) {
+            const r = await db.query(
+              "SELECT id FROM systems WHERE asset_tag=$1",
+              [tag],
+            );
+            existing = r.rows[0];
+          }
+          if (!existing && mfr && model && serial) {
+            const r = await db.query(
+              "SELECT id FROM systems WHERE manufacturer=$1 AND model=$2 AND serial_number=$3",
+              [mfr, model, serial],
+            );
+            existing = r.rows[0];
+          }
 
-        if (existing) {
-          // UPDATE — only overwrite with non-null CSV values
-          await db.query(`UPDATE systems SET
+          if (existing) {
+            // UPDATE — only overwrite with non-null CSV values
+            await db.query(
+              `UPDATE systems SET
             type            = COALESCE($1,  type),
             brand_type      = COALESCE($2,  brand_type),
             manufacturer    = COALESCE($3,  manufacturer),
@@ -243,28 +372,58 @@ router.post('/import/csv', requireAuth, perm('systems','create'), upload.single(
             status          = COALESCE($41, status),
             notes           = COALESCE($42, notes)
             WHERE id=$43`,
-            [
-              pickType(d.type)||null, d.brand_type||null, mfr, model, serial,
-              d.generation||null, pickAssignedType(d.assigned_to||d.assigned_type)||null,
-              pickCondition(d.condition)||null, d.department||null, d.location||null,
-              d.cpu||null, d.cpu_cores||null, d.cpu2||null, d.cpu2_cores||null,
-              d.purpose||null,
-              d.disk1_size||null, d.disk1_type||null, d.disk2_size||null, d.disk2_type||null,
-              d.disk3_size||null, d.disk3_type||null, d.disk4_size||null, d.disk4_type||null,
-              d.ram1_size||null, d.ram1_bus||null, d.ram1_slot||null, d.ram1_serial||null,
-              d.ram2_size||null, d.ram2_bus||null, d.ram2_slot||null, d.ram2_serial||null,
-              d.ram3_size||null, d.ram3_bus||null, d.ram3_slot||null, d.ram3_serial||null,
-              d.ram4_size||null, d.ram4_bus||null, d.ram4_slot||null, d.ram4_serial||null,
-              d.warranty_expiry||null, pickStatus(d.status)||null, d.notes||null,
-              existing.id,
-            ]
-          );
-          updated++;
-        } else {
-          // INSERT new record
-          const newTag = tag || await autoTag();
-          await db.query(
-            `INSERT INTO systems
+              [
+                pickType(d.type) || null,
+                d.brand_type || null,
+                mfr,
+                model,
+                serial,
+                d.generation || null,
+                pickAssignedType(d.assigned_to || d.assigned_type) || null,
+                pickCondition(d.condition) || null,
+                d.department || null,
+                d.location || null,
+                d.cpu || null,
+                d.cpu_cores || null,
+                d.cpu2 || null,
+                d.cpu2_cores || null,
+                d.purpose || null,
+                d.disk1_size || null,
+                d.disk1_type || null,
+                d.disk2_size || null,
+                d.disk2_type || null,
+                d.disk3_size || null,
+                d.disk3_type || null,
+                d.disk4_size || null,
+                d.disk4_type || null,
+                d.ram1_size || null,
+                d.ram1_bus || null,
+                d.ram1_slot || null,
+                d.ram1_serial || null,
+                d.ram2_size || null,
+                d.ram2_bus || null,
+                d.ram2_slot || null,
+                d.ram2_serial || null,
+                d.ram3_size || null,
+                d.ram3_bus || null,
+                d.ram3_slot || null,
+                d.ram3_serial || null,
+                d.ram4_size || null,
+                d.ram4_bus || null,
+                d.ram4_slot || null,
+                d.ram4_serial || null,
+                d.warranty_expiry || null,
+                pickStatus(d.status) || null,
+                d.notes || null,
+                existing.id,
+              ],
+            );
+            updated++;
+          } else {
+            // INSERT new record
+            const newTag = tag || (await autoTag());
+            await db.query(
+              `INSERT INTO systems
                (asset_tag,type,brand_type,manufacturer,model,serial_number,generation,assigned_type,condition,department,location,
                 cpu,cpu_cores,cpu2,cpu2_cores,purpose,
                 disk1_size,disk1_type,disk2_size,disk2_type,disk3_size,disk3_type,disk4_size,disk4_type,
@@ -274,67 +433,141 @@ router.post('/import/csv', requireAuth, perm('systems','create'), upload.single(
                 ram4_size,ram4_bus,ram4_slot,ram4_serial,
                 warranty_expiry,status,notes)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43)`,
-            [
-              newTag, pickType(d.type), d.brand_type||null, mfr, model, serial,
-              d.generation||null, pickAssignedType(d.assigned_to||d.assigned_type),
-              pickCondition(d.condition), d.department||null, d.location||null,
-              d.cpu||null, d.cpu_cores||null, d.cpu2||null, d.cpu2_cores||null,
-              d.purpose||null,
-              d.disk1_size||null, d.disk1_type||null, d.disk2_size||null, d.disk2_type||null,
-              d.disk3_size||null, d.disk3_type||null, d.disk4_size||null, d.disk4_type||null,
-              d.ram1_size||null, d.ram1_bus||null, d.ram1_slot||null, d.ram1_serial||null,
-              d.ram2_size||null, d.ram2_bus||null, d.ram2_slot||null, d.ram2_serial||null,
-              d.ram3_size||null, d.ram3_bus||null, d.ram3_slot||null, d.ram3_serial||null,
-              d.ram4_size||null, d.ram4_bus||null, d.ram4_slot||null, d.ram4_serial||null,
-              d.warranty_expiry||null, pickStatus(d.status), d.notes||null,
-            ]
-          );
-          inserted++;
+              [
+                newTag,
+                pickType(d.type),
+                d.brand_type || null,
+                mfr,
+                model,
+                serial,
+                d.generation || null,
+                pickAssignedType(d.assigned_to || d.assigned_type),
+                pickCondition(d.condition),
+                d.department || null,
+                d.location || null,
+                d.cpu || null,
+                d.cpu_cores || null,
+                d.cpu2 || null,
+                d.cpu2_cores || null,
+                d.purpose || null,
+                d.disk1_size || null,
+                d.disk1_type || null,
+                d.disk2_size || null,
+                d.disk2_type || null,
+                d.disk3_size || null,
+                d.disk3_type || null,
+                d.disk4_size || null,
+                d.disk4_type || null,
+                d.ram1_size || null,
+                d.ram1_bus || null,
+                d.ram1_slot || null,
+                d.ram1_serial || null,
+                d.ram2_size || null,
+                d.ram2_bus || null,
+                d.ram2_slot || null,
+                d.ram2_serial || null,
+                d.ram3_size || null,
+                d.ram3_bus || null,
+                d.ram3_slot || null,
+                d.ram3_serial || null,
+                d.ram4_size || null,
+                d.ram4_bus || null,
+                d.ram4_slot || null,
+                d.ram4_serial || null,
+                d.warranty_expiry || null,
+                pickStatus(d.status),
+                d.notes || null,
+              ],
+            );
+            inserted++;
+          }
+        } catch (e) {
+          skipped++;
+          errors.push(`${tag || mfr + " " + model}: ${e.message}`);
         }
-      } catch (e) { skipped++; errors.push(`${tag || (mfr+' '+model)}: ${e.message}`); }
+      }
+      await log(
+        req.user.id,
+        "imported",
+        null,
+        "CSV Import",
+        `Imported ${inserted} new, updated ${updated} systems, skipped ${skipped}`,
+      );
+      res.json({ inserted, updated, skipped, errors });
+    } catch (err) {
+      next(err);
     }
-    await log(req.user.id, 'imported', null, 'CSV Import', `Imported ${inserted} new, updated ${updated} systems, skipped ${skipped}`);
-    res.json({ inserted, updated, skipped, errors });
-  } catch (err) { next(err); }
-});
+  },
+);
 
 // ── DELETE ALL ────────────────────────────────────────────
-router.delete('/all', requireAuth, perm('systems','delete'), async (req, res, next) => {
-  try {
-    const all = await db.query('SELECT * FROM systems');
-    await Promise.all(all.rows.map(row =>
-      saveToRecycleBin('systems', 'systems', row, row.asset_tag || row.serial_number, req.user.id)
-    ));
-    const r = await db.query('DELETE FROM systems RETURNING id');
-    await log(req.user.id, 'deleted_all', null, 'All Systems', `Deleted all ${r.rowCount} systems`);
-    res.json({ deleted: r.rowCount });
-  } catch (err) { next(err); }
-});
+router.delete(
+  "/all",
+  requireAuth,
+  perm("systems", "delete"),
+  async (req, res, next) => {
+    try {
+      const all = await db.query("SELECT * FROM systems");
+      await Promise.all(
+        all.rows.map((row) =>
+          saveToRecycleBin(
+            "systems",
+            "systems",
+            row,
+            row.asset_tag || row.serial_number,
+            req.user.id,
+          ),
+        ),
+      );
+      const r = await db.query("DELETE FROM systems RETURNING id");
+      await log(
+        req.user.id,
+        "deleted_all",
+        null,
+        "All Systems",
+        `Deleted all ${r.rowCount} systems`,
+      );
+      res.json({ deleted: r.rowCount });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── GET ONE ───────────────────────────────────────────────
-router.get('/:id', requireAuth, async (req, res, next) => {
+router.get("/:id", requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(
       `SELECT s.*, e.full_name AS assigned_user_name FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id WHERE s.id=$1`,
-      [req.params.id]
+      [req.params.id],
     );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
+    if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
     res.json(r.rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── CREATE ────────────────────────────────────────────────
-router.post('/', requireAuth, perm('systems','create'), async (req, res, next) => {
-  try {
-    const d = req.body;
-    if (!d.asset_tag) return res.status(400).json({ error: 'asset_tag is required' });
-    if (!d.type) return res.status(400).json({ error: 'type is required' });
-    if (!d.manufacturer) return res.status(400).json({ error: 'manufacturer is required' });
-    if (!d.model) return res.status(400).json({ error: 'model is required' });
-    if (!d.serial_number) return res.status(400).json({ error: 'serial_number is required' });
+router.post(
+  "/",
+  requireAuth,
+  perm("systems", "create"),
+  async (req, res, next) => {
+    try {
+      const d = req.body;
+      if (!d.asset_tag)
+        return res.status(400).json({ error: "asset_tag is required" });
+      if (!d.type) return res.status(400).json({ error: "type is required" });
+      if (!d.manufacturer)
+        return res.status(400).json({ error: "manufacturer is required" });
+      if (!d.model) return res.status(400).json({ error: "model is required" });
+      if (!d.serial_number)
+        return res.status(400).json({ error: "serial_number is required" });
 
-    const tag = d.asset_tag || await autoTag();
-    const r = await db.query(`
+      const tag = d.asset_tag || (await autoTag());
+      const r = await db.query(
+        `
       INSERT INTO systems
         (asset_tag,type,brand_type,manufacturer,model,serial_number,generation,
          assigned_type,assigned_user_id,condition,department,location,
@@ -347,36 +580,88 @@ router.post('/', requireAuth, perm('systems','create'), async (req, res, next) =
          warranty_expiry,status,purchase_date,invoice_number,notes)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46)
       RETURNING *`,
-      [
-        tag, d.type, d.brand_type||null, d.manufacturer||null, d.model||null,
-        (d.serial_number||'').toUpperCase(), d.generation||null,
-        d.assigned_type||'inventory', d.assigned_user_id||null,
-        d.condition||null, d.department||null, d.location||null,
-        d.cpu||null, d.cpu_cores||null, d.cpu2||null, d.cpu2_cores||null,
-        d.purpose||null,
-        d.disk1_size||null, d.disk1_type||null, d.disk2_size||null, d.disk2_type||null,
-        d.disk3_size||null, d.disk3_type||null, d.disk4_size||null, d.disk4_type||null,
-        d.ram1_size||null, d.ram1_bus||null, d.ram1_slot||null, d.ram1_serial||null,
-        d.ram2_size||null, d.ram2_bus||null, d.ram2_slot||null, d.ram2_serial||null,
-        d.ram3_size||null, d.ram3_bus||null, d.ram3_slot||null, d.ram3_serial||null,
-        d.ram4_size||null, d.ram4_bus||null, d.ram4_slot||null, d.ram4_serial||null,
-        d.warranty_expiry||null, d.status||'available',
-        d.purchase_date||null, d.invoice_number||null, d.notes||null,
-      ]
-    );
-    await log(req.user.id, 'created', r.rows[0].id, tag, `Added ${d.type} — ${d.manufacturer||''} ${d.model||''}`);
-    res.status(201).json(r.rows[0]);
-  } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Asset tag or serial number already exists' });
-    next(err);
-  }
-});
+        [
+          tag,
+          d.type,
+          d.brand_type || null,
+          d.manufacturer || null,
+          d.model || null,
+          (d.serial_number || "").toUpperCase(),
+          d.generation || null,
+          d.assigned_type || "inventory",
+          d.assigned_user_id || null,
+          d.condition || null,
+          d.department || null,
+          d.location || null,
+          d.cpu || null,
+          d.cpu_cores || null,
+          d.cpu2 || null,
+          d.cpu2_cores || null,
+          d.purpose || null,
+          d.disk1_size || null,
+          d.disk1_type || null,
+          d.disk2_size || null,
+          d.disk2_type || null,
+          d.disk3_size || null,
+          d.disk3_type || null,
+          d.disk4_size || null,
+          d.disk4_type || null,
+          d.ram1_size || null,
+          d.ram1_bus || null,
+          d.ram1_slot || null,
+          d.ram1_serial || null,
+          d.ram2_size || null,
+          d.ram2_bus || null,
+          d.ram2_slot || null,
+          d.ram2_serial || null,
+          d.ram3_size || null,
+          d.ram3_bus || null,
+          d.ram3_slot || null,
+          d.ram3_serial || null,
+          d.ram4_size || null,
+          d.ram4_bus || null,
+          d.ram4_slot || null,
+          d.ram4_serial || null,
+          d.warranty_expiry || null,
+          d.status || "available",
+          d.purchase_date || null,
+          d.invoice_number || null,
+          d.notes || null,
+        ],
+      );
+      await log(
+        req.user.id,
+        "created",
+        r.rows[0].id,
+        tag,
+        `Added ${d.type} — ${d.manufacturer || ""} ${d.model || ""}`,
+      );
+      res.status(201).json(r.rows[0]);
+    } catch (err) {
+      if (err.code === "23505")
+        return res
+          .status(409)
+          .json({ error: "Asset tag or serial number already exists" });
+      next(err);
+    }
+  },
+);
 
 // ── UPDATE ────────────────────────────────────────────────
-router.put('/:id', requireAuth, perm('systems','update'), async (req, res, next) => {
-  try {
-    const d = req.body;
-    const r = await db.query(`
+router.put(
+  "/:id",
+  requireAuth,
+  perm("systems", "update"),
+  async (req, res, next) => {
+    try {
+      const d = req.body;
+      const prev = await db.query(
+        "SELECT id, assigned_user_id, assigned_type, status, asset_tag, serial_number FROM systems WHERE id=$1",
+        [req.params.id],
+      );
+      const old = prev.rows[0];
+      const r = await db.query(
+        `
       UPDATE systems SET
         type=$1,brand_type=$2,manufacturer=$3,model=$4,serial_number=$5,generation=$6,
         assigned_type=$7,assigned_user_id=$8,condition=$9,department=$10,location=$11,
@@ -389,39 +674,154 @@ router.put('/:id', requireAuth, perm('systems','update'), async (req, res, next)
         ram4_size=$37,ram4_bus=$38,ram4_slot=$39,ram4_serial=$40,
         warranty_expiry=$41,status=$42,purchase_date=$43,invoice_number=$44,notes=$45
       WHERE id=$46 RETURNING *`,
-      [
-        d.type, d.brand_type||null, d.manufacturer||null, d.model||null,
-        (d.serial_number||'').toUpperCase(), d.generation||null,
-        d.assigned_type||'inventory', d.assigned_user_id||null,
-        d.condition||null, d.department||null, d.location||null,
-        d.cpu||null, d.cpu_cores||null, d.cpu2||null, d.cpu2_cores||null,
-        d.purpose||null,
-        d.disk1_size||null, d.disk1_type||null, d.disk2_size||null, d.disk2_type||null,
-        d.disk3_size||null, d.disk3_type||null, d.disk4_size||null, d.disk4_type||null,
-        d.ram1_size||null, d.ram1_bus||null, d.ram1_slot||null, d.ram1_serial||null,
-        d.ram2_size||null, d.ram2_bus||null, d.ram2_slot||null, d.ram2_serial||null,
-        d.ram3_size||null, d.ram3_bus||null, d.ram3_slot||null, d.ram3_serial||null,
-        d.ram4_size||null, d.ram4_bus||null, d.ram4_slot||null, d.ram4_serial||null,
-        d.warranty_expiry||null, d.status||'available',
-        d.purchase_date||null, d.invoice_number||null, d.notes||null,
-        req.params.id,
-      ]
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await log(req.user.id, 'updated', r.rows[0].id, r.rows[0].asset_tag||r.rows[0].serial_number, 'Updated system');
-    res.json(r.rows[0]);
-  } catch (err) { next(err); }
-});
+        [
+          d.type,
+          d.brand_type || null,
+          d.manufacturer || null,
+          d.model || null,
+          (d.serial_number || "").toUpperCase(),
+          d.generation || null,
+          d.assigned_type || "inventory",
+          d.assigned_user_id || null,
+          d.condition || null,
+          d.department || null,
+          d.location || null,
+          d.cpu || null,
+          d.cpu_cores || null,
+          d.cpu2 || null,
+          d.cpu2_cores || null,
+          d.purpose || null,
+          d.disk1_size || null,
+          d.disk1_type || null,
+          d.disk2_size || null,
+          d.disk2_type || null,
+          d.disk3_size || null,
+          d.disk3_type || null,
+          d.disk4_size || null,
+          d.disk4_type || null,
+          d.ram1_size || null,
+          d.ram1_bus || null,
+          d.ram1_slot || null,
+          d.ram1_serial || null,
+          d.ram2_size || null,
+          d.ram2_bus || null,
+          d.ram2_slot || null,
+          d.ram2_serial || null,
+          d.ram3_size || null,
+          d.ram3_bus || null,
+          d.ram3_slot || null,
+          d.ram3_serial || null,
+          d.ram4_size || null,
+          d.ram4_bus || null,
+          d.ram4_slot || null,
+          d.ram4_serial || null,
+          d.warranty_expiry || null,
+          d.status || "available",
+          d.purchase_date || null,
+          d.invoice_number || null,
+          d.notes || null,
+          req.params.id,
+        ],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      const upd = r.rows[0];
+      await log(
+        req.user.id,
+        "updated",
+        upd.id,
+        upd.asset_tag || upd.serial_number,
+        "Updated system",
+      );
+      if (old) {
+        const label = upd.asset_tag || upd.serial_number;
+        const newEmp = d.assigned_user_id ? Number(d.assigned_user_id) : null;
+        const oldEmp = old.assigned_user_id
+          ? Number(old.assigned_user_id)
+          : null;
+        const newStatus = d.status || "available";
+        const oldStatus = old.status;
+        const newType = d.assigned_type || "inventory";
+
+        if (oldEmp !== newEmp || old.assigned_type !== newType) {
+          let eventType = "status_change";
+          if (!oldEmp && newEmp) eventType = "assigned";
+          else if (oldEmp && !newEmp) eventType = "unassigned";
+          else if (oldEmp && newEmp && oldEmp !== newEmp)
+            eventType = "transferred";
+          else if (newType === "damaged") eventType = "replaced";
+
+          await logAssetEvent({
+            assetType: "system",
+            assetId: upd.id,
+            assetLabel: label,
+            eventType,
+            fromEmployeeId: oldEmp,
+            toEmployeeId: newEmp,
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            reason: newType === "damaged" ? "damage" : d.reason || null,
+            notes: d.notes || null,
+            performedBy: req.user.id,
+          });
+        } else if (oldStatus !== newStatus) {
+          const eventType =
+            newStatus === "repair"
+              ? "repaired"
+              : newStatus === "retired"
+                ? "disposed"
+                : "status_change";
+          await logAssetEvent({
+            assetType: "system",
+            assetId: upd.id,
+            assetLabel: label,
+            eventType,
+            fromEmployeeId: oldEmp,
+            toEmployeeId: newEmp,
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            reason: d.reason || null,
+            notes: d.notes || null,
+            performedBy: req.user.id,
+          });
+        }
+      }
+      res.json(upd);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── DELETE ────────────────────────────────────────────────
-router.delete('/:id', requireAuth, perm('systems','delete'), async (req, res, next) => {
-  try {
-    const r = await db.query('DELETE FROM systems WHERE id=$1 RETURNING *', [req.params.id]);
-    if (!r.rows[0]) return res.status(404).json({ error: 'Not found' });
-    await saveToRecycleBin('systems', 'systems', r.rows[0], r.rows[0].asset_tag||r.rows[0].serial_number, req.user.id);
-    await log(req.user.id, 'deleted', r.rows[0].id, r.rows[0].asset_tag||r.rows[0].serial_number, 'Deleted system');
-    res.json({ ok: true });
-  } catch (err) { next(err); }
-});
+router.delete(
+  "/:id",
+  requireAuth,
+  perm("systems", "delete"),
+  async (req, res, next) => {
+    try {
+      const r = await db.query("DELETE FROM systems WHERE id=$1 RETURNING *", [
+        req.params.id,
+      ]);
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await saveToRecycleBin(
+        "systems",
+        "systems",
+        r.rows[0],
+        r.rows[0].asset_tag || r.rows[0].serial_number,
+        req.user.id,
+      );
+      await log(
+        req.user.id,
+        "deleted",
+        r.rows[0].id,
+        r.rows[0].asset_tag || r.rows[0].serial_number,
+        "Deleted system",
+      );
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 module.exports = router;

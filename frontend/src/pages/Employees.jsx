@@ -2,7 +2,14 @@ import React, { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import { api } from "../lib/api";
-import { PackageCheck, RotateCcw } from "lucide-react";
+import {
+  PackageCheck,
+  RotateCcw,
+  History,
+  Monitor,
+  Smartphone,
+  Network,
+} from "lucide-react";
 import { cn, fmtDate } from "../lib/utils";
 
 const ASN_STATUS = {
@@ -125,6 +132,96 @@ function EmployeeAssignments({ row }) {
                     </p>
                   )}
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const ASSET_ICON = { system: Monitor, mobile: Smartphone, network: Network };
+const ASSET_COLOR = {
+  system: "#60a5fa",
+  mobile: "#4ade80",
+  network: "#fb923c",
+};
+
+function EmployeeHardwareHistory({ row }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!row?.id) return;
+    setLoading(true);
+    api
+      .get(`/api/asset-history/employee/${row.id}`)
+      .then(setEvents)
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, [row?.id]);
+
+  return (
+    <div className="mt-4 pt-3 border-top">
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <History size={13} style={{ color: "#a78bfa" }} />
+        <span
+          className="fw-semibold text-secondary text-uppercase"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.1em" }}
+        >
+          Hardware History
+        </span>
+        {!loading && events.length > 0 && (
+          <span
+            className="badge bg-secondary bg-opacity-25 text-secondary"
+            style={{ fontSize: "10px" }}
+          >
+            {events.length} events
+          </span>
+        )}
+      </div>
+      {loading ? (
+        <p className="small text-secondary py-2 mb-0">Loading…</p>
+      ) : events.length === 0 ? (
+        <p className="small text-secondary py-2 mb-0">
+          No hardware history recorded.
+        </p>
+      ) : (
+        <div className="d-flex flex-column gap-2">
+          {events.map((ev) => {
+            const Icon = ASSET_ICON[ev.asset_type] || Monitor;
+            const color = ASSET_COLOR[ev.asset_type] || "#60a5fa";
+            return (
+              <div
+                key={ev.id}
+                className="d-flex align-items-start gap-2 p-2 rounded-2"
+                style={{
+                  background: "var(--bs-secondary-bg)",
+                  fontSize: "0.78rem",
+                }}
+              >
+                <Icon
+                  size={13}
+                  style={{ color, marginTop: 2, flexShrink: 0 }}
+                />
+                <div className="flex-grow-1">
+                  <span className="fw-semibold">
+                    {ev.asset_label || ev.asset_type}
+                  </span>
+                  <span className="text-secondary ms-2 text-capitalize">
+                    {ev.event_type?.replace("_", " ")}
+                  </span>
+                  {ev.reason && (
+                    <span className="text-secondary ms-1">· {ev.reason}</span>
+                  )}
+                </div>
+                <span
+                  className="text-secondary flex-shrink-0"
+                  style={{ fontSize: "11px" }}
+                >
+                  {fmtDate(ev.created_at)}
+                </span>
               </div>
             );
           })}
@@ -444,7 +541,12 @@ const config = {
 
   renderForm: (vals, setVals) => <EmployeeForm vals={vals} setVals={setVals} />,
   renderView: (row) => <EmployeeView row={row} />,
-  viewExtra: (row) => <EmployeeAssignments row={row} />,
+  viewExtra: (row) => (
+    <>
+      <EmployeeAssignments row={row} />
+      <EmployeeHardwareHistory row={row} />
+    </>
+  ),
 };
 
 export default function Employees() {

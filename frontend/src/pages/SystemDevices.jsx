@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import MaintenanceLog from "../components/ui/MaintenanceLog";
+import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
 import { genAssetTag } from "../lib/utils";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
@@ -741,7 +742,12 @@ const config = {
 
   renderView: (row) => <SystemDeviceView row={row} />,
 
-  viewExtra: (row) => <MaintenanceLog row={row} assetType="system" />,
+  viewExtra: (row) => (
+    <>
+      <MaintenanceLog row={row} assetType="system" />
+      <AssetHistoryTimeline assetType="system" assetId={row.id} />
+    </>
+  ),
 };
 
 export default function SystemDevices() {
