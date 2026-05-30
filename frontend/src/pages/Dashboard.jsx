@@ -227,7 +227,7 @@ function ContentPanel({ open, loading, children }) {
 const SYS_ASSIGN_COLORS = {
   Employees: "#6366f1",
   WFH: "#0ea5e9",
-  Inventory: "#22c55e",
+  "In Stock": "#22c55e",
   Damaged: "#ef4444",
 };
 
@@ -248,7 +248,7 @@ function SystemsContent({ data, navigate }) {
       fill: SYS_ASSIGN_COLORS.WFH,
     },
     {
-      name: "Inventory",
+      name: "In Stock",
       value: Number(assignment?.in_inventory || 0),
       fill: SYS_ASSIGN_COLORS.Inventory,
     },
@@ -333,7 +333,7 @@ function SystemsContent({ data, navigate }) {
                 bg: "rgba(14,165,233,0.1)",
               },
               {
-                label: "Inventory",
+                label: "In Stock",
                 value: assignment?.in_inventory,
                 color: "#22c55e",
                 bg: "rgba(34,197,94,0.1)",
@@ -531,7 +531,7 @@ function SystemsContent({ data, navigate }) {
 const MOB_ASSIGN_COLORS = {
   Employees: "#6366f1",
   WFH: "#0ea5e9",
-  Inventory: "#22c55e",
+  "In Stock": "#22c55e",
   Damaged: "#ef4444",
 };
 
@@ -552,7 +552,7 @@ function MobilesContent({ data, navigate }) {
       fill: MOB_ASSIGN_COLORS.WFH,
     },
     {
-      name: "Inventory",
+      name: "In Stock",
       value: Number(assignment?.in_inventory || 0),
       fill: MOB_ASSIGN_COLORS.Inventory,
     },
@@ -630,7 +630,7 @@ function MobilesContent({ data, navigate }) {
                 bg: "rgba(14,165,233,0.1)",
               },
               {
-                label: "Inventory",
+                label: "In Stock",
                 value: assignment?.in_inventory,
                 color: "#22c55e",
                 bg: "rgba(34,197,94,0.1)",

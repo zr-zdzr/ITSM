@@ -146,7 +146,7 @@ function MobileDeviceForm({ vals, setVals }) {
                 set("assigned_user_id", null);
             }}
           >
-            <option value="inventory">Inventory</option>
+            <option value="inventory">In Stock</option>
             <option value="employee">Employee</option>
             <option value="wfh">WFH (Work From Home)</option>
             <option value="damaged">Damaged</option>
@@ -340,7 +340,7 @@ function MobileDeviceView(row) {
     employee: "Employee",
     user: "Employee",
     wfh: "WFH",
-    inventory: "Inventory",
+    inventory: "In Stock",
     damaged: "Damaged",
   };
   const purposeLabel = {
@@ -403,7 +403,7 @@ function AssignedBadge({ row }) {
       cls: "badge-assign-employee",
     },
     wfh: { label: row.assigned_user_name || "WFH", cls: "badge-assign-wfh" },
-    inventory: { label: "Inventory", cls: "badge-assign-inventory" },
+    inventory: { label: "In Stock", cls: "badge-assign-inventory" },
     damaged: { label: "Damaged", cls: "badge-assign-damaged" },
   };
   const { label, cls } = map[row.assigned_type] || {
@@ -445,7 +445,7 @@ const config = {
         row.assigned_user_name
           ? `Assigned: ${row.assigned_user_name}`
           : row.assigned_type === "inventory"
-            ? "Inventory"
+            ? "In Stock"
             : row.assigned_type,
       ].filter(Boolean),
     };

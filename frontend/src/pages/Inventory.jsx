@@ -9,6 +9,9 @@ import {
   Pencil,
   History,
   ArrowUpCircle,
+  Monitor,
+  Smartphone,
+  ChevronDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
@@ -57,6 +60,8 @@ export default function Inventory() {
   const [items, setItems] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [hwStock, setHwStock] = useState({ systems: [], mobiles: [] });
+  const [hwOpen, setHwOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -84,16 +89,18 @@ export default function Inventory() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, i, a, c] = await Promise.all([
+      const [s, i, a, c, hw] = await Promise.all([
         api.get("/api/inventory/stats"),
         api.get("/api/inventory/items"),
         api.get("/api/inventory/alerts"),
         api.get("/api/inventory/categories"),
+        api.get("/api/reports/unassigned"),
       ]);
       setStats(s);
       setItems(i);
       setAlerts(a);
       setCategories(c);
+      setHwStock({ systems: hw.systems || [], mobiles: hw.mobiles || [] });
     } catch (e) {
       toast(e.message, "error");
     } finally {
@@ -504,6 +511,236 @@ export default function Inventory() {
           </div>
         )}
       </div>
+
+      {/* Hardware In Stock */}
+      {(hwStock.systems.length > 0 || hwStock.mobiles.length > 0) && (
+        <div className="itms-card overflow-hidden">
+          <button
+            className="w-100 d-flex align-items-center justify-content-between px-4 py-3 border-0 bg-transparent text-start"
+            onClick={() => setHwOpen((o) => !o)}
+          >
+            <span className="small fw-semibold d-flex align-items-center gap-2">
+              <Monitor size={14} style={{ color: "#4ade80" }} />
+              Hardware Assets In Stock
+              <span
+                className="badge rounded-pill ms-1"
+                style={{
+                  background: "rgba(0,170,47,0.12)",
+                  color: "#4ade80",
+                  fontSize: "11px",
+                }}
+              >
+                {hwStock.systems.length + hwStock.mobiles.length}
+              </span>
+            </span>
+            <ChevronDown
+              size={14}
+              className="text-secondary"
+              style={{
+                transition: "transform 0.2s",
+                transform: hwOpen ? "rotate(180deg)" : "none",
+              }}
+            />
+          </button>
+
+          {hwOpen && (
+            <div className="border-top">
+              {hwStock.systems.length > 0 && (
+                <div>
+                  <p
+                    className="px-4 pt-3 pb-1 small text-uppercase fw-semibold mb-0 d-flex align-items-center gap-2"
+                    style={{ fontSize: "11px", color: "#4ade80" }}
+                  >
+                    <Monitor size={11} /> Systems ({hwStock.systems.length})
+                  </p>
+                  <div className="table-responsive">
+                    <table
+                      className="table table-hover mb-0"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      <thead>
+                        <tr>
+                          {[
+                            "Asset Tag",
+                            "Type",
+                            "Brand",
+                            "Model",
+                            "Serial No.",
+                            "Location",
+                            "Status",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              className="text-uppercase text-secondary text-nowrap"
+                              style={{
+                                fontSize: "10px",
+                                letterSpacing: "0.05em",
+                                padding: "0.5rem 0.75rem",
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hwStock.systems.map((r, i) => (
+                          <tr key={i}>
+                            <td
+                              className="align-middle font-monospace"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.asset_tag || "—"}
+                            </td>
+                            <td
+                              className="align-middle small"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.type || "—"}
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.manufacturer || "—"}
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.model || "—"}
+                            </td>
+                            <td
+                              className="align-middle font-monospace small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.serial_number || "—"}
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.location || "—"}
+                            </td>
+                            <td
+                              className="align-middle"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              <span
+                                className="badge px-1"
+                                style={{
+                                  background: "rgba(0,170,47,0.12)",
+                                  color: "#4ade80",
+                                  fontSize: "10px",
+                                }}
+                              >
+                                {r.status || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {hwStock.mobiles.length > 0 && (
+                <div className={hwStock.systems.length > 0 ? "border-top" : ""}>
+                  <p
+                    className="px-4 pt-3 pb-1 small text-uppercase fw-semibold mb-0 d-flex align-items-center gap-2"
+                    style={{ fontSize: "11px", color: "#34d399" }}
+                  >
+                    <Smartphone size={11} /> Mobiles ({hwStock.mobiles.length})
+                  </p>
+                  <div className="table-responsive">
+                    <table
+                      className="table table-hover mb-0"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      <thead>
+                        <tr>
+                          {[
+                            "Asset Tag",
+                            "Brand",
+                            "Model",
+                            "Serial No.",
+                            "Status",
+                            "Condition",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              className="text-uppercase text-secondary text-nowrap"
+                              style={{
+                                fontSize: "10px",
+                                letterSpacing: "0.05em",
+                                padding: "0.5rem 0.75rem",
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hwStock.mobiles.map((r, i) => (
+                          <tr key={i}>
+                            <td
+                              className="align-middle font-monospace"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.asset_tag || "—"}
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.manufacturer || "—"}
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.model || "—"}
+                            </td>
+                            <td
+                              className="align-middle font-monospace small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.serial_number || "—"}
+                            </td>
+                            <td
+                              className="align-middle"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              <span
+                                className="badge px-1"
+                                style={{
+                                  background: "rgba(34,197,94,0.12)",
+                                  color: "#34d399",
+                                  fontSize: "10px",
+                                }}
+                              >
+                                {r.status || "—"}
+                              </span>
+                            </td>
+                            <td
+                              className="align-middle small text-secondary"
+                              style={{ padding: "0.45rem 0.75rem" }}
+                            >
+                              {r.condition || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Add/Edit Item Modal */}
       <Modal

@@ -99,7 +99,7 @@ function SystemDeviceForm({ vals, setVals }) {
               set("assigned_user_id", null);
           }}
         >
-          <option value="inventory">Inventory</option>
+          <option value="inventory">In Stock</option>
           <option value="employee">Employee</option>
           <option value="wfh">WFH (Work From Home)</option>
           <option value="damaged">Damaged</option>
@@ -510,7 +510,7 @@ function SystemDeviceView({ row }) {
       return row.assigned_user_name || "—";
     if (row.assigned_type === "wfh")
       return `WFH${row.assigned_user_name ? " — " + row.assigned_user_name : ""}`;
-    if (row.assigned_type === "inventory") return "Inventory";
+    if (row.assigned_type === "inventory") return "In Stock";
     if (row.assigned_type === "damaged") return "Damaged";
     return "—";
   };
@@ -680,7 +680,7 @@ function AssignedBadge({ row }) {
         className="badge badge-assign-inventory"
         style={{ fontSize: "10px" }}
       >
-        Inventory
+        In Stock
       </span>
     );
   if (row.assigned_type === "damaged")
@@ -714,7 +714,7 @@ const config = {
         : null;
     return {
       label: tag,
-      value: `Tag:${tag}\nType:${row.type || ""}\nBrand:${row.manufacturer || ""}\nModel:${row.model || ""}\nSN:${row.serial_number || ""}\nAssigned:${assignedName || row.assigned_type || "Inventory"}`,
+      value: `Tag:${tag}\nType:${row.type || ""}\nBrand:${row.manufacturer || ""}\nModel:${row.model || ""}\nSN:${row.serial_number || ""}\nAssigned:${assignedName || row.assigned_type || "In Stock"}`,
       details: [
         row.type && `Type: ${row.type}`,
         (row.manufacturer || row.model) &&
@@ -726,7 +726,7 @@ const config = {
             ? "WFH"
             : row.assigned_type === "damaged"
               ? "Damaged"
-              : "Inventory",
+              : "In Stock",
       ].filter(Boolean),
     };
   },

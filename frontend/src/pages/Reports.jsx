@@ -1827,7 +1827,7 @@ function DamageTab({ toast }) {
       r.serial_number || "",
       r.status || "",
       r.condition || "",
-      r.assigned_to || "Inventory",
+      r.assigned_to || "In Stock",
       r.notes || "",
     ]);
     await exportPDF("Damage & Repair Report", head, body);
@@ -1938,7 +1938,7 @@ function DamageTab({ toast }) {
                           {r.condition || "—"}
                         </span>
                       </td>
-                      <Td dim>{r.assigned_to || "Inventory"}</Td>
+                      <Td dim>{r.assigned_to || "In Stock"}</Td>
                       <td
                         className="small text-secondary align-middle text-truncate"
                         style={{ maxWidth: 200, padding: "0.5rem 0.75rem" }}
@@ -1993,7 +1993,7 @@ function DepartmentTab({ toast }) {
   const cats = ["Systems", "Mobiles", "SIM Cards"];
 
   async function pdfExport() {
-    const head = ["Department", "Category", "Total", "Assigned", "Inventory"];
+    const head = ["Department", "Category", "Total", "Assigned", "In Stock"];
     const body = rows.map((r) => [
       r.dept,
       r.category,
@@ -2022,7 +2022,7 @@ function DepartmentTab({ toast }) {
                   <React.Fragment key={c}>
                     <Th>{c} Total</Th>
                     <Th>Assigned</Th>
-                    <Th>Inventory</Th>
+                    <Th>In Stock</Th>
                   </React.Fragment>
                 ))}
               </tr>

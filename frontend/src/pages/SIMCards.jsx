@@ -91,7 +91,7 @@ function SIMCardForm({ vals, setVals }) {
                 set("assigned_user_id", null);
             }}
           >
-            <option value="inventory">Inventory</option>
+            <option value="inventory">In Stock</option>
             <option value="employee">Employee</option>
             <option value="wfh">WFH (Work From Home)</option>
             <option value="service">Service</option>
@@ -237,7 +237,7 @@ function Field({ label, value }) {
 
 function SIMCardView(row) {
   const namedOnLabel = {
-    inventory: "Inventory",
+    inventory: "In Stock",
     employee: "Employee",
     user: "Employee",
     wfh: "WFH",
@@ -285,7 +285,7 @@ function NamedOnBadge({ row }) {
       label: row.assigned_user_name || "Employee",
       cls: "badge-assign-employee",
     },
-    inventory: { label: "Inventory", cls: "badge-assign-inventory" },
+    inventory: { label: "In Stock", cls: "badge-assign-inventory" },
     wfh: { label: row.assigned_user_name || "WFH", cls: "badge-assign-wfh" },
     service: { label: "Service", cls: "badge-assign-service" },
   };
