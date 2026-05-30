@@ -68,11 +68,18 @@ export default function GlobalSearch({ open, onClose }) {
   const inputRef = useRef(null);
   const timerRef = useRef(null);
 
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setQuery("");
+      setResults([]);
+      setActiveIdx(0);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    setQuery("");
-    setResults([]);
-    setActiveIdx(0);
     const id = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [open]);

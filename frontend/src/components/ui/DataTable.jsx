@@ -95,9 +95,15 @@ export default function DataTable({
     });
   }, [filtered, sort]);
 
-  useEffect(() => {
+  const [prevQuery, setPrevQuery] = useState(query);
+  const [prevPageSize, setPrevPageSize] = useState(pageSize);
+  const [prevData, setPrevData] = useState(data);
+  if (query !== prevQuery || pageSize !== prevPageSize || data !== prevData) {
+    setPrevQuery(query);
+    setPrevPageSize(pageSize);
+    setPrevData(data);
     setPage(1);
-  }, [query, pageSize, data]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);

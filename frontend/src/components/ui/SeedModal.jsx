@@ -76,10 +76,17 @@ export default function SeedModal({ open, onClose }) {
   const [error, setError] = useState("");
   const [force, setForce] = useState(false);
 
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setResults(null);
+      setError("");
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
-    setResults(null);
-    setError("");
     setLoading(true);
     api
       .get("/api/seed/status")
