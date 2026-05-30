@@ -30,6 +30,7 @@ import {
   Cell,
   PieChart,
   Pie,
+  Legend,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import StatsCard from "../components/ui/StatsCard";
@@ -1513,6 +1514,139 @@ function InventoryContent({ stats, rows, rowsLoading, navigate }) {
   );
 }
 
+function StockAnalyticsContent({ trends, topItems, topLoading }) {
+  const months = (trends || []).map((r) => r.month.slice(5)); // "MM" label
+  const hasTrends = trends && trends.length > 0;
+  const hasTop = topItems && topItems.length > 0;
+
+  return (
+    <div className="d-flex flex-column gap-4">
+      {/* Monthly trend chart */}
+      <div>
+        <p
+          className="small fw-semibold text-secondary text-uppercase mb-2"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.08em" }}
+        >
+          Monthly Stock Movements (last 6 months)
+        </p>
+        {!hasTrends ? (
+          <p className="small text-secondary mb-0">
+            No stock movement data yet.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart
+              data={trends}
+              margin={{ top: 0, right: 8, left: -20, bottom: 0 }}
+            >
+              <XAxis
+                dataKey="month"
+                tickFormatter={(v) => v.slice(5)}
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--bs-body-bg)",
+                  border: "1px solid var(--bs-border-color)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                labelFormatter={(v) => v}
+              />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+              <Bar
+                dataKey="issued"
+                name="Issued"
+                fill="#0ea5e9"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="returned"
+                name="Returned"
+                fill="#4ade80"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="purchased"
+                name="Purchased"
+                fill="#a78bfa"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="consumed"
+                name="Consumed"
+                fill="#f87171"
+                radius={[3, 3, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Top consumed items */}
+      <div>
+        <p
+          className="small fw-semibold text-secondary text-uppercase mb-2"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.08em" }}
+        >
+          Top Consumed Items (last 6 months)
+        </p>
+        {topLoading ? (
+          <p className="small text-secondary mb-0">Loading…</p>
+        ) : !hasTop ? (
+          <p className="small text-secondary mb-0">No consumption data yet.</p>
+        ) : (
+          <div className="table-responsive">
+            <table
+              className="table table-sm mb-0"
+              style={{ fontSize: "0.8rem" }}
+            >
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th className="text-end">Issued</th>
+                  <th className="text-end">Returned</th>
+                  <th className="text-end">Net Out</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topItems.map((r, i) => (
+                  <tr key={r.item_id}>
+                    <td className="text-secondary">{i + 1}</td>
+                    <td className="fw-medium">{r.name}</td>
+                    <td className="text-secondary">{r.category_name || "—"}</td>
+                    <td className="text-end">
+                      {r.total_issued} {r.unit}
+                    </td>
+                    <td className="text-end text-secondary">
+                      {r.total_returned} {r.unit}
+                    </td>
+                    <td className="text-end">
+                      <span style={{ color: "#fb923c", fontWeight: 600 }}>
+                        {Number(r.total_issued) - Number(r.total_returned)}{" "}
+                        {r.unit}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const SECTION_API = {
   systems: "/api/systems",
   network: "/api/network",
@@ -1521,6 +1655,7 @@ const SECTION_API = {
   employees: "/api/employees",
   inventory: "/api/inventory/items",
   replacements: "/api/asset-history/stats/replacements",
+  "stock-analytics": "/api/reports/stock-trends?months=6",
 };
 
 export default function Dashboard() {
@@ -1531,6 +1666,8 @@ export default function Dashboard() {
   const [openSection, setOpenSection] = useState(null);
   const [sectionRows, setSectionRows] = useState({});
   const [sectionLoading, setSectionLoading] = useState({});
+  const [topItems, setTopItems] = useState([]);
+  const [topItemsLoading, setTopItemsLoading] = useState(false);
   const fetchedSections = useRef(new Set());
   const { toast } = useToast();
   const { canPerm, user } = useAuth();
@@ -1551,6 +1688,14 @@ export default function Dashboard() {
           setSectionRows((p) => ({ ...p, [id]: [] }));
         })
         .finally(() => setSectionLoading((p) => ({ ...p, [id]: false })));
+      if (id === "stock-analytics") {
+        setTopItemsLoading(true);
+        api
+          .get("/api/reports/top-items?months=6&limit=10")
+          .then(setTopItems)
+          .catch(() => setTopItems([]))
+          .finally(() => setTopItemsLoading(false));
+      }
     }
   }, []);
 
@@ -1900,6 +2045,66 @@ export default function Dashboard() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* Stock Analytics */}
+      {canPerm("inventory", "read") && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="itms-card overflow-hidden"
+        >
+          <button
+            type="button"
+            className="w-100 d-flex align-items-center justify-content-between p-3 border-0 bg-transparent text-start"
+            onClick={() => toggle("stock-analytics")}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <TrendingUp size={14} style={{ color: "#a78bfa" }} />
+              <span className="fw-semibold" style={{ fontSize: "0.875rem" }}>
+                Stock Analytics
+              </span>
+              <span className="text-secondary small">
+                · Consumption trends &amp; top items
+              </span>
+            </div>
+            <ChevronDown
+              size={14}
+              className="text-secondary"
+              style={{
+                transform:
+                  openSection === "stock-analytics"
+                    ? "rotate(180deg)"
+                    : "rotate(0deg)",
+                transition: "transform 0.2s",
+              }}
+            />
+          </button>
+          <AnimatePresence>
+            {openSection === "stock-analytics" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ overflow: "hidden" }}
+              >
+                <div className="border-top p-3">
+                  {sectionLoading["stock-analytics"] ? (
+                    <p className="text-secondary small mb-0">Loading…</p>
+                  ) : (
+                    <StockAnalyticsContent
+                      trends={sectionRows["stock-analytics"] || []}
+                      topItems={topItems}
+                      topLoading={topItemsLoading}
+                    />
                   )}
                 </div>
               </motion.div>

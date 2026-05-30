@@ -18,10 +18,29 @@ import {
   DollarSign,
   History,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell,
+} from "recharts";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
 import { cn, fmtDate } from "../lib/utils";
+
+const CHART_TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--bs-body-bg)",
+    border: "1px solid var(--bs-border-color)",
+    borderRadius: 8,
+    fontSize: 12,
+  },
+};
 
 // ── PDF export helper ─────────────────────────────────────
 async function exportPDF(title, head, body) {
@@ -390,6 +409,445 @@ function AssetHistoryTab({ filterOpts, toast }) {
   );
 }
 
+// ── STOCK MOVEMENTS TAB ───────────────────────────────────
+function StockMovementsTab({ toast }) {
+  const [trends, setTrends] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [months, setMonths] = useState("12");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setTrends(await api.get(`/api/reports/stock-trends?months=${months}`));
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [months, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalIssued = trends.reduce((s, r) => s + Number(r.issued), 0);
+  const totalReturned = trends.reduce((s, r) => s + Number(r.returned), 0);
+  const totalPurchased = trends.reduce((s, r) => s + Number(r.purchased), 0);
+
+  async function pdfExport() {
+    try {
+      const head = [
+        "Month",
+        "Issued",
+        "Returned",
+        "Purchased",
+        "Consumed",
+        "Total Movements",
+      ];
+      const body = trends.map((r) => [
+        r.month,
+        r.issued,
+        r.returned,
+        r.purchased,
+        r.consumed,
+        r.movements,
+      ]);
+      await exportPDF("Stock Movements Report", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      {/* Controls */}
+      <div className="itms-card p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Period</label>
+            <select
+              className="form-select form-select-sm"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            >
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="24">Last 24 months</option>
+            </select>
+          </div>
+          <div className="col-auto">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={pdfExport}
+              disabled={loading || trends.length === 0}
+            >
+              <FileDown size={13} className="me-1" />
+              PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      {trends.length > 0 && (
+        <div className="row g-2">
+          {[
+            {
+              label: "Total Issued",
+              value: totalIssued,
+              color: "#0ea5e9",
+              bg: "rgba(14,165,233,0.1)",
+            },
+            {
+              label: "Total Returned",
+              value: totalReturned,
+              color: "#4ade80",
+              bg: "rgba(74,222,128,0.1)",
+            },
+            {
+              label: "Total Purchased",
+              value: totalPurchased,
+              color: "#a78bfa",
+              bg: "rgba(167,139,250,0.1)",
+            },
+            {
+              label: "Net Consumed",
+              value: totalIssued - totalReturned,
+              color: "#fb923c",
+              bg: "rgba(251,146,60,0.1)",
+            },
+          ].map((s) => (
+            <div key={s.label} className="col-6 col-md-3">
+              <div className="rounded-3 px-3 py-2" style={{ background: s.bg }}>
+                <span
+                  className="fw-bold d-block"
+                  style={{ fontSize: "1.2rem", color: s.color }}
+                >
+                  {s.value}
+                </span>
+                <span
+                  style={{ fontSize: "0.72rem", color: s.color, opacity: 0.85 }}
+                >
+                  {s.label}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div className="itms-card p-3">
+        <p
+          className="small fw-semibold text-secondary text-uppercase mb-3"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.08em" }}
+        >
+          Monthly Breakdown
+        </p>
+        {loading ? (
+          <div className="text-center text-secondary py-4 small">Loading…</div>
+        ) : trends.length === 0 ? (
+          <div className="text-center text-secondary py-4 small">
+            No data for this period.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              data={trends}
+              margin={{ top: 0, right: 8, left: -20, bottom: 0 }}
+            >
+              <XAxis
+                dataKey="month"
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip {...CHART_TOOLTIP_STYLE} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar
+                dataKey="issued"
+                name="Issued"
+                fill="#0ea5e9"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="returned"
+                name="Returned"
+                fill="#4ade80"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="purchased"
+                name="Purchased"
+                fill="#a78bfa"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="consumed"
+                name="Consumed"
+                fill="#f87171"
+                radius={[3, 3, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Table */}
+      {trends.length > 0 && (
+        <div className="itms-card overflow-hidden">
+          <div className="table-responsive">
+            <table
+              className="table table-hover mb-0"
+              style={{ fontSize: "0.8rem" }}
+            >
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th className="text-end">Issued</th>
+                  <th className="text-end">Returned</th>
+                  <th className="text-end">Purchased</th>
+                  <th className="text-end">Consumed</th>
+                  <th className="text-end">Movements</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trends.map((r) => (
+                  <tr key={r.month}>
+                    <td className="fw-medium">{r.month}</td>
+                    <td className="text-end" style={{ color: "#0ea5e9" }}>
+                      {r.issued}
+                    </td>
+                    <td className="text-end" style={{ color: "#4ade80" }}>
+                      {r.returned}
+                    </td>
+                    <td className="text-end" style={{ color: "#a78bfa" }}>
+                      {r.purchased}
+                    </td>
+                    <td className="text-end" style={{ color: "#f87171" }}>
+                      {r.consumed}
+                    </td>
+                    <td className="text-end text-secondary">{r.movements}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── DEPARTMENT UTILIZATION TAB ────────────────────────────
+const DEPT_COLORS = [
+  "#0ea5e9",
+  "#4ade80",
+  "#a78bfa",
+  "#fb923c",
+  "#f87171",
+  "#facc15",
+  "#2dd4bf",
+  "#f472b6",
+];
+
+function DepartmentUtilizationTab({ toast }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [months, setMonths] = useState("12");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(
+        await api.get(`/api/reports/department-utilization?months=${months}`),
+      );
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [months, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const chartData = rows.map((r) => ({
+    name: r.department,
+    qty: Number(r.total_qty_issued),
+  }));
+
+  async function pdfExport() {
+    try {
+      const head = [
+        "Department",
+        "Employees",
+        "Assignments",
+        "Active",
+        "Qty Issued",
+        "Unique Items",
+      ];
+      const body = rows.map((r) => [
+        r.department,
+        r.employee_count,
+        r.total_assignments,
+        r.active_assignments,
+        r.total_qty_issued,
+        r.unique_items,
+      ]);
+      await exportPDF("Department Utilization Report", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      {/* Controls */}
+      <div className="itms-card p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Period</label>
+            <select
+              className="form-select form-select-sm"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            >
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="24">Last 24 months</option>
+            </select>
+          </div>
+          <div className="col-auto">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={pdfExport}
+              disabled={loading || rows.length === 0}
+            >
+              <FileDown size={13} className="me-1" />
+              PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="itms-card p-3">
+        <p
+          className="small fw-semibold text-secondary text-uppercase mb-3"
+          style={{ fontSize: "0.7rem", letterSpacing: "0.08em" }}
+        >
+          Items Issued by Department
+        </p>
+        {loading ? (
+          <div className="text-center text-secondary py-4 small">Loading…</div>
+        ) : rows.length === 0 ? (
+          <div className="text-center text-secondary py-4 small">
+            No assignment data for this period.
+          </div>
+        ) : (
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(140, rows.length * 28)}
+          >
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
+            >
+              <XAxis
+                type="number"
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                tick={{ fill: "#71717a", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                width={100}
+              />
+              <Tooltip {...CHART_TOOLTIP_STYLE} />
+              <Bar dataKey="qty" name="Qty Issued" radius={[0, 4, 4, 0]}>
+                {chartData.map((_, i) => (
+                  <Cell key={i} fill={DEPT_COLORS[i % DEPT_COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Table */}
+      {rows.length > 0 && (
+        <div className="itms-card overflow-hidden">
+          <div className="table-responsive">
+            <table
+              className="table table-hover mb-0"
+              style={{ fontSize: "0.8rem" }}
+            >
+              <thead>
+                <tr>
+                  <th>Department</th>
+                  <th className="text-end">Employees</th>
+                  <th className="text-end">Assignments</th>
+                  <th className="text-end">Active</th>
+                  <th className="text-end">Qty Issued</th>
+                  <th className="text-end">Unique Items</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.department}>
+                    <td>
+                      <span
+                        className="d-inline-block me-2 rounded-circle"
+                        style={{
+                          width: 8,
+                          height: 8,
+                          background: DEPT_COLORS[i % DEPT_COLORS.length],
+                        }}
+                      />
+                      {r.department}
+                    </td>
+                    <td className="text-end text-secondary">
+                      {r.employee_count}
+                    </td>
+                    <td className="text-end">{r.total_assignments}</td>
+                    <td className="text-end">
+                      <span style={{ color: "#4ade80" }}>
+                        {r.active_assignments}
+                      </span>
+                    </td>
+                    <td className="text-end fw-semibold">
+                      {r.total_qty_issued}
+                    </td>
+                    <td className="text-end text-secondary">
+                      {r.unique_items}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab bar ───────────────────────────────────────────────
 const TABS = [
   { id: "employee-assets", label: "Employee Assets", icon: Users },
@@ -401,6 +859,8 @@ const TABS = [
   { id: "inv-assignments", label: "Inv. Assignments", icon: PackageCheck },
   { id: "sim-costs", label: "SIM Costs", icon: CreditCard },
   { id: "cost-analytics", label: "Cost Analytics", icon: DollarSign },
+  { id: "stock-movements", label: "Stock Movements", icon: Package },
+  { id: "dept-utilization", label: "Dept. Utilization", icon: Building2 },
   { id: "asset-history", label: "Asset History", icon: History },
   { id: "full-export", label: "Full Export", icon: FileText },
 ];
@@ -2568,6 +3028,10 @@ export default function Reports() {
           {tab === "inv-assignments" && <InvAssignmentsTab toast={toast} />}
           {tab === "sim-costs" && <SIMCostsTab toast={toast} />}
           {tab === "cost-analytics" && <CostAnalyticsTab toast={toast} />}
+          {tab === "stock-movements" && <StockMovementsTab toast={toast} />}
+          {tab === "dept-utilization" && (
+            <DepartmentUtilizationTab toast={toast} />
+          )}
           {tab === "asset-history" && (
             <AssetHistoryTab filterOpts={filterOpts} toast={toast} />
           )}
