@@ -83,8 +83,9 @@ export default function ModulePage({ config, headerExtra }) {
   }, [load]);
 
   const handleExport = useCallback(() => {
+    const basePath = apiPath.split("?")[0];
     api
-      .download(`${apiPath}/export/csv`, exportFile || `${mod}-export.csv`)
+      .download(`${basePath}/export/csv`, exportFile || `${mod}-export.csv`)
       .catch((e) => toast(e.message, "error"));
   }, [apiPath, exportFile, mod, toast]);
 
@@ -249,8 +250,9 @@ export default function ModulePage({ config, headerExtra }) {
   }
 
   function downloadSample() {
+    const basePath = apiPath.split("?")[0];
     api
-      .download(`${apiPath}/sample/csv`, sampleFile || `${mod}-sample.csv`)
+      .download(`${basePath}/sample/csv`, sampleFile || `${mod}-sample.csv`)
       .catch((e) => toast(e.message, "error"));
   }
 
