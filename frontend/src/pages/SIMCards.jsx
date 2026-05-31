@@ -232,7 +232,7 @@ function SIMCardForm({ vals, setVals }) {
       </div>
 
       <div className="col-md-6">
-        <Fld label="Purpose of Use">
+        <Fld label="Purpose">
           <select
             className={sel}
             value={vals.purpose || ""}
@@ -314,7 +314,10 @@ function SIMCardView(row) {
       <Field label="Data Package" value={row.data_limit} />
       <Field label="Type" value={row.sim_type} />
       <Field label="Status" value={statusLabel[row.status] || row.status} />
-      <Field label="Purpose" value={purposeLabel[row.purpose] || row.purpose} />
+      <Field
+        label="Purpose"
+        value={purposeLabel[row.purpose] || row.purpose || "—"}
+      />
       {row.notes && (
         <div className="col-12">
           <dt
@@ -378,7 +381,7 @@ const config = {
     { key: "location", label: "Location", render: (v) => v || "—" },
     {
       key: "purpose",
-      label: "Purpose of Use",
+      label: "Purpose",
       render: (v) => (v ? (v === "official" ? "Official" : "Service") : "—"),
     },
   ],
