@@ -33,7 +33,13 @@ function StatusBadge({ status }) {
   );
 }
 
-function ActionBtn({ icon: Icon, label, onClick, danger, variant = "secondary" }) {
+function ActionBtn({
+  icon: Icon,
+  label,
+  onClick,
+  danger,
+  variant = "secondary",
+}) {
   return (
     <button
       className={`btn btn-sm btn-${danger ? "outline-danger" : `outline-${variant}`} py-0 px-2`}
@@ -50,14 +56,21 @@ function ActionBtn({ icon: Icon, label, onClick, danger, variant = "secondary" }
 function ConfirmModal({ show, message, onConfirm, onCancel }) {
   if (!show) return null;
   return (
-    <div className="modal show d-block" style={{ background: "rgba(0,0,0,0.5)" }}>
+    <div
+      className="modal show d-block"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+    >
       <div className="modal-dialog modal-sm modal-dialog-centered">
         <div className="modal-content">
           <div className="modal-body py-4 text-center">
             <p className="mb-3">{message}</p>
             <div className="d-flex justify-content-center gap-2">
-              <button className="btn btn-sm btn-secondary" onClick={onCancel}>Cancel</button>
-              <button className="btn btn-sm btn-danger" onClick={onConfirm}>Delete</button>
+              <button className="btn btn-sm btn-secondary" onClick={onCancel}>
+                Cancel
+              </button>
+              <button className="btn btn-sm btn-danger" onClick={onConfirm}>
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -97,7 +110,24 @@ function CategoryForm({ vals, onChange }) {
 }
 
 // ── Head Form ──────────────────────────────────────────────
-function HeadForm({ vals, onChange, categories }) {
+function HeadForm({ vals, onChange, categories, onSwitchTab }) {
+  if (categories.length === 0) {
+    return (
+      <div className="text-center py-3">
+        <p className="text-secondary small mb-2">No categories exist yet.</p>
+        <p className="small mb-3">
+          You must create a <strong>Category</strong> first (e.g. <em>RAM</em>,{" "}
+          <em>CPU</em>, <em>Mobile</em>), then add Heads under it.
+        </p>
+        <button
+          className="btn btn-sm btn-success"
+          onClick={() => onSwitchTab("categories")}
+        >
+          Go to Categories →
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="row g-3">
       <div className="col-12">
@@ -111,7 +141,9 @@ function HeadForm({ vals, onChange, categories }) {
         >
           <option value="">— Select Category —</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.category_name}</option>
+            <option key={c.id} value={c.id}>
+              {c.category_name}
+            </option>
           ))}
         </select>
       </div>
@@ -142,7 +174,7 @@ function HeadForm({ vals, onChange, categories }) {
 }
 
 // ── Sub-Head Form ──────────────────────────────────────────
-function SubHeadForm({ vals, onChange, categories, allHeads }) {
+function SubHeadForm({ vals, onChange, categories, allHeads, onSwitchTab }) {
   const filteredHeads = vals.category_id
     ? allHeads.filter((h) => String(h.category_id) === String(vals.category_id))
     : allHeads;
@@ -150,6 +182,42 @@ function SubHeadForm({ vals, onChange, categories, allHeads }) {
   function handleCategoryChange(catId) {
     onChange("category_id", catId);
     onChange("head_id", "");
+  }
+
+  if (categories.length === 0) {
+    return (
+      <div className="text-center py-3">
+        <p className="text-secondary small mb-2">No categories exist yet.</p>
+        <p className="small mb-3">
+          Create a <strong>Category</strong> first, then add{" "}
+          <strong>Heads</strong> under it, before adding Sub-Heads.
+        </p>
+        <button
+          className="btn btn-sm btn-success"
+          onClick={() => onSwitchTab("categories")}
+        >
+          Go to Categories →
+        </button>
+      </div>
+    );
+  }
+
+  if (allHeads.length === 0) {
+    return (
+      <div className="text-center py-3">
+        <p className="text-secondary small mb-2">No heads exist yet.</p>
+        <p className="small mb-3">
+          Create a <strong>Head</strong> under a category first before adding
+          Sub-Heads.
+        </p>
+        <button
+          className="btn btn-sm btn-success"
+          onClick={() => onSwitchTab("heads")}
+        >
+          Go to Heads →
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -163,7 +231,9 @@ function SubHeadForm({ vals, onChange, categories, allHeads }) {
         >
           <option value="">— Select Category to filter Heads —</option>
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.category_name}</option>
+            <option key={c.id} value={c.id}>
+              {c.category_name}
+            </option>
           ))}
         </select>
       </div>
@@ -178,7 +248,9 @@ function SubHeadForm({ vals, onChange, categories, allHeads }) {
         >
           <option value="">— Select Head —</option>
           {filteredHeads.map((h) => (
-            <option key={h.id} value={h.id}>{h.head_name}</option>
+            <option key={h.id} value={h.id}>
+              {h.head_name}
+            </option>
           ))}
         </select>
       </div>
@@ -209,14 +281,31 @@ function SubHeadForm({ vals, onChange, categories, allHeads }) {
 }
 
 // ── Edit/Add Modal ─────────────────────────────────────────
-function EditModal({ show, mode, tab, vals, onChange, onSave, onClose, categories, allHeads, saving, error }) {
+function EditModal({
+  show,
+  mode,
+  tab,
+  vals,
+  onChange,
+  onSave,
+  onClose,
+  onSwitchTab,
+  categories,
+  allHeads,
+  saving,
+  error,
+}) {
   if (!show) return null;
-  const title = mode === "add"
-    ? `Add ${tab === "categories" ? "Category" : tab === "heads" ? "Head" : "Sub-Head"}`
-    : `Edit ${tab === "categories" ? "Category" : tab === "heads" ? "Head" : "Sub-Head"}`;
+  const title =
+    mode === "add"
+      ? `Add ${tab === "categories" ? "Category" : tab === "heads" ? "Head" : "Sub-Head"}`
+      : `Edit ${tab === "categories" ? "Category" : tab === "heads" ? "Head" : "Sub-Head"}`;
 
   return (
-    <div className="modal show d-block" style={{ background: "rgba(0,0,0,0.5)" }}>
+    <div
+      className="modal show d-block"
+      style={{ background: "rgba(0,0,0,0.5)" }}
+    >
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content">
           <div className="modal-header py-3">
@@ -231,15 +320,42 @@ function EditModal({ show, mode, tab, vals, onChange, onSave, onClose, categorie
               <CategoryForm vals={vals} onChange={onChange} />
             )}
             {tab === "heads" && (
-              <HeadForm vals={vals} onChange={onChange} categories={categories} />
+              <HeadForm
+                vals={vals}
+                onChange={onChange}
+                categories={categories}
+                onSwitchTab={(t) => {
+                  onClose();
+                  onSwitchTab(t);
+                }}
+              />
             )}
             {tab === "subheads" && (
-              <SubHeadForm vals={vals} onChange={onChange} categories={categories} allHeads={allHeads} />
+              <SubHeadForm
+                vals={vals}
+                onChange={onChange}
+                categories={categories}
+                allHeads={allHeads}
+                onSwitchTab={(t) => {
+                  onClose();
+                  onSwitchTab(t);
+                }}
+              />
             )}
           </div>
           <div className="modal-footer py-2">
-            <button className="btn btn-sm btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-            <button className="btn btn-sm btn-success" onClick={onSave} disabled={saving}>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-sm btn-success"
+              onClick={onSave}
+              disabled={saving}
+            >
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
@@ -261,8 +377,18 @@ export default function HeadManagement() {
   const [subheads, setSubheads] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [modal, setModal] = useState({ show: false, mode: "add", vals: {}, error: "", saving: false });
-  const [confirm, setConfirm] = useState({ show: false, message: "", onConfirm: null });
+  const [modal, setModal] = useState({
+    show: false,
+    mode: "add",
+    vals: {},
+    error: "",
+    saving: false,
+  });
+  const [confirm, setConfirm] = useState({
+    show: false,
+    message: "",
+    onConfirm: null,
+  });
 
   const canCreate = canPerm("masterdata", "create");
   const canUpdate = canPerm("masterdata", "update");
@@ -286,19 +412,41 @@ export default function HeadManagement() {
     }
   }, [toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   function openAdd() {
     setModal({ show: true, mode: "add", vals: {}, error: "", saving: false });
   }
 
   function openEdit(item) {
-    const vals = tab === "categories"
-      ? { category_name: item.category_name, description: item.description || "" }
-      : tab === "heads"
-      ? { category_id: String(item.category_id), head_name: item.head_name, description: item.description || "" }
-      : { head_id: String(item.head_id), category_id: String(item.category_id), sub_head_name: item.sub_head_name, description: item.description || "" };
-    setModal({ show: true, mode: "edit", id: item.id, vals, error: "", saving: false });
+    const vals =
+      tab === "categories"
+        ? {
+            category_name: item.category_name,
+            description: item.description || "",
+          }
+        : tab === "heads"
+          ? {
+              category_id: String(item.category_id),
+              head_name: item.head_name,
+              description: item.description || "",
+            }
+          : {
+              head_id: String(item.head_id),
+              category_id: String(item.category_id),
+              sub_head_name: item.sub_head_name,
+              description: item.description || "",
+            };
+    setModal({
+      show: true,
+      mode: "edit",
+      id: item.id,
+      vals,
+      error: "",
+      saving: false,
+    });
   }
 
   function onChange(k, v) {
@@ -319,7 +467,13 @@ export default function HeadManagement() {
         if (mode === "add") await api.post("/api/masterdata/subheads", vals);
         else await api.put(`/api/masterdata/subheads/${id}`, vals);
       }
-      setModal({ show: false, mode: "add", vals: {}, error: "", saving: false });
+      setModal({
+        show: false,
+        mode: "add",
+        vals: {},
+        error: "",
+        saving: false,
+      });
       toast(`${mode === "add" ? "Added" : "Updated"} successfully`, "success");
       load();
     } catch (e) {
@@ -328,7 +482,12 @@ export default function HeadManagement() {
   }
 
   async function onToggle(item) {
-    const base = tab === "categories" ? "categories" : tab === "heads" ? "heads" : "subheads";
+    const base =
+      tab === "categories"
+        ? "categories"
+        : tab === "heads"
+          ? "heads"
+          : "subheads";
     try {
       await api.patch(`/api/masterdata/${base}/${item.id}/toggle`);
       toast("Status updated", "success");
@@ -345,7 +504,12 @@ export default function HeadManagement() {
       message: `Delete "${name}"? This cannot be undone.`,
       onConfirm: async () => {
         setConfirm({ show: false });
-        const base = tab === "categories" ? "categories" : tab === "heads" ? "heads" : "subheads";
+        const base =
+          tab === "categories"
+            ? "categories"
+            : tab === "heads"
+              ? "heads"
+              : "subheads";
         try {
           await api.del(`/api/masterdata/${base}/${item.id}`);
           toast("Deleted successfully", "success");
@@ -360,13 +524,20 @@ export default function HeadManagement() {
   // ── Filter ────────────────────────────────────────────────
   const q = search.toLowerCase();
   const filteredCategories = categories.filter(
-    (c) => c.category_name.toLowerCase().includes(q) || (c.description || "").toLowerCase().includes(q),
+    (c) =>
+      c.category_name.toLowerCase().includes(q) ||
+      (c.description || "").toLowerCase().includes(q),
   );
   const filteredHeads = heads.filter(
-    (h) => h.head_name.toLowerCase().includes(q) || h.category_name.toLowerCase().includes(q),
+    (h) =>
+      h.head_name.toLowerCase().includes(q) ||
+      h.category_name.toLowerCase().includes(q),
   );
   const filteredSubheads = subheads.filter(
-    (s) => s.sub_head_name.toLowerCase().includes(q) || s.head_name.toLowerCase().includes(q) || s.category_name.toLowerCase().includes(q),
+    (s) =>
+      s.sub_head_name.toLowerCase().includes(q) ||
+      s.head_name.toLowerCase().includes(q) ||
+      s.category_name.toLowerCase().includes(q),
   );
 
   return (
@@ -380,12 +551,22 @@ export default function HeadManagement() {
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
           <h4 className="fw-bold mb-0">Head &amp; Sub-Head Management</h4>
-          <p className="text-secondary small mb-0">Manage master data categories, heads, and sub-heads</p>
+          <p className="text-secondary small mb-0">
+            Manage master data categories, heads, and sub-heads
+          </p>
         </div>
         {canCreate && (
-          <button className="btn btn-sm btn-success d-flex align-items-center gap-1" onClick={openAdd}>
+          <button
+            className="btn btn-sm btn-success d-flex align-items-center gap-1"
+            onClick={openAdd}
+          >
             <Plus size={14} />
-            Add {tab === "categories" ? "Category" : tab === "heads" ? "Head" : "Sub-Head"}
+            Add{" "}
+            {tab === "categories"
+              ? "Category"
+              : tab === "heads"
+                ? "Head"
+                : "Sub-Head"}
           </button>
         )}
       </div>
@@ -394,11 +575,19 @@ export default function HeadManagement() {
       <div className="d-flex align-items-center gap-1 mb-3 border-bottom border-secondary border-opacity-25 pb-0">
         {TABS.map((t) => {
           const Icon = t.icon;
-          const count = t.key === "categories" ? categories.length : t.key === "heads" ? heads.length : subheads.length;
+          const count =
+            t.key === "categories"
+              ? categories.length
+              : t.key === "heads"
+                ? heads.length
+                : subheads.length;
           return (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); setSearch(""); }}
+              onClick={() => {
+                setTab(t.key);
+                setSearch("");
+              }}
               className={`btn btn-sm d-flex align-items-center gap-1 rounded-0 border-0 border-bottom px-3 py-2 ${
                 tab === t.key
                   ? "border-success text-success fw-semibold"
@@ -413,7 +602,10 @@ export default function HeadManagement() {
             >
               <Icon size={13} />
               {t.label}
-              <span className={`badge rounded-pill ms-1 ${tab === t.key ? "bg-success" : "bg-secondary"}`} style={{ fontSize: 10 }}>
+              <span
+                className={`badge rounded-pill ms-1 ${tab === t.key ? "bg-success" : "bg-secondary"}`}
+                style={{ fontSize: 10 }}
+              >
                 {count}
               </span>
             </button>
@@ -446,7 +638,14 @@ export default function HeadManagement() {
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle small mb-0">
                 <thead>
-                  <tr className="text-secondary" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <tr
+                    className="text-secondary"
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     <th>#</th>
                     <th>Category Name</th>
                     <th>Description</th>
@@ -457,31 +656,64 @@ export default function HeadManagement() {
                 </thead>
                 <tbody>
                   {filteredCategories.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center text-secondary py-4">No categories found</td></tr>
-                  ) : filteredCategories.map((c, i) => (
-                    <tr key={c.id}>
-                      <td className="text-secondary">{i + 1}</td>
-                      <td className="fw-medium">{c.category_name}</td>
-                      <td className="text-secondary">{c.description || "—"}</td>
-                      <td>
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">{c.head_count}</span>
-                      </td>
-                      <td><StatusBadge status={c.status} /></td>
-                      <td>
-                        <div className="d-flex gap-1 flex-wrap">
-                          {canUpdate && <ActionBtn icon={Pencil} label="Edit" onClick={() => openEdit(c)} variant="primary" />}
-                          {canUpdate && (
-                            <ActionBtn
-                              icon={c.status === "active" ? XCircle : CheckCircle}
-                              label={c.status === "active" ? "Disable" : "Enable"}
-                              onClick={() => onToggle(c)}
-                            />
-                          )}
-                          {canDelete && <ActionBtn icon={Trash2} label="Delete" onClick={() => confirmDelete(c)} danger />}
-                        </div>
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="text-center text-secondary py-4"
+                      >
+                        No categories found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredCategories.map((c, i) => (
+                      <tr key={c.id}>
+                        <td className="text-secondary">{i + 1}</td>
+                        <td className="fw-medium">{c.category_name}</td>
+                        <td className="text-secondary">
+                          {c.description || "—"}
+                        </td>
+                        <td>
+                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            {c.head_count}
+                          </span>
+                        </td>
+                        <td>
+                          <StatusBadge status={c.status} />
+                        </td>
+                        <td>
+                          <div className="d-flex gap-1 flex-wrap">
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={Pencil}
+                                label="Edit"
+                                onClick={() => openEdit(c)}
+                                variant="primary"
+                              />
+                            )}
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={
+                                  c.status === "active" ? XCircle : CheckCircle
+                                }
+                                label={
+                                  c.status === "active" ? "Disable" : "Enable"
+                                }
+                                onClick={() => onToggle(c)}
+                              />
+                            )}
+                            {canDelete && (
+                              <ActionBtn
+                                icon={Trash2}
+                                label="Delete"
+                                onClick={() => confirmDelete(c)}
+                                danger
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -492,7 +724,14 @@ export default function HeadManagement() {
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle small mb-0">
                 <thead>
-                  <tr className="text-secondary" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <tr
+                    className="text-secondary"
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     <th>#</th>
                     <th>Category</th>
                     <th>Head Name</th>
@@ -504,34 +743,69 @@ export default function HeadManagement() {
                 </thead>
                 <tbody>
                   {filteredHeads.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center text-secondary py-4">No heads found</td></tr>
-                  ) : filteredHeads.map((h, i) => (
-                    <tr key={h.id}>
-                      <td className="text-secondary">{i + 1}</td>
-                      <td>
-                        <span className="badge bg-info-subtle text-info border border-info-subtle">{h.category_name}</span>
-                      </td>
-                      <td className="fw-medium">{h.head_name}</td>
-                      <td className="text-secondary">{h.description || "—"}</td>
-                      <td>
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">{h.sub_head_count}</span>
-                      </td>
-                      <td><StatusBadge status={h.status} /></td>
-                      <td>
-                        <div className="d-flex gap-1 flex-wrap">
-                          {canUpdate && <ActionBtn icon={Pencil} label="Edit" onClick={() => openEdit(h)} variant="primary" />}
-                          {canUpdate && (
-                            <ActionBtn
-                              icon={h.status === "active" ? XCircle : CheckCircle}
-                              label={h.status === "active" ? "Disable" : "Enable"}
-                              onClick={() => onToggle(h)}
-                            />
-                          )}
-                          {canDelete && <ActionBtn icon={Trash2} label="Delete" onClick={() => confirmDelete(h)} danger />}
-                        </div>
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="text-center text-secondary py-4"
+                      >
+                        No heads found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredHeads.map((h, i) => (
+                      <tr key={h.id}>
+                        <td className="text-secondary">{i + 1}</td>
+                        <td>
+                          <span className="badge bg-info-subtle text-info border border-info-subtle">
+                            {h.category_name}
+                          </span>
+                        </td>
+                        <td className="fw-medium">{h.head_name}</td>
+                        <td className="text-secondary">
+                          {h.description || "—"}
+                        </td>
+                        <td>
+                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            {h.sub_head_count}
+                          </span>
+                        </td>
+                        <td>
+                          <StatusBadge status={h.status} />
+                        </td>
+                        <td>
+                          <div className="d-flex gap-1 flex-wrap">
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={Pencil}
+                                label="Edit"
+                                onClick={() => openEdit(h)}
+                                variant="primary"
+                              />
+                            )}
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={
+                                  h.status === "active" ? XCircle : CheckCircle
+                                }
+                                label={
+                                  h.status === "active" ? "Disable" : "Enable"
+                                }
+                                onClick={() => onToggle(h)}
+                              />
+                            )}
+                            {canDelete && (
+                              <ActionBtn
+                                icon={Trash2}
+                                label="Delete"
+                                onClick={() => confirmDelete(h)}
+                                danger
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -542,7 +816,14 @@ export default function HeadManagement() {
             <div className="table-responsive">
               <table className="table table-sm table-hover align-middle small mb-0">
                 <thead>
-                  <tr className="text-secondary" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <tr
+                    className="text-secondary"
+                    style={{
+                      fontSize: 11,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
                     <th>#</th>
                     <th>Category</th>
                     <th>Head</th>
@@ -554,34 +835,69 @@ export default function HeadManagement() {
                 </thead>
                 <tbody>
                   {filteredSubheads.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center text-secondary py-4">No sub-heads found</td></tr>
-                  ) : filteredSubheads.map((s, i) => (
-                    <tr key={s.id}>
-                      <td className="text-secondary">{i + 1}</td>
-                      <td>
-                        <span className="badge bg-info-subtle text-info border border-info-subtle">{s.category_name}</span>
-                      </td>
-                      <td>
-                        <span className="badge bg-warning-subtle text-warning border border-warning-subtle">{s.head_name}</span>
-                      </td>
-                      <td className="fw-medium">{s.sub_head_name}</td>
-                      <td className="text-secondary">{s.description || "—"}</td>
-                      <td><StatusBadge status={s.status} /></td>
-                      <td>
-                        <div className="d-flex gap-1 flex-wrap">
-                          {canUpdate && <ActionBtn icon={Pencil} label="Edit" onClick={() => openEdit(s)} variant="primary" />}
-                          {canUpdate && (
-                            <ActionBtn
-                              icon={s.status === "active" ? XCircle : CheckCircle}
-                              label={s.status === "active" ? "Disable" : "Enable"}
-                              onClick={() => onToggle(s)}
-                            />
-                          )}
-                          {canDelete && <ActionBtn icon={Trash2} label="Delete" onClick={() => confirmDelete(s)} danger />}
-                        </div>
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="text-center text-secondary py-4"
+                      >
+                        No sub-heads found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredSubheads.map((s, i) => (
+                      <tr key={s.id}>
+                        <td className="text-secondary">{i + 1}</td>
+                        <td>
+                          <span className="badge bg-info-subtle text-info border border-info-subtle">
+                            {s.category_name}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge bg-warning-subtle text-warning border border-warning-subtle">
+                            {s.head_name}
+                          </span>
+                        </td>
+                        <td className="fw-medium">{s.sub_head_name}</td>
+                        <td className="text-secondary">
+                          {s.description || "—"}
+                        </td>
+                        <td>
+                          <StatusBadge status={s.status} />
+                        </td>
+                        <td>
+                          <div className="d-flex gap-1 flex-wrap">
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={Pencil}
+                                label="Edit"
+                                onClick={() => openEdit(s)}
+                                variant="primary"
+                              />
+                            )}
+                            {canUpdate && (
+                              <ActionBtn
+                                icon={
+                                  s.status === "active" ? XCircle : CheckCircle
+                                }
+                                label={
+                                  s.status === "active" ? "Disable" : "Enable"
+                                }
+                                onClick={() => onToggle(s)}
+                              />
+                            )}
+                            {canDelete && (
+                              <ActionBtn
+                                icon={Trash2}
+                                label="Delete"
+                                onClick={() => confirmDelete(s)}
+                                danger
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -598,6 +914,10 @@ export default function HeadManagement() {
         onChange={onChange}
         onSave={onSave}
         onClose={() => setModal((m) => ({ ...m, show: false }))}
+        onSwitchTab={(t) => {
+          setTab(t);
+          setSearch("");
+        }}
         categories={categories}
         allHeads={heads}
         saving={modal.saving}
