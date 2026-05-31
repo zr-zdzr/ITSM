@@ -163,7 +163,7 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
              WHEN m.assigned_type='damaged' THEN 'Damaged'
              ELSE 'Inventory' END AS assigned_to,
         e.full_name AS assigned_user_name,
-        m.department, 'Mobile' AS type, m.manufacturer, m.model, m.serial_number,
+        m.department, m.type, m.manufacturer, m.model, m.serial_number,
         m.imei AS imei_1, m.imei2 AS imei_2, m.os, e.location,
         m.purpose, m.warranty_expiry, m.notes
       FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id ORDER BY m.created_at DESC`);
