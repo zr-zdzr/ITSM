@@ -51,6 +51,7 @@ app.use("/api/bulk", require("./routes/bulk"));
 app.use("/api/vendors", require("./routes/vendors"));
 app.use("/api/chat", require("./routes/chat"));
 app.use("/api/seed", require("./routes/seed"));
+app.use("/api/masterdata", require("./routes/masterdata"));
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 async function seedAdmin() {
@@ -504,6 +505,52 @@ async function runMigrations() {
   );
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_asset_history_created  ON asset_history(created_at DESC)`,
+  );
+
+  // ── Master Data: Categories / Heads / Sub-Heads ───────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS item_categories (
+      id            SERIAL PRIMARY KEY,
+      category_name VARCHAR(100) NOT NULL,
+      description   TEXT,
+      status        VARCHAR(10)  NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active','inactive')),
+      created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      CONSTRAINT item_categories_name_unique UNIQUE (category_name)
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS heads (
+      id          SERIAL PRIMARY KEY,
+      category_id INTEGER      NOT NULL REFERENCES item_categories(id) ON DELETE CASCADE,
+      head_name   VARCHAR(100) NOT NULL,
+      description TEXT,
+      status      VARCHAR(10)  NOT NULL DEFAULT 'active'
+                  CHECK (status IN ('active','inactive')),
+      created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      CONSTRAINT heads_category_name_unique UNIQUE (category_id, head_name)
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS sub_heads (
+      id            SERIAL PRIMARY KEY,
+      head_id       INTEGER      NOT NULL REFERENCES heads(id) ON DELETE CASCADE,
+      sub_head_name VARCHAR(100) NOT NULL,
+      description   TEXT,
+      status        VARCHAR(10)  NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active','inactive')),
+      created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+      CONSTRAINT sub_heads_head_name_unique UNIQUE (head_id, sub_head_name)
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_heads_category ON heads(category_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_sub_heads_head ON sub_heads(head_id)`,
   );
 }
 

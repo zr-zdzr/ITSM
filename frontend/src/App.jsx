@@ -18,6 +18,7 @@ import Inventory from "./pages/Inventory";
 import Requests from "./pages/Requests";
 import Assignments from "./pages/Assignments";
 import Vendors from "./pages/Vendors";
+import HeadManagement from "./pages/HeadManagement";
 
 function Guard({ children }) {
   const { user, loading } = useAuth();
@@ -67,6 +68,7 @@ function AppRoutes() {
         <Route path="requests" element={<Requests />} />
         <Route path="assignments" element={<Assignments />} />
         <Route path="vendors" element={<Vendors />} />
+        <Route path="masterdata/heads" element={<HeadManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

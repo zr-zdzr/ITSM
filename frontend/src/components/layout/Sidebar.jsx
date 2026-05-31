@@ -23,6 +23,7 @@ import {
   ClipboardList,
   PackageCheck,
   Store,
+  Layers,
 } from "lucide-react";
 import BykeaB from "../ui/BykeaB";
 import { cn } from "../../lib/utils";
@@ -437,6 +438,22 @@ export default function Sidebar({
                 label: "Vendors",
                 icon: Store,
                 path: "/vendors",
+              }}
+              collapsed={collapsed}
+              badge={0}
+            />
+          </>
+        )}
+
+        {isSA && (
+          <>
+            <SectionLabel label="Master Data" collapsed={collapsed} />
+            <StockNavItem
+              item={{
+                id: "masterdata-heads",
+                label: "Head & Sub-Head",
+                icon: Layers,
+                path: "/masterdata/heads",
               }}
               collapsed={collapsed}
               badge={0}
