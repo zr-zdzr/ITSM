@@ -63,7 +63,8 @@ function pickStatus(val) {
 
 const SELECT_COLS = `
   s.id, s.phone_number, s.assigned_type, s.assigned_user_id,
-  s.sim_holder, s.department, s.sim_type, s.location, s.purpose,
+  s.sim_holder, s.user_name, s.vendor, s.package_name, s.data_limit,
+  s.department, s.sim_type, s.location, s.purpose,
   s.notes, s.status, s.created_at, s.updated_at,
   e.full_name AS assigned_user_name
 `;

@@ -151,6 +151,57 @@ function SIMCardForm({ vals, setVals }) {
         </Fld>
       </div>
 
+      <SecHead title="Package &amp; Network" />
+
+      <div className="col-md-6">
+        <Fld label="Vendor">
+          <select
+            className={sel}
+            value={vals.vendor || "Jazz"}
+            onChange={(e) => set("vendor", e.target.value)}
+          >
+            <option value="Jazz">Jazz</option>
+            <option value="Telenor">Telenor</option>
+            <option value="Ufone">Ufone</option>
+            <option value="Zong">Zong</option>
+            <option value="Other">Other</option>
+          </select>
+        </Fld>
+      </div>
+
+      <div className="col-md-6">
+        <Fld label="Calling Package">
+          <input
+            className={inp}
+            value={vals.package_name || ""}
+            onChange={(e) => set("package_name", e.target.value)}
+            placeholder="e.g. GSM Control - 200"
+          />
+        </Fld>
+      </div>
+
+      <div className="col-md-6">
+        <Fld label="Data Package">
+          <input
+            className={inp}
+            value={vals.data_limit || ""}
+            onChange={(e) => set("data_limit", e.target.value)}
+            placeholder="e.g. 10 GB / month"
+          />
+        </Fld>
+      </div>
+
+      <div className="col-md-6">
+        <Fld label="User Name">
+          <input
+            className={inp}
+            value={vals.user_name || ""}
+            onChange={(e) => set("user_name", e.target.value)}
+            placeholder="Name registered with network"
+          />
+        </Fld>
+      </div>
+
       <SecHead title="Details" />
 
       <div className="col-md-6">
@@ -255,8 +306,12 @@ function SIMCardView(row) {
       />
       <Field label="Employee" value={row.assigned_user_name} />
       <Field label="SIM Holder" value={row.sim_holder} />
+      <Field label="User Name" value={row.user_name} />
       <Field label="Department" value={row.department} />
       <Field label="Location" value={row.location} />
+      <Field label="Vendor" value={row.vendor} />
+      <Field label="Calling Package" value={row.package_name} />
+      <Field label="Data Package" value={row.data_limit} />
       <Field label="Type" value={row.sim_type} />
       <Field label="Status" value={statusLabel[row.status] || row.status} />
       <Field label="Purpose" value={purposeLabel[row.purpose] || row.purpose} />
@@ -318,9 +373,9 @@ const config = {
       render: (_, row) => <NamedOnBadge row={row} />,
     },
     { key: "sim_holder", label: "SIM Holder", render: (v) => v || "—" },
+    { key: "package_name", label: "Calling Package", render: (v) => v || "—" },
     { key: "department", label: "Department", render: (v) => v || "—" },
     { key: "location", label: "Location", render: (v) => v || "—" },
-    { key: "sim_type", label: "Type", render: (v) => v || "—" },
     {
       key: "purpose",
       label: "Purpose of Use",
