@@ -169,7 +169,7 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
       FROM mobiles m LEFT JOIN employees e ON e.id=m.assigned_user_id ORDER BY m.created_at DESC`);
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=mobiles.csv");
-    res.send(stringify(r.rows, { header: true }));
+    res.send(stringify(r.rows, { header: true, quoted_string: true }));
   } catch (err) {
     next(err);
   }

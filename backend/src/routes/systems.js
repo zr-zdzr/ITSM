@@ -274,7 +274,7 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id ORDER BY s.created_at DESC`);
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=systems.csv");
-    res.send(stringify(r.rows, { header: true }));
+    res.send(stringify(r.rows, { header: true, quoted_string: true }));
   } catch (err) {
     next(err);
   }

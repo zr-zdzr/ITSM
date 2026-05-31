@@ -151,7 +151,7 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
       "Content-Disposition",
       "attachment; filename=network_devices.csv",
     );
-    res.send(stringify(r.rows, { header: true }));
+    res.send(stringify(r.rows, { header: true, quoted_string: true }));
   } catch (err) {
     next(err);
   }
