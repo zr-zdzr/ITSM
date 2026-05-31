@@ -255,12 +255,12 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
   try {
     const r = await db.query(`
       SELECT s.asset_tag, s.type, s.brand_type, s.manufacturer, s.model, s.serial_number, s.generation,
-             s.assigned_type,
              CASE
-               WHEN s.assigned_type IN ('employee','user','wfh') THEN e.full_name
+               WHEN s.assigned_type IN ('employee','user','wfh') THEN 'Employee'
                WHEN s.assigned_type = 'damaged' THEN 'Damaged'
                ELSE 'Inventory'
              END AS assigned_to,
+             e.full_name AS assigned_user_name,
              s.condition, s.department, s.location, s.purpose,
              s.cpu, s.cpu_cores, s.cpu2, s.cpu2_cores,
              s.ram1_size, s.ram1_bus, s.ram1_slot, s.ram1_serial,
@@ -269,8 +269,7 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
              s.ram4_size, s.ram4_bus, s.ram4_slot, s.ram4_serial,
              s.disk1_size, s.disk1_type, s.disk2_size, s.disk2_type,
              s.disk3_size, s.disk3_type, s.disk4_size, s.disk4_type,
-             s.warranty_expiry, s.status, s.purchase_date, s.invoice_number, s.notes,
-             e.full_name AS assigned_user_name
+             s.warranty_expiry, s.status, s.purchase_date, s.invoice_number, s.notes
       FROM systems s LEFT JOIN employees e ON e.id=s.assigned_user_id ORDER BY s.created_at DESC`);
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=systems.csv");
