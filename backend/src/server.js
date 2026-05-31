@@ -474,6 +474,9 @@ async function runMigrations() {
   await db.query(
     `ALTER TABLE employees ADD COLUMN IF NOT EXISTS leaving_date DATE`,
   );
+  await db.query(
+    `ALTER TABLE employees ALTER COLUMN employment_type TYPE VARCHAR(50)`,
+  );
 
   // ── Asset History ─────────────────────────────────────────
   await db.query(`
