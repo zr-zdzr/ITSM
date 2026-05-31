@@ -141,8 +141,8 @@ router.get("/export/csv", requireAuth, async (req, res, next) => {
              WHEN s.assigned_type='wfh' THEN 'WFH'
              ELSE 'Service' END AS named_on,
         e.full_name AS assigned_user_name,
-        s.sim_holder, s.department, s.sim_type, s.status,
-        s.location, s.purpose, s.notes
+        s.sim_holder, s.user_name, s.vendor, s.package_name, s.department, s.status,
+        e.location, s.purpose, s.notes
       FROM sims s LEFT JOIN employees e ON e.id=s.assigned_user_id ORDER BY s.created_at DESC`);
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=sims.csv");
