@@ -10,6 +10,7 @@ import {
   Tag,
   Tags,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
@@ -372,6 +373,7 @@ export default function HeadManagement() {
 
   const [tab, setTab] = useState("categories");
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(null);
   const [categories, setCategories] = useState([]);
   const [heads, setHeads] = useState([]);
   const [subheads, setSubheads] = useState([]);
@@ -415,6 +417,12 @@ export default function HeadManagement() {
   useEffect(() => {
     load();
   }, [load]);
+
+  function selectCategory(cat) {
+    setCategoryFilter(cat.id);
+    setTab("heads");
+    setSearch("");
+  }
 
   function openAdd() {
     setModal({ show: true, mode: "add", vals: {}, error: "", saving: false });
@@ -528,17 +536,26 @@ export default function HeadManagement() {
       c.category_name.toLowerCase().includes(q) ||
       (c.description || "").toLowerCase().includes(q),
   );
-  const filteredHeads = heads.filter(
-    (h) =>
+  const activeCategoryName = categoryFilter
+    ? (categories.find((c) => c.id === categoryFilter)?.category_name ?? "")
+    : null;
+  const filteredHeads = heads.filter((h) => {
+    const matchesSearch =
       h.head_name.toLowerCase().includes(q) ||
-      h.category_name.toLowerCase().includes(q),
-  );
-  const filteredSubheads = subheads.filter(
-    (s) =>
+      h.category_name.toLowerCase().includes(q);
+    const matchesCategory =
+      !categoryFilter || String(h.category_id) === String(categoryFilter);
+    return matchesSearch && matchesCategory;
+  });
+  const filteredSubheads = subheads.filter((s) => {
+    const matchesSearch =
       s.sub_head_name.toLowerCase().includes(q) ||
       s.head_name.toLowerCase().includes(q) ||
-      s.category_name.toLowerCase().includes(q),
-  );
+      s.category_name.toLowerCase().includes(q);
+    const matchesCategory =
+      !categoryFilter || String(s.category_id) === String(categoryFilter);
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="p-4" style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -587,6 +604,7 @@ export default function HeadManagement() {
               onClick={() => {
                 setTab(t.key);
                 setSearch("");
+                if (t.key === "categories") setCategoryFilter(null);
               }}
               className={`btn btn-sm d-flex align-items-center gap-1 rounded-0 border-0 border-bottom px-3 py-2 ${
                 tab === t.key
@@ -668,7 +686,24 @@ export default function HeadManagement() {
                     filteredCategories.map((c, i) => (
                       <tr key={c.id}>
                         <td className="text-secondary">{i + 1}</td>
-                        <td className="fw-medium">{c.category_name}</td>
+                        <td>
+                          <button
+                            className="btn btn-link p-0 fw-medium text-start"
+                            style={{
+                              color: "var(--brand)",
+                              textDecoration: "none",
+                              fontSize: "inherit",
+                            }}
+                            title={`View heads for ${c.category_name}`}
+                            onClick={() => selectCategory(c)}
+                          >
+                            {c.category_name}
+                            <ChevronRight
+                              size={12}
+                              className="ms-1 opacity-50"
+                            />
+                          </button>
+                        </td>
                         <td className="text-secondary">
                           {c.description || "—"}
                         </td>
@@ -721,186 +756,244 @@ export default function HeadManagement() {
 
           {/* Heads Table */}
           {tab === "heads" && (
-            <div className="table-responsive">
-              <table className="table table-sm table-hover align-middle small mb-0">
-                <thead>
-                  <tr
-                    className="text-secondary"
+            <>
+              {activeCategoryName && (
+                <div className="d-flex align-items-center gap-2 mb-3">
+                  <span className="small text-secondary">Filtered by:</span>
+                  <span
+                    className="badge d-inline-flex align-items-center gap-1 px-2 py-1"
                     style={{
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
+                      background: "rgba(0,170,47,0.12)",
+                      color: "var(--brand)",
+                      border: "1px solid rgba(0,170,47,0.3)",
+                      fontSize: 12,
                     }}
                   >
-                    <th>#</th>
-                    <th>Category</th>
-                    <th>Head Name</th>
-                    <th>Description</th>
-                    <th>Sub-Heads</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHeads.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="text-center text-secondary py-4"
-                      >
-                        No heads found
-                      </td>
+                    <Layers size={11} />
+                    {activeCategoryName}
+                    <button
+                      className="btn p-0 ms-1 lh-1"
+                      style={{ color: "inherit", opacity: 0.7 }}
+                      title="Clear filter"
+                      onClick={() => setCategoryFilter(null)}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                </div>
+              )}
+              <div className="table-responsive">
+                <table className="table table-sm table-hover align-middle small mb-0">
+                  <thead>
+                    <tr
+                      className="text-secondary"
+                      style={{
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      <th>#</th>
+                      <th>Category</th>
+                      <th>Head Name</th>
+                      <th>Description</th>
+                      <th>Sub-Heads</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ) : (
-                    filteredHeads.map((h, i) => (
-                      <tr key={h.id}>
-                        <td className="text-secondary">{i + 1}</td>
-                        <td>
-                          <span className="badge bg-info-subtle text-info border border-info-subtle">
-                            {h.category_name}
-                          </span>
-                        </td>
-                        <td className="fw-medium">{h.head_name}</td>
-                        <td className="text-secondary">
-                          {h.description || "—"}
-                        </td>
-                        <td>
-                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-                            {h.sub_head_count}
-                          </span>
-                        </td>
-                        <td>
-                          <StatusBadge status={h.status} />
-                        </td>
-                        <td>
-                          <div className="d-flex gap-1 flex-wrap">
-                            {canUpdate && (
-                              <ActionBtn
-                                icon={Pencil}
-                                label="Edit"
-                                onClick={() => openEdit(h)}
-                                variant="primary"
-                              />
-                            )}
-                            {canUpdate && (
-                              <ActionBtn
-                                icon={
-                                  h.status === "active" ? XCircle : CheckCircle
-                                }
-                                label={
-                                  h.status === "active" ? "Disable" : "Enable"
-                                }
-                                onClick={() => onToggle(h)}
-                              />
-                            )}
-                            {canDelete && (
-                              <ActionBtn
-                                icon={Trash2}
-                                label="Delete"
-                                onClick={() => confirmDelete(h)}
-                                danger
-                              />
-                            )}
-                          </div>
+                  </thead>
+                  <tbody>
+                    {filteredHeads.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="text-center text-secondary py-4"
+                        >
+                          No heads found
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredHeads.map((h, i) => (
+                        <tr key={h.id}>
+                          <td className="text-secondary">{i + 1}</td>
+                          <td>
+                            <span className="badge bg-info-subtle text-info border border-info-subtle">
+                              {h.category_name}
+                            </span>
+                          </td>
+                          <td className="fw-medium">{h.head_name}</td>
+                          <td className="text-secondary">
+                            {h.description || "—"}
+                          </td>
+                          <td>
+                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                              {h.sub_head_count}
+                            </span>
+                          </td>
+                          <td>
+                            <StatusBadge status={h.status} />
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1 flex-wrap">
+                              {canUpdate && (
+                                <ActionBtn
+                                  icon={Pencil}
+                                  label="Edit"
+                                  onClick={() => openEdit(h)}
+                                  variant="primary"
+                                />
+                              )}
+                              {canUpdate && (
+                                <ActionBtn
+                                  icon={
+                                    h.status === "active"
+                                      ? XCircle
+                                      : CheckCircle
+                                  }
+                                  label={
+                                    h.status === "active" ? "Disable" : "Enable"
+                                  }
+                                  onClick={() => onToggle(h)}
+                                />
+                              )}
+                              {canDelete && (
+                                <ActionBtn
+                                  icon={Trash2}
+                                  label="Delete"
+                                  onClick={() => confirmDelete(h)}
+                                  danger
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Sub-Heads Table */}
           {tab === "subheads" && (
-            <div className="table-responsive">
-              <table className="table table-sm table-hover align-middle small mb-0">
-                <thead>
-                  <tr
-                    className="text-secondary"
+            <>
+              {activeCategoryName && (
+                <div className="d-flex align-items-center gap-2 mb-3">
+                  <span className="small text-secondary">Filtered by:</span>
+                  <span
+                    className="badge d-inline-flex align-items-center gap-1 px-2 py-1"
                     style={{
-                      fontSize: 11,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
+                      background: "rgba(0,170,47,0.12)",
+                      color: "var(--brand)",
+                      border: "1px solid rgba(0,170,47,0.3)",
+                      fontSize: 12,
                     }}
                   >
-                    <th>#</th>
-                    <th>Category</th>
-                    <th>Head</th>
-                    <th>Sub-Head Name</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSubheads.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="text-center text-secondary py-4"
-                      >
-                        No sub-heads found
-                      </td>
+                    <Layers size={11} />
+                    {activeCategoryName}
+                    <button
+                      className="btn p-0 ms-1 lh-1"
+                      style={{ color: "inherit", opacity: 0.7 }}
+                      title="Clear filter"
+                      onClick={() => setCategoryFilter(null)}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                </div>
+              )}
+              <div className="table-responsive">
+                <table className="table table-sm table-hover align-middle small mb-0">
+                  <thead>
+                    <tr
+                      className="text-secondary"
+                      style={{
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      <th>#</th>
+                      <th>Category</th>
+                      <th>Head</th>
+                      <th>Sub-Head Name</th>
+                      <th>Description</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ) : (
-                    filteredSubheads.map((s, i) => (
-                      <tr key={s.id}>
-                        <td className="text-secondary">{i + 1}</td>
-                        <td>
-                          <span className="badge bg-info-subtle text-info border border-info-subtle">
-                            {s.category_name}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="badge bg-warning-subtle text-warning border border-warning-subtle">
-                            {s.head_name}
-                          </span>
-                        </td>
-                        <td className="fw-medium">{s.sub_head_name}</td>
-                        <td className="text-secondary">
-                          {s.description || "—"}
-                        </td>
-                        <td>
-                          <StatusBadge status={s.status} />
-                        </td>
-                        <td>
-                          <div className="d-flex gap-1 flex-wrap">
-                            {canUpdate && (
-                              <ActionBtn
-                                icon={Pencil}
-                                label="Edit"
-                                onClick={() => openEdit(s)}
-                                variant="primary"
-                              />
-                            )}
-                            {canUpdate && (
-                              <ActionBtn
-                                icon={
-                                  s.status === "active" ? XCircle : CheckCircle
-                                }
-                                label={
-                                  s.status === "active" ? "Disable" : "Enable"
-                                }
-                                onClick={() => onToggle(s)}
-                              />
-                            )}
-                            {canDelete && (
-                              <ActionBtn
-                                icon={Trash2}
-                                label="Delete"
-                                onClick={() => confirmDelete(s)}
-                                danger
-                              />
-                            )}
-                          </div>
+                  </thead>
+                  <tbody>
+                    {filteredSubheads.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="text-center text-secondary py-4"
+                        >
+                          No sub-heads found
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredSubheads.map((s, i) => (
+                        <tr key={s.id}>
+                          <td className="text-secondary">{i + 1}</td>
+                          <td>
+                            <span className="badge bg-info-subtle text-info border border-info-subtle">
+                              {s.category_name}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="badge bg-warning-subtle text-warning border border-warning-subtle">
+                              {s.head_name}
+                            </span>
+                          </td>
+                          <td className="fw-medium">{s.sub_head_name}</td>
+                          <td className="text-secondary">
+                            {s.description || "—"}
+                          </td>
+                          <td>
+                            <StatusBadge status={s.status} />
+                          </td>
+                          <td>
+                            <div className="d-flex gap-1 flex-wrap">
+                              {canUpdate && (
+                                <ActionBtn
+                                  icon={Pencil}
+                                  label="Edit"
+                                  onClick={() => openEdit(s)}
+                                  variant="primary"
+                                />
+                              )}
+                              {canUpdate && (
+                                <ActionBtn
+                                  icon={
+                                    s.status === "active"
+                                      ? XCircle
+                                      : CheckCircle
+                                  }
+                                  label={
+                                    s.status === "active" ? "Disable" : "Enable"
+                                  }
+                                  onClick={() => onToggle(s)}
+                                />
+                              )}
+                              {canDelete && (
+                                <ActionBtn
+                                  icon={Trash2}
+                                  label="Delete"
+                                  onClick={() => confirmDelete(s)}
+                                  danger
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </>
       )}

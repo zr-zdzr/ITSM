@@ -42,8 +42,8 @@ router.get("/", requireAuth, async (req, res, next) => {
       UNION ALL
 
       SELECT 'gws', '/gws', id::text,
-             COALESCE(email, display_name, 'Cloud ID') AS label,
-             CONCAT_WS(' · ', account_type, status) AS sub
+             COALESCE(display_name, email, 'Cloud ID') AS label,
+             CONCAT_WS(' · ', email, account_type, status) AS sub
       FROM gws_accounts
       WHERE email ILIKE $1 OR display_name ILIKE $1
 
