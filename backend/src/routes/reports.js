@@ -184,7 +184,7 @@ router.get("/employee-assets", requireAuth, async (req, res, next) => {
             'model',s.model,'serial_number',s.serial_number,'generation',s.generation,
             'status',s.status,'condition',s.condition,'location',s.location
           ) ORDER BY s.asset_tag)
-          FROM systems s WHERE s.assigned_user_id=e.id AND s.assigned_type='user'
+          FROM systems s WHERE s.assigned_user_id=e.id AND s.assigned_type='employee'
         ), '[]'::json) AS systems,
         COALESCE((
           SELECT json_agg(json_build_object(
@@ -192,15 +192,27 @@ router.get("/employee-assets", requireAuth, async (req, res, next) => {
             'os',m.os,'storage_capacity',m.storage_capacity,
             'status',m.status,'condition',m.condition
           ) ORDER BY m.asset_tag)
-          FROM mobiles m WHERE m.assigned_user_id=e.id AND m.assigned_type='user'
+          FROM mobiles m WHERE m.assigned_user_id=e.id AND m.assigned_type='employee'
         ), '[]'::json) AS mobiles,
         COALESCE((
           SELECT json_agg(json_build_object(
             'phone_number',s.phone_number,'vendor',s.vendor,
             'package_name',s.package_name,'service_type',s.service_type,'status',s.status
           ) ORDER BY s.phone_number)
-          FROM sims s WHERE s.assigned_user_id=e.id AND s.assigned_type='user'
-        ), '[]'::json) AS sims
+          FROM sims s WHERE s.assigned_user_id=e.id AND s.assigned_type='employee'
+        ), '[]'::json) AS sims,
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'asn_number',ia.asn_number,'assigned_date',ia.assigned_date,
+            'item_name',i.name,'unit',i.unit,'qty',iai.qty,
+            'category_name',c.name
+          ) ORDER BY ia.assigned_date DESC, i.name)
+          FROM inv_assignments ia
+          JOIN inv_assignment_items iai ON iai.assignment_id=ia.id
+          JOIN inv_items i ON i.id=iai.item_id
+          LEFT JOIN inv_categories c ON c.id=i.category_id
+          WHERE ia.assignee_id=e.id AND iai.status='active'
+        ), '[]'::json) AS inventory
       FROM employees e
       ${where}
       ORDER BY e.full_name`,
@@ -236,7 +248,7 @@ router.get("/employee-assets/csv", requireAuth, async (req, res, next) => {
         s.type AS asset_type, s.asset_tag, s.manufacturer, s.model,
         s.serial_number, s.generation, s.status, s.condition, s.location AS asset_location
       FROM employees e
-      JOIN systems s ON s.assigned_user_id=e.id AND s.assigned_type='user'
+      JOIN systems s ON s.assigned_user_id=e.id AND s.assigned_type='employee'
       ${where}
       UNION ALL
       SELECT
@@ -245,7 +257,7 @@ router.get("/employee-assets/csv", requireAuth, async (req, res, next) => {
         'Mobile' AS asset_type, m.asset_tag, m.manufacturer, m.model,
         m.serial_number, NULL, m.status, m.condition, NULL
       FROM employees e
-      JOIN mobiles m ON m.assigned_user_id=e.id AND m.assigned_type='user'
+      JOIN mobiles m ON m.assigned_user_id=e.id AND m.assigned_type='employee'
       ${where.replace(/e\.(department|location)/g, "e.$1")}
       UNION ALL
       SELECT
@@ -254,7 +266,19 @@ router.get("/employee-assets/csv", requireAuth, async (req, res, next) => {
         'SIM Card' AS asset_type, NULL, si.vendor, si.package_name,
         si.phone_number, NULL, si.status, NULL, NULL
       FROM employees e
-      JOIN sims si ON si.assigned_user_id=e.id AND si.assigned_type='user'
+      JOIN sims si ON si.assigned_user_id=e.id AND si.assigned_type='employee'
+      ${where.replace(/e\.(department|location)/g, "e.$1")}
+      UNION ALL
+      SELECT
+        e.full_name,
+        e.email, e.designation, e.department, e.location, e.employment_type,
+        'Accessory' AS asset_type, NULL, c.name, i.name,
+        ia.asn_number, NULL, iai.status, NULL, NULL
+      FROM employees e
+      JOIN inv_assignments ia ON ia.assignee_id=e.id
+      JOIN inv_assignment_items iai ON iai.assignment_id=ia.id AND iai.status='active'
+      JOIN inv_items i ON i.id=iai.item_id
+      LEFT JOIN inv_categories c ON c.id=i.category_id
       ${where.replace(/e\.(department|location)/g, "e.$1")}
       ORDER BY employee, asset_type, asset_tag`,
       params,

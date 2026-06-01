@@ -2,7 +2,13 @@ import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
-const SIZES = { sm: "480px", md: "560px", lg: "720px", xl: "900px" };
+const SIZES = {
+  sm: "480px",
+  md: "560px",
+  lg: "720px",
+  xl: "900px",
+  "2xl": "1100px",
+};
 
 export default function Modal({ open, onClose, title, children, size = "md" }) {
   useEffect(() => {

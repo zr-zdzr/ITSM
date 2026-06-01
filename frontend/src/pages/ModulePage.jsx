@@ -34,6 +34,7 @@ export default function ModulePage({ config, headerExtra }) {
     sampleFile,
     searchPlaceholder,
     viewExtra,
+    viewSize = "md",
     qrData,
   } = config;
   const { canPerm } = useAuth();
@@ -147,13 +148,14 @@ export default function ModulePage({ config, headerExtra }) {
     }
     setFormErrors({});
     setSaving(true);
+    const baseCrud = apiPath.split("?")[0];
     try {
       let saved;
       if (editRow) {
-        saved = await api.put(`${apiPath}/${editRow.id}`, formVals);
+        saved = await api.put(`${baseCrud}/${editRow.id}`, formVals);
         toast(`${title} updated`, "success");
       } else {
-        saved = await api.post(apiPath, formVals);
+        saved = await api.post(baseCrud, formVals);
         toast(`${title} added`, "success");
       }
       closeModals();
@@ -171,7 +173,7 @@ export default function ModulePage({ config, headerExtra }) {
 
   async function deleteRow(row) {
     try {
-      await api.del(`${apiPath}/${row.id}`);
+      await api.del(`${apiPath.split("?")[0]}/${row.id}`);
       toast(
         mod === "employees" ? "Moved to Ex-Employees" : "Deleted",
         "success",
@@ -186,7 +188,7 @@ export default function ModulePage({ config, headerExtra }) {
   async function deleteSelected() {
     try {
       await Promise.all(
-        [...selectedIds].map((id) => api.del(`${apiPath}/${id}`)),
+        [...selectedIds].map((id) => api.del(`${apiPath.split("?")[0]}/${id}`)),
       );
       toast(
         `${selectedIds.size} record${selectedIds.size > 1 ? "s" : ""} deleted`,
@@ -201,7 +203,7 @@ export default function ModulePage({ config, headerExtra }) {
 
   async function deleteAll() {
     try {
-      await api.del(`${apiPath}/all`);
+      await api.del(`${apiPath.split("?")[0]}/all`);
       toast("All records deleted", "success");
       setConfirmDeleteAll(false);
       setRows([]);
@@ -456,7 +458,7 @@ export default function ModulePage({ config, headerExtra }) {
         open={!!viewRow}
         onClose={() => setViewRow(null)}
         title={`${title} Details`}
-        size="md"
+        size={viewSize}
       >
         {viewRow && (
           <>

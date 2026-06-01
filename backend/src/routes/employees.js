@@ -544,6 +544,63 @@ router.delete(
   },
 );
 
+// ── FULL PROFILE (all assigned assets) ───────────────────────
+router.get("/:id/profile", requireAuth, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [emp, systems, mobiles, sims, gws, inventory] = await Promise.all([
+      db.query("SELECT * FROM employees WHERE id=$1", [id]),
+      db.query(
+        `SELECT id, asset_tag, type, manufacturer, model, serial_number,
+                status, condition, location
+         FROM systems WHERE assigned_user_id=$1 ORDER BY manufacturer, model`,
+        [id],
+      ),
+      db.query(
+        `SELECT id, asset_tag, manufacturer, model, serial_number, imei,
+                status, condition
+         FROM mobiles WHERE assigned_user_id=$1 ORDER BY manufacturer, model`,
+        [id],
+      ),
+      db.query(
+        `SELECT id, phone_number, vendor, package_name, status, purpose
+         FROM sims WHERE assigned_user_id=$1 ORDER BY phone_number`,
+        [id],
+      ),
+      db.query(
+        `SELECT g.id, g.display_name, g.email, g.account_type, g.gws_role,
+                g.license, g.two_fa, g.status, g.storage_used, g.storage_limit
+         FROM gws_accounts g
+         JOIN employees e ON LOWER(e.email) = LOWER(g.email)
+         WHERE e.id=$1`,
+        [id],
+      ),
+      db.query(
+        `SELECT ia.asn_number, ia.assigned_date, i.name AS item_name,
+                i.unit, iai.qty, c.name AS category_name
+         FROM inv_assignments ia
+         JOIN inv_assignment_items iai ON iai.assignment_id = ia.id
+         JOIN inv_items i ON i.id = iai.item_id
+         LEFT JOIN inv_categories c ON c.id = i.category_id
+         WHERE ia.assignee_id=$1 AND iai.status='active'
+         ORDER BY ia.assigned_date DESC, i.name`,
+        [id],
+      ),
+    ]);
+    if (!emp.rows[0]) return res.status(404).json({ error: "Not found" });
+    res.json({
+      employee: emp.rows[0],
+      systems: systems.rows,
+      mobiles: mobiles.rows,
+      sims: sims.rows,
+      gws: gws.rows,
+      inventory: inventory.rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── CLEARANCE REPORT ─────────────────────────────────────────
 router.get("/:id/clearance", requireAuth, async (req, res, next) => {
   try {

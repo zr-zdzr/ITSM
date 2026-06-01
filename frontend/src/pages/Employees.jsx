@@ -13,6 +13,9 @@ import {
   Users,
   FileDown,
   AlertTriangle,
+  CreditCard,
+  Cloud,
+  Printer,
 } from "lucide-react";
 import { cn, fmtDate } from "../lib/utils";
 
@@ -231,6 +234,593 @@ function EmployeeHardwareHistory({ row }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Employee Profile ──────────────────────────────────────────
+function StatusPill({ status }) {
+  const map = {
+    active: ["rgba(34,197,94,0.12)", "#4ade80"],
+    "in use": ["rgba(34,197,94,0.12)", "#4ade80"],
+    assigned: ["rgba(34,197,94,0.12)", "#4ade80"],
+    inactive: ["rgba(113,113,122,0.15)", "#a1a1aa"],
+    suspended: ["rgba(245,158,11,0.12)", "#fbbf24"],
+    deleted: ["rgba(248,113,113,0.12)", "#f87171"],
+    maintenance: ["rgba(245,158,11,0.12)", "#fbbf24"],
+    available: ["rgba(96,165,250,0.12)", "#60a5fa"],
+  };
+  const s = (status || "").toLowerCase();
+  const [bg, color] = map[s] || ["rgba(113,113,122,0.15)", "#a1a1aa"];
+  return (
+    <span
+      className="badge px-2 py-1"
+      style={{
+        background: bg,
+        color,
+        fontSize: 10,
+        textTransform: "capitalize",
+      }}
+    >
+      {status || "—"}
+    </span>
+  );
+}
+
+function MiniTable({ headers, rows }) {
+  return (
+    <div className="table-responsive">
+      <table className="table table-sm mb-0" style={{ fontSize: "0.75rem" }}>
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th
+                key={h}
+                className="text-secondary text-nowrap"
+                style={{
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  padding: "0.3rem 0.6rem",
+                  borderBottom: "1px solid var(--bs-border-color)",
+                  fontWeight: 600,
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((cols, i) => (
+            <tr key={i}>
+              {cols.map((val, j) => (
+                <td
+                  key={j}
+                  className="align-middle"
+                  style={{ padding: "0.35rem 0.6rem" }}
+                >
+                  {val}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AssetSection({ icon: Icon, title, color, count, empty, children }) {
+  return (
+    <div
+      className="rounded-3 overflow-hidden"
+      style={{ border: "1px solid var(--bs-border-color)" }}
+    >
+      <div
+        className="d-flex align-items-center gap-2 px-3 py-2"
+        style={{
+          background: "var(--surface-subtle)",
+          borderBottom: count > 0 ? "1px solid var(--bs-border-color)" : "none",
+        }}
+      >
+        <Icon size={13} style={{ color }} />
+        <span
+          className="fw-semibold text-uppercase"
+          style={{ fontSize: "11px", letterSpacing: "0.05em", color }}
+        >
+          {title}
+        </span>
+        <span
+          className="badge ms-1"
+          style={{ background: `${color}22`, color, fontSize: 10 }}
+        >
+          {count}
+        </span>
+      </div>
+      {count === 0 ? (
+        <p className="text-secondary small mb-0 px-3 py-2">{empty}</p>
+      ) : (
+        children
+      )}
+    </div>
+  );
+}
+
+function EmployeeProfile({ row, onReactivated }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get(`/api/employees/${row.id}/profile`)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.id]);
+
+  async function reactivate() {
+    setReactivating(true);
+    try {
+      await api.patch(`/api/employees/${row.id}/reactivate`);
+      onReactivated?.();
+    } catch {
+      setReactivating(false);
+    }
+  }
+
+  async function exportPDF() {
+    if (!data) return;
+    setPrinting(true);
+    try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const doc = new jsPDF();
+      const emp = data.employee;
+      const BRAND = [0, 170, 47];
+
+      doc.setFillColor(...BRAND);
+      doc.rect(0, 0, 210, 28, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text("Employee Asset Profile", 14, 12);
+      doc.setFontSize(9);
+      doc.setFont(undefined, "normal");
+      doc.text(
+        `${emp.full_name}  ·  ${emp.designation || ""}  ·  ${emp.department || ""}`,
+        14,
+        19,
+      );
+      doc.text(`Generated: ${new Date().toLocaleString("en-GB")}`, 14, 25);
+
+      let y = 34;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Field", "Value", "Field", "Value"]],
+        body: [
+          ["Email", emp.email || "—", "Location", emp.location || "—"],
+          [
+            "Mobile",
+            emp.mobile_number || "—",
+            "Business Unit",
+            emp.business_unit || "—",
+          ],
+          [
+            "Type",
+            emp.employment_type || "—",
+            "Joining Date",
+            fmtDate(emp.joining_date),
+          ],
+          [
+            "Status",
+            emp.is_active ? "Active" : "Ex-Employee",
+            "Leaving Date",
+            emp.leaving_date ? fmtDate(emp.leaving_date) : "—",
+          ],
+        ],
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: BRAND },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 38 },
+          2: { fontStyle: "bold", cellWidth: 38 },
+        },
+        margin: { left: 14, right: 14 },
+      });
+      y = doc.lastAutoTable.finalY + 8;
+
+      const section = (title, head, body, color) => {
+        if (body.length === 0) return;
+        if (y > 240) {
+          doc.addPage();
+          y = 16;
+        }
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(40, 40, 40);
+        doc.text(title, 14, y);
+        autoTable(doc, {
+          startY: y + 3,
+          head: [head],
+          body,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: color },
+          margin: { left: 14, right: 14 },
+        });
+        y = doc.lastAutoTable.finalY + 8;
+      };
+
+      section(
+        `Systems / Computers (${data.systems.length})`,
+        [
+          "Asset Tag",
+          "Type",
+          "Brand / Model",
+          "Serial No.",
+          "Status",
+          "Condition",
+        ],
+        data.systems.map((s) => [
+          s.asset_tag || "—",
+          s.type || "—",
+          [s.manufacturer, s.model].filter(Boolean).join(" ") || "—",
+          s.serial_number || "—",
+          s.status || "—",
+          s.condition || "—",
+        ]),
+        [96, 165, 250],
+      );
+
+      section(
+        `Mobile Phones (${data.mobiles.length})`,
+        [
+          "Asset Tag",
+          "Brand / Model",
+          "Serial No.",
+          "IMEI",
+          "Status",
+          "Condition",
+        ],
+        data.mobiles.map((m) => [
+          m.asset_tag || "—",
+          [m.manufacturer, m.model].filter(Boolean).join(" ") || "—",
+          m.serial_number || "—",
+          m.imei || "—",
+          m.status || "—",
+          m.condition || "—",
+        ]),
+        [74, 222, 128],
+      );
+
+      section(
+        `SIM Cards (${data.sims.length})`,
+        ["Phone Number", "Vendor", "Package", "Purpose", "Status"],
+        data.sims.map((s) => [
+          s.phone_number || "—",
+          s.vendor || "—",
+          s.package_name || "—",
+          s.purpose || "—",
+          s.status || "—",
+        ]),
+        [168, 85, 247],
+      );
+
+      section(
+        `Cloud IDs / Google Workspace (${data.gws.length})`,
+        ["Display Name", "Email", "Role", "License", "2FA", "Status"],
+        data.gws.map((g) => [
+          g.display_name || "—",
+          g.email || "—",
+          g.gws_role || "—",
+          g.license || "—",
+          g.two_fa ? "Enabled" : "Disabled",
+          g.status || "—",
+        ]),
+        [6, 182, 212],
+      );
+
+      section(
+        `Inventory / Accessories (${data.inventory.length})`,
+        ["Item", "Category", "Qty", "ASN #", "Issued Date"],
+        data.inventory.map((i) => [
+          i.item_name || "—",
+          i.category_name || "—",
+          `${i.qty} ${i.unit}`,
+          i.asn_number || "—",
+          fmtDate(i.assigned_date),
+        ]),
+        [20, 184, 166],
+      );
+
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(130, 130, 130);
+      doc.text(
+        "Employee Signature: _______________________________   Date: ______________",
+        14,
+        y + 12,
+      );
+      doc.text(
+        "IT Manager Signature: ____________________________   Date: ______________",
+        14,
+        y + 22,
+      );
+
+      doc.save(
+        `asset-profile-${emp.full_name.replace(/\s+/g, "-").toLowerCase()}.pdf`,
+      );
+    } finally {
+      setPrinting(false);
+    }
+  }
+
+  if (loading)
+    return (
+      <div className="text-center text-secondary py-5 small">
+        Loading profile…
+      </div>
+    );
+  if (!data) return null;
+
+  const { employee: emp, systems, mobiles, sims, gws, inventory } = data;
+  const initials = emp.full_name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const totalAssets =
+    systems.length +
+    mobiles.length +
+    sims.length +
+    gws.length +
+    inventory.length;
+
+  return (
+    <div>
+      {/* Employee header card */}
+      <div
+        className="d-flex align-items-start gap-3 mb-4 p-3 rounded-3"
+        style={{ background: "var(--surface-subtle)" }}
+      >
+        <div
+          className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0 fw-bold"
+          style={{
+            width: 52,
+            height: 52,
+            background: "rgba(0,170,47,0.15)",
+            color: "var(--brand)",
+            fontSize: 18,
+          }}
+        >
+          {initials}
+        </div>
+        <div className="flex-grow-1 min-w-0">
+          <div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span className="fw-bold" style={{ fontSize: "1rem" }}>
+              {emp.full_name}
+            </span>
+            <span
+              className={`badge rounded-pill px-2 ${
+                emp.is_active
+                  ? "bg-success-subtle text-success"
+                  : "bg-secondary-subtle text-secondary"
+              }`}
+              style={{ fontSize: 10 }}
+            >
+              {emp.is_active ? "Active" : "Ex-Employee"}
+            </span>
+            <span
+              className="badge rounded-pill px-2"
+              style={{
+                background: "rgba(0,170,47,0.12)",
+                color: "var(--brand)",
+                fontSize: 10,
+              }}
+            >
+              {totalAssets} asset{totalAssets !== 1 ? "s" : ""} assigned
+            </span>
+          </div>
+          <div className="text-secondary" style={{ fontSize: "0.78rem" }}>
+            {[emp.designation, emp.department, emp.business_unit, emp.location]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+          <div
+            className="d-flex gap-3 mt-1 flex-wrap text-secondary"
+            style={{ fontSize: "0.73rem" }}
+          >
+            {emp.email && <span>{emp.email}</span>}
+            {emp.mobile_number && <span>{emp.mobile_number}</span>}
+            {emp.joining_date && (
+              <span>Joined {fmtDate(emp.joining_date)}</span>
+            )}
+          </div>
+        </div>
+        {!emp.is_active && (
+          <button
+            className="btn btn-sm btn-outline-success flex-shrink-0 d-flex align-items-center gap-1"
+            onClick={reactivate}
+            disabled={reactivating}
+          >
+            <RotateCcw size={12} />
+            {reactivating ? "Reactivating…" : "Reactivate"}
+          </button>
+        )}
+      </div>
+
+      {/* Asset sections */}
+      <div className="d-flex flex-column gap-2">
+        <AssetSection
+          icon={Monitor}
+          title="Systems / Computers"
+          color="#60a5fa"
+          count={systems.length}
+          empty="No system assigned"
+        >
+          <MiniTable
+            headers={[
+              "Asset Tag",
+              "Type",
+              "Brand / Model",
+              "Serial No.",
+              "Status",
+              "Condition",
+            ]}
+            rows={systems.map((s) => [
+              <code key="t" style={{ fontSize: 11 }}>
+                {s.asset_tag || "—"}
+              </code>,
+              s.type || "—",
+              [s.manufacturer, s.model].filter(Boolean).join(" ") || "—",
+              <code key="sn" style={{ fontSize: 11 }}>
+                {s.serial_number || "—"}
+              </code>,
+              <StatusPill key="st" status={s.status} />,
+              s.condition || "—",
+            ])}
+          />
+        </AssetSection>
+
+        <AssetSection
+          icon={Smartphone}
+          title="Mobile Phones"
+          color="#4ade80"
+          count={mobiles.length}
+          empty="No mobile assigned"
+        >
+          <MiniTable
+            headers={[
+              "Asset Tag",
+              "Brand / Model",
+              "Serial No.",
+              "IMEI",
+              "Status",
+              "Condition",
+            ]}
+            rows={mobiles.map((m) => [
+              <code key="t" style={{ fontSize: 11 }}>
+                {m.asset_tag || "—"}
+              </code>,
+              [m.manufacturer, m.model].filter(Boolean).join(" ") || "—",
+              <code key="sn" style={{ fontSize: 11 }}>
+                {m.serial_number || "—"}
+              </code>,
+              <code key="im" style={{ fontSize: 11 }}>
+                {m.imei || "—"}
+              </code>,
+              <StatusPill key="st" status={m.status} />,
+              m.condition || "—",
+            ])}
+          />
+        </AssetSection>
+
+        <AssetSection
+          icon={CreditCard}
+          title="SIM Cards"
+          color="#a78bfa"
+          count={sims.length}
+          empty="No SIM card assigned"
+        >
+          <MiniTable
+            headers={["Phone Number", "Vendor", "Package", "Purpose", "Status"]}
+            rows={sims.map((s) => [
+              <code key="ph" style={{ fontSize: 11 }}>
+                {s.phone_number || "—"}
+              </code>,
+              s.vendor || "—",
+              s.package_name || "—",
+              s.purpose || "—",
+              <StatusPill key="st" status={s.status} />,
+            ])}
+          />
+        </AssetSection>
+
+        <AssetSection
+          icon={Cloud}
+          title="Cloud IDs / Google Workspace"
+          color="#22d3ee"
+          count={gws.length}
+          empty="No Cloud ID linked — email address not found in GWS accounts"
+        >
+          <MiniTable
+            headers={[
+              "Display Name",
+              "Email",
+              "Role",
+              "License",
+              "2FA",
+              "Status",
+            ]}
+            rows={gws.map((g) => [
+              g.display_name || "—",
+              g.email || "—",
+              g.gws_role || "—",
+              g.license || "—",
+              g.two_fa ? (
+                <span key="2fa" style={{ color: "#4ade80", fontSize: 11 }}>
+                  ✓ Enabled
+                </span>
+              ) : (
+                <span key="2fa" style={{ color: "#f87171", fontSize: 11 }}>
+                  ✗ Disabled
+                </span>
+              ),
+              <StatusPill key="st" status={g.status} />,
+            ])}
+          />
+        </AssetSection>
+
+        <AssetSection
+          icon={PackageCheck}
+          title="Inventory / Accessories"
+          color="#2dd4bf"
+          count={inventory.length}
+          empty="No inventory items currently assigned"
+        >
+          <MiniTable
+            headers={["Item", "Category", "Qty", "ASN #", "Issued Date"]}
+            rows={inventory.map((i) => [
+              i.item_name || "—",
+              i.category_name || "—",
+              `${i.qty} ${i.unit}`,
+              <code key="asn" style={{ fontSize: 11 }}>
+                {i.asn_number}
+              </code>,
+              fmtDate(i.assigned_date),
+            ])}
+          />
+        </AssetSection>
+      </div>
+
+      {/* Footer actions */}
+      <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+        <button
+          className="btn btn-sm btn-success d-flex align-items-center gap-2"
+          onClick={exportPDF}
+          disabled={printing}
+        >
+          <Printer size={13} />
+          {printing ? "Generating PDF…" : "Print / Export PDF"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -970,7 +1560,8 @@ const config = {
   },
 
   renderForm: (vals, setVals) => <EmployeeForm vals={vals} setVals={setVals} />,
-  renderView: (row) => <EmployeeView row={row} />,
+  renderView: null,
+  viewSize: "2xl",
 };
 
 function makeConfig(exMode, onReactivated) {
@@ -980,14 +1571,10 @@ function makeConfig(exMode, onReactivated) {
       ? "/api/employees?status=inactive"
       : "/api/employees?status=active",
     title: exMode ? "Ex-Employee" : "Employee",
-    viewExtra: exMode
-      ? (row) => <EmployeeClearance row={row} onReactivated={onReactivated} />
-      : (row) => (
-          <>
-            <EmployeeAssignments row={row} />
-            <EmployeeHardwareHistory row={row} />
-          </>
-        ),
+    renderView: (row) => (
+      <EmployeeProfile row={row} onReactivated={onReactivated} />
+    ),
+    viewExtra: null,
   };
 }
 

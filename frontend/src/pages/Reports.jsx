@@ -870,6 +870,18 @@ const TABS = [
 ];
 
 // ── EMPLOYEE ASSETS TAB ───────────────────────────────────
+const ASSET_TYPES = [
+  { key: "systems", label: "Systems", icon: Monitor, color: "#60a5fa" },
+  { key: "mobiles", label: "Mobiles", icon: Smartphone, color: "#4ade80" },
+  { key: "sims", label: "SIM Cards", icon: CreditCard, color: "#a78bfa" },
+  {
+    key: "inventory",
+    label: "Accessories",
+    icon: PackageCheck,
+    color: "#2dd4bf",
+  },
+];
+
 function EmployeeAssetsTab({ filterOpts, toast }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -877,6 +889,17 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
   const [dept, setDept] = useState("");
   const [loc, setLoc] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [included, setIncluded] = useState(
+    new Set(["systems", "mobiles", "sims", "inventory"]),
+  );
+
+  function toggleType(key) {
+    setIncluded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -929,57 +952,106 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
       "Location",
       "Asset Type",
       "Asset Tag / Number",
-      "Brand",
-      "Model",
+      "Brand / Vendor",
+      "Model / Package",
       "Status",
     ];
     const body = [];
     filtered.forEach((emp) => {
-      const name = emp.full_name || "";
       const base = [
-        name,
+        emp.full_name || "",
         emp.designation || "",
         emp.department || "",
         emp.location || "",
       ];
-      (emp.systems || []).forEach((s) =>
-        body.push([
-          ...base,
-          s.type || "System",
-          s.asset_tag || "",
-          s.manufacturer || "",
-          s.model || "",
-          s.status || "",
-        ]),
-      );
-      (emp.mobiles || []).forEach((m) =>
-        body.push([
-          ...base,
-          "Mobile",
-          m.asset_tag || "",
-          m.manufacturer || "",
-          m.model || "",
-          m.status || "",
-        ]),
-      );
-      (emp.sims || []).forEach((s) =>
-        body.push([
-          ...base,
-          "SIM Card",
-          s.phone_number || "",
-          s.vendor || "",
-          s.package_name || "",
-          s.status || "",
-        ]),
-      );
-      if (!emp.systems?.length && !emp.mobiles?.length && !emp.sims?.length)
-        body.push([...base, "—", "—", "—", "—", "—"]);
+      let hasAny = false;
+      if (included.has("systems"))
+        (emp.systems || []).forEach((s) => {
+          hasAny = true;
+          body.push([
+            ...base,
+            s.type || "System",
+            s.asset_tag || "—",
+            s.manufacturer || "—",
+            s.model || "—",
+            s.status || "—",
+          ]);
+        });
+      if (included.has("mobiles"))
+        (emp.mobiles || []).forEach((m) => {
+          hasAny = true;
+          body.push([
+            ...base,
+            "Mobile",
+            m.asset_tag || "—",
+            m.manufacturer || "—",
+            m.model || "—",
+            m.status || "—",
+          ]);
+        });
+      if (included.has("sims"))
+        (emp.sims || []).forEach((s) => {
+          hasAny = true;
+          body.push([
+            ...base,
+            "SIM Card",
+            s.phone_number || "—",
+            s.vendor || "—",
+            s.package_name || "—",
+            s.status || "—",
+          ]);
+        });
+      if (included.has("inventory"))
+        (emp.inventory || []).forEach((i) => {
+          hasAny = true;
+          body.push([
+            ...base,
+            "Accessory",
+            i.asn_number || "—",
+            i.category_name || "—",
+            `${i.item_name} ×${i.qty} ${i.unit}`,
+            "active",
+          ]);
+        });
+      if (!hasAny) body.push([...base, "—", "—", "—", "—", "—"]);
     });
     await exportPDF("Employee Asset Report", head, body);
   }
 
+  const colSpan = 5 + included.size + 1;
+
+  function CountBadge({ n, color }) {
+    return (
+      <span
+        className="badge px-2 py-1"
+        style={{
+          background: n > 0 ? `${color}22` : "rgba(113,113,122,0.1)",
+          color: n > 0 ? color : "#a1a1aa",
+          fontSize: "11px",
+        }}
+      >
+        {n}
+      </span>
+    );
+  }
+
+  function SubSection({ icon: Icon, label, color, children }) {
+    return (
+      <div>
+        <p
+          className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
+          style={{ fontSize: "10px", color }}
+        >
+          <Icon size={10} /> {label}
+        </p>
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="d-flex flex-column gap-3">
+      {/* Filters + exports */}
       <div className="d-flex align-items-center gap-2 flex-wrap justify-content-between">
         <FilterBar search={search} onSearch={setSearch}>
           <Select
@@ -1001,6 +1073,31 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
         </div>
       </div>
 
+      {/* Asset-type toggles */}
+      <div className="d-flex align-items-center gap-2 flex-wrap">
+        <span className="small text-secondary">Show:</span>
+        {ASSET_TYPES.map(({ key, label, icon: Icon, color }) => {
+          const on = included.has(key);
+          return (
+            <button
+              key={key}
+              onClick={() => toggleType(key)}
+              className="btn btn-sm d-flex align-items-center gap-1 px-2 py-1"
+              style={{
+                background: on ? `${color}22` : "rgba(113,113,122,0.08)",
+                color: on ? color : "#71717a",
+                border: `1px solid ${on ? color + "55" : "transparent"}`,
+                fontSize: "12px",
+                borderRadius: 6,
+              }}
+            >
+              <Icon size={12} />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       <p className="small text-secondary mb-0">
         {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
       </p>
@@ -1018,31 +1115,47 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                 <Th>Designation</Th>
                 <Th>Department</Th>
                 <Th>Location</Th>
-                <Th>Systems</Th>
-                <Th>Mobiles</Th>
-                <Th>SIMs</Th>
+                {included.has("systems") && <Th>Systems</Th>}
+                {included.has("mobiles") && <Th>Mobiles</Th>}
+                {included.has("sims") && <Th>SIM Cards</Th>}
+                {included.has("inventory") && <Th>Accessories</Th>}
                 <Th>Total</Th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center text-secondary py-5">
+                  <td
+                    colSpan={colSpan}
+                    className="text-center text-secondary py-5"
+                  >
                     Loading…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center text-secondary py-5">
+                  <td
+                    colSpan={colSpan}
+                    className="text-center text-secondary py-5"
+                  >
                     No records found
                   </td>
                 </tr>
               ) : (
                 filtered.map((emp) => {
-                  const sysCount = emp.systems?.length || 0;
-                  const mobCount = emp.mobiles?.length || 0;
-                  const simCount = emp.sims?.length || 0;
-                  const total = sysCount + mobCount + simCount;
+                  const sysCount = included.has("systems")
+                    ? emp.systems?.length || 0
+                    : 0;
+                  const mobCount = included.has("mobiles")
+                    ? emp.mobiles?.length || 0
+                    : 0;
+                  const simCount = included.has("sims")
+                    ? emp.sims?.length || 0
+                    : 0;
+                  const invCount = included.has("inventory")
+                    ? emp.inventory?.length || 0
+                    : 0;
+                  const total = sysCount + mobCount + simCount + invCount;
                   const isOpen = expanded === emp.id;
                   return (
                     <React.Fragment key={emp.id}>
@@ -1083,60 +1196,38 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                         <Td dim>{emp.designation}</Td>
                         <Td dim>{emp.department}</Td>
                         <Td dim>{emp.location}</Td>
-                        <td
-                          className="align-middle"
-                          style={{ padding: "0.5rem 0.75rem" }}
-                        >
-                          <span
-                            className="badge px-2 py-1"
-                            style={{
-                              background:
-                                sysCount > 0
-                                  ? "rgba(0,170,47,0.1)"
-                                  : "rgba(113,113,122,0.1)",
-                              color: sysCount > 0 ? "#4ade80" : "#a1a1aa",
-                              fontSize: "11px",
-                            }}
+                        {included.has("systems") && (
+                          <td
+                            className="align-middle"
+                            style={{ padding: "0.5rem 0.75rem" }}
                           >
-                            {sysCount}
-                          </span>
-                        </td>
-                        <td
-                          className="align-middle"
-                          style={{ padding: "0.5rem 0.75rem" }}
-                        >
-                          <span
-                            className="badge px-2 py-1"
-                            style={{
-                              background:
-                                mobCount > 0
-                                  ? "rgba(34,197,94,0.1)"
-                                  : "rgba(113,113,122,0.1)",
-                              color: mobCount > 0 ? "#4ade80" : "#a1a1aa",
-                              fontSize: "11px",
-                            }}
+                            <CountBadge n={sysCount} color="#60a5fa" />
+                          </td>
+                        )}
+                        {included.has("mobiles") && (
+                          <td
+                            className="align-middle"
+                            style={{ padding: "0.5rem 0.75rem" }}
                           >
-                            {mobCount}
-                          </span>
-                        </td>
-                        <td
-                          className="align-middle"
-                          style={{ padding: "0.5rem 0.75rem" }}
-                        >
-                          <span
-                            className="badge px-2 py-1"
-                            style={{
-                              background:
-                                simCount > 0
-                                  ? "rgba(168,85,247,0.1)"
-                                  : "rgba(113,113,122,0.1)",
-                              color: simCount > 0 ? "#c4b5fd" : "#a1a1aa",
-                              fontSize: "11px",
-                            }}
+                            <CountBadge n={mobCount} color="#4ade80" />
+                          </td>
+                        )}
+                        {included.has("sims") && (
+                          <td
+                            className="align-middle"
+                            style={{ padding: "0.5rem 0.75rem" }}
                           >
-                            {simCount}
-                          </span>
-                        </td>
+                            <CountBadge n={simCount} color="#a78bfa" />
+                          </td>
+                        )}
+                        {included.has("inventory") && (
+                          <td
+                            className="align-middle"
+                            style={{ padding: "0.5rem 0.75rem" }}
+                          >
+                            <CountBadge n={invCount} color="#2dd4bf" />
+                          </td>
+                        )}
                         <td
                           className="align-middle fw-bold"
                           style={{
@@ -1152,7 +1243,7 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                         {isOpen && (
                           <tr key="detail">
                             <td
-                              colSpan={9}
+                              colSpan={colSpan}
                               className="p-0"
                               style={{
                                 borderBottom:
@@ -1168,17 +1259,12 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                 style={{ background: "rgba(255,255,255,0.02)" }}
                               >
                                 <div className="px-4 py-3 d-flex flex-column gap-3">
-                                  {sysCount > 0 && (
-                                    <div>
-                                      <p
-                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
-                                        style={{
-                                          fontSize: "10px",
-                                          color: "#4ade80",
-                                        }}
-                                      >
-                                        <Monitor size={10} /> Systems
-                                      </p>
+                                  {included.has("systems") && sysCount > 0 && (
+                                    <SubSection
+                                      icon={Monitor}
+                                      label="Systems"
+                                      color="#60a5fa"
+                                    >
                                       <div className="table-responsive">
                                         <table
                                           className="table mb-0"
@@ -1221,19 +1307,14 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                           </tbody>
                                         </table>
                                       </div>
-                                    </div>
+                                    </SubSection>
                                   )}
-                                  {mobCount > 0 && (
-                                    <div>
-                                      <p
-                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
-                                        style={{
-                                          fontSize: "10px",
-                                          color: "#34d399",
-                                        }}
-                                      >
-                                        <Smartphone size={10} /> Mobile Devices
-                                      </p>
+                                  {included.has("mobiles") && mobCount > 0 && (
+                                    <SubSection
+                                      icon={Smartphone}
+                                      label="Mobile Devices"
+                                      color="#4ade80"
+                                    >
                                       <div className="table-responsive">
                                         <table
                                           className="table mb-0"
@@ -1274,19 +1355,14 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                           </tbody>
                                         </table>
                                       </div>
-                                    </div>
+                                    </SubSection>
                                   )}
-                                  {simCount > 0 && (
-                                    <div>
-                                      <p
-                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
-                                        style={{
-                                          fontSize: "10px",
-                                          color: "#c4b5fd",
-                                        }}
-                                      >
-                                        <CreditCard size={10} /> SIM Cards
-                                      </p>
+                                  {included.has("sims") && simCount > 0 && (
+                                    <SubSection
+                                      icon={CreditCard}
+                                      label="SIM Cards"
+                                      color="#a78bfa"
+                                    >
                                       <div className="table-responsive">
                                         <table
                                           className="table mb-0"
@@ -1321,8 +1397,50 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                                           </tbody>
                                         </table>
                                       </div>
-                                    </div>
+                                    </SubSection>
                                   )}
+                                  {included.has("inventory") &&
+                                    invCount > 0 && (
+                                      <SubSection
+                                        icon={PackageCheck}
+                                        label="Accessories / Inventory"
+                                        color="#2dd4bf"
+                                      >
+                                        <div className="table-responsive">
+                                          <table
+                                            className="table mb-0"
+                                            style={{ fontSize: "0.75rem" }}
+                                          >
+                                            <thead>
+                                              <tr>
+                                                <Th>Item</Th>
+                                                <Th>Category</Th>
+                                                <Th>Qty</Th>
+                                                <Th>ASN #</Th>
+                                                <Th>Issued Date</Th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {emp.inventory.map((inv, i) => (
+                                                <tr key={i}>
+                                                  <Td>{inv.item_name}</Td>
+                                                  <Td dim>
+                                                    {inv.category_name}
+                                                  </Td>
+                                                  <Td>
+                                                    {inv.qty} {inv.unit}
+                                                  </Td>
+                                                  <Td mono>{inv.asn_number}</Td>
+                                                  <Td dim>
+                                                    {fmtDate(inv.assigned_date)}
+                                                  </Td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </SubSection>
+                                    )}
                                   {total === 0 && (
                                     <p className="small text-secondary fst-italic mb-0">
                                       No assets assigned
