@@ -87,15 +87,15 @@ export default function QRModal({
         >
           <QRCodeCanvas
             value={value || " "}
-            size={180}
+            size={102}
             level="H"
             includeMargin={false}
             bgColor="#ffffff"
             fgColor="#000000"
             imageSettings={{
               src: LOGO_SRC,
-              height: 38,
-              width: 32,
+              height: 22,
+              width: 18,
               excavate: true,
             }}
           />
