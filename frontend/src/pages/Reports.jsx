@@ -882,6 +882,70 @@ const ASSET_TYPES = [
   },
 ];
 
+const COL_DEFS = {
+  systems: [
+    { key: "asset_tag", label: "Asset Tag", mono: true },
+    { key: "type", label: "Type" },
+    { key: "manufacturer", label: "Brand" },
+    { key: "model", label: "Model" },
+    { key: "serial_number", label: "Serial No.", mono: true },
+    { key: "generation", label: "Gen", dim: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "condition", label: "Condition", dim: true },
+    { key: "location", label: "Location", dim: true },
+  ],
+  mobiles: [
+    { key: "asset_tag", label: "Asset Tag", mono: true },
+    { key: "manufacturer", label: "Brand" },
+    { key: "model", label: "Model" },
+    { key: "os", label: "OS", dim: true },
+    { key: "storage_capacity", label: "Storage", dim: true },
+    { key: "status", label: "Status", badge: true },
+    { key: "condition", label: "Condition", dim: true },
+  ],
+  sims: [
+    { key: "phone_number", label: "Phone Number", mono: true },
+    { key: "vendor", label: "Vendor" },
+    { key: "package_name", label: "Package", dim: true },
+    { key: "service_type", label: "Service Type", dim: true },
+    { key: "status", label: "Status", badge: true },
+  ],
+  inventory: [
+    { key: "item_name", label: "Item" },
+    { key: "category_name", label: "Category", dim: true },
+    { key: "_qty", label: "Qty", render: (r) => `${r.qty} ${r.unit}` },
+    { key: "asn_number", label: "ASN #", mono: true },
+    {
+      key: "assigned_date",
+      label: "Issued Date",
+      render: (r) => fmtDate(r.assigned_date),
+      dim: true,
+    },
+  ],
+};
+
+const COL_DEFAULTS = {
+  systems: new Set([
+    "asset_tag",
+    "type",
+    "manufacturer",
+    "model",
+    "serial_number",
+    "status",
+    "condition",
+  ]),
+  mobiles: new Set([
+    "asset_tag",
+    "manufacturer",
+    "model",
+    "os",
+    "status",
+    "condition",
+  ]),
+  sims: new Set(["phone_number", "vendor", "package_name", "status"]),
+  inventory: new Set(["item_name", "category_name", "_qty", "assigned_date"]),
+};
+
 function EmployeeAssetsTab({ filterOpts, toast }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -893,6 +957,13 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
     new Set(["systems", "mobiles", "sims", "inventory"]),
   );
 
+  const [colConfig, setColConfig] = useState(() =>
+    Object.fromEntries(
+      Object.entries(COL_DEFAULTS).map(([k, v]) => [k, new Set(v)]),
+    ),
+  );
+  const [colMenuOpen, setColMenuOpen] = useState(null);
+
   function toggleType(key) {
     setIncluded((prev) => {
       const next = new Set(prev);
@@ -900,6 +971,23 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
       return next;
     });
   }
+
+  function toggleCol(type, colKey) {
+    setColConfig((prev) => {
+      const next = new Set(prev[type]);
+      next.has(colKey) ? next.delete(colKey) : next.add(colKey);
+      return { ...prev, [type]: next };
+    });
+  }
+
+  useEffect(() => {
+    if (!colMenuOpen) return;
+    function handler(e) {
+      if (!e.target.closest("[data-col-menu]")) setColMenuOpen(null);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [colMenuOpen]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -945,81 +1033,84 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
   }
 
   async function pdfExport() {
-    const head = [
-      "Employee",
-      "Designation",
-      "Department",
-      "Location",
-      "Asset Type",
-      "Asset Tag / Number",
-      "Brand / Vendor",
-      "Model / Package",
-      "Status",
-    ];
+    const empCols = ["Employee", "Designation", "Location"];
     const body = [];
     filtered.forEach((emp) => {
       const base = [
         emp.full_name || "",
         emp.designation || "",
-        emp.department || "",
         emp.location || "",
       ];
       let hasAny = false;
-      if (included.has("systems"))
-        (emp.systems || []).forEach((s) => {
+      const types = [
+        {
+          key: "systems",
+          data: emp.systems || [],
+          label: (s) => s.type || "System",
+          tag: (s) => s.asset_tag || "—",
+          brand: (s) => s.manufacturer || "—",
+          detail: (s) => s.model || "—",
+          status: (s) => s.status || "—",
+        },
+        {
+          key: "mobiles",
+          data: emp.mobiles || [],
+          label: () => "Mobile",
+          tag: (m) => m.asset_tag || "—",
+          brand: (m) => m.manufacturer || "—",
+          detail: (m) => m.model || "—",
+          status: (m) => m.status || "—",
+        },
+        {
+          key: "sims",
+          data: emp.sims || [],
+          label: () => "SIM Card",
+          tag: (s) => s.phone_number || "—",
+          brand: (s) => s.vendor || "—",
+          detail: (s) => s.package_name || "—",
+          status: (s) => s.status || "—",
+        },
+        {
+          key: "inventory",
+          data: emp.inventory || [],
+          label: () => "Accessory",
+          tag: (i) => i.asn_number || "—",
+          brand: (i) => i.category_name || "—",
+          detail: (i) => `${i.item_name} ×${i.qty} ${i.unit}`,
+          status: () => "active",
+        },
+      ];
+      types.forEach(({ key, data, label, tag, brand, detail, status }) => {
+        if (!included.has(key)) return;
+        data.forEach((row) => {
           hasAny = true;
           body.push([
             ...base,
-            s.type || "System",
-            s.asset_tag || "—",
-            s.manufacturer || "—",
-            s.model || "—",
-            s.status || "—",
+            label(row),
+            tag(row),
+            brand(row),
+            detail(row),
+            status(row),
           ]);
         });
-      if (included.has("mobiles"))
-        (emp.mobiles || []).forEach((m) => {
-          hasAny = true;
-          body.push([
-            ...base,
-            "Mobile",
-            m.asset_tag || "—",
-            m.manufacturer || "—",
-            m.model || "—",
-            m.status || "—",
-          ]);
-        });
-      if (included.has("sims"))
-        (emp.sims || []).forEach((s) => {
-          hasAny = true;
-          body.push([
-            ...base,
-            "SIM Card",
-            s.phone_number || "—",
-            s.vendor || "—",
-            s.package_name || "—",
-            s.status || "—",
-          ]);
-        });
-      if (included.has("inventory"))
-        (emp.inventory || []).forEach((i) => {
-          hasAny = true;
-          body.push([
-            ...base,
-            "Accessory",
-            i.asn_number || "—",
-            i.category_name || "—",
-            `${i.item_name} ×${i.qty} ${i.unit}`,
-            "active",
-          ]);
-        });
+      });
       if (!hasAny) body.push([...base, "—", "—", "—", "—", "—"]);
     });
-    await exportPDF("Employee Asset Report", head, body);
+    await exportPDF(
+      dept ? `Employee Asset Report — ${dept}` : "Employee Asset Report",
+      [
+        ...empCols,
+        "Asset Type",
+        "Asset Tag / Number",
+        "Brand / Vendor",
+        "Model / Package",
+        "Status",
+      ],
+      body,
+    );
   }
 
-  const colSpan = 5 + included.size + 1;
-
+  // ── inline helpers ────────────────────────────────────────
   function CountBadge({ n, color }) {
     return (
       <span
@@ -1035,19 +1126,64 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
     );
   }
 
-  function SubSection({ icon: Icon, label, color, children }) {
-    return (
-      <div>
-        <p
-          className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
-          style={{ fontSize: "10px", color }}
-        >
-          <Icon size={10} /> {label}
+  function DetailTable({ typeKey, data }) {
+    const activeCols = COL_DEFS[typeKey].filter((c) =>
+      colConfig[typeKey].has(c.key),
+    );
+    if (activeCols.length === 0)
+      return (
+        <p className="small text-secondary fst-italic mb-0">
+          No columns selected — pick columns from the dropdown to display.
         </p>
-        {children}
+      );
+    return (
+      <div className="table-responsive">
+        <table className="table mb-0" style={{ fontSize: "0.75rem" }}>
+          <thead>
+            <tr>
+              {activeCols.map((c) => (
+                <Th key={c.key}>{c.label}</Th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, i) => (
+              <tr key={i}>
+                {activeCols.map((c) => {
+                  if (c.badge)
+                    return (
+                      <td
+                        key={c.key}
+                        className="align-middle"
+                        style={{ padding: "0.4rem 0.75rem" }}
+                      >
+                        <StatusBadge v={row[c.key]} />
+                      </td>
+                    );
+                  const val = c.render ? c.render(row) : row[c.key];
+                  if (c.mono)
+                    return (
+                      <Td key={c.key} mono>
+                        {val}
+                      </Td>
+                    );
+                  if (c.dim)
+                    return (
+                      <Td key={c.key} dim>
+                        {val}
+                      </Td>
+                    );
+                  return <Td key={c.key}>{val}</Td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
+
+  const colSpan = 4 + included.size;
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -1073,34 +1209,124 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
         </div>
       </div>
 
-      {/* Asset-type toggles */}
+      {/* Asset-type toggles with per-type column selectors */}
       <div className="d-flex align-items-center gap-2 flex-wrap">
         <span className="small text-secondary">Show:</span>
         {ASSET_TYPES.map(({ key, label, icon: Icon, color }) => {
           const on = included.has(key);
+          const menuOpen = colMenuOpen === key;
           return (
-            <button
+            <div
               key={key}
-              onClick={() => toggleType(key)}
-              className="btn btn-sm d-flex align-items-center gap-1 px-2 py-1"
-              style={{
-                background: on ? `${color}22` : "rgba(113,113,122,0.08)",
-                color: on ? color : "#71717a",
-                border: `1px solid ${on ? color + "55" : "transparent"}`,
-                fontSize: "12px",
-                borderRadius: 6,
-              }}
+              className="d-flex align-items-center"
+              style={{ position: "relative" }}
+              data-col-menu
             >
-              <Icon size={12} />
-              {label}
-            </button>
+              <button
+                onClick={() => toggleType(key)}
+                className="btn btn-sm d-flex align-items-center gap-1 px-2 py-1"
+                style={{
+                  background: on ? `${color}22` : "rgba(113,113,122,0.08)",
+                  color: on ? color : "#71717a",
+                  border: `1px solid ${on ? color + "55" : "transparent"}`,
+                  fontSize: "12px",
+                  borderRadius: "6px 0 0 6px",
+                }}
+              >
+                <Icon size={12} /> {label}
+              </button>
+              {on && (
+                <button
+                  onClick={() => setColMenuOpen(menuOpen ? null : key)}
+                  className="btn btn-sm px-1 py-1"
+                  style={{
+                    background: on ? `${color}22` : "rgba(113,113,122,0.08)",
+                    color: on ? color : "#71717a",
+                    border: `1px solid ${on ? color + "55" : "transparent"}`,
+                    borderLeft: "none",
+                    fontSize: "12px",
+                    borderRadius: "0 6px 6px 0",
+                  }}
+                  title="Select columns"
+                >
+                  <ChevronDown
+                    size={10}
+                    style={{
+                      transition: "transform 0.15s",
+                      transform: menuOpen ? "rotate(180deg)" : "none",
+                    }}
+                  />
+                </button>
+              )}
+              {on && menuOpen && (
+                <div
+                  className="position-absolute itms-card p-2"
+                  style={{
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    zIndex: 200,
+                    minWidth: 160,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                  }}
+                  data-col-menu
+                >
+                  <p
+                    className="text-uppercase text-secondary mb-2"
+                    style={{ fontSize: 10, letterSpacing: "0.05em" }}
+                  >
+                    Columns
+                  </p>
+                  {COL_DEFS[key].map((col) => (
+                    <label
+                      key={col.key}
+                      className="d-flex align-items-center gap-2 small py-1"
+                      style={{ cursor: "pointer", userSelect: "none" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={colConfig[key].has(col.key)}
+                        onChange={() => toggleCol(key, col.key)}
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
 
-      <p className="small text-secondary mb-0">
-        {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
-      </p>
+      {/* Active dept label */}
+      <div className="d-flex align-items-center gap-3">
+        <p className="small text-secondary mb-0">
+          {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
+        </p>
+        {dept && (
+          <span
+            className="badge px-2 py-1"
+            style={{
+              background: "rgba(0,170,47,0.12)",
+              color: "var(--brand)",
+              fontSize: 11,
+            }}
+          >
+            Dept: {dept}
+          </span>
+        )}
+        {loc && (
+          <span
+            className="badge px-2 py-1"
+            style={{
+              background: "rgba(14,165,233,0.12)",
+              color: "#7dd3fc",
+              fontSize: 11,
+            }}
+          >
+            Location: {loc}
+          </span>
+        )}
+      </div>
 
       <div className="itms-card overflow-hidden">
         <div className="table-responsive">
@@ -1113,7 +1339,6 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                 <Th></Th>
                 <Th>Employee</Th>
                 <Th>Designation</Th>
-                <Th>Department</Th>
                 <Th>Location</Th>
                 {included.has("systems") && <Th>Systems</Th>}
                 {included.has("mobiles") && <Th>Mobiles</Th>}
@@ -1194,7 +1419,6 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                           </div>
                         </td>
                         <Td dim>{emp.designation}</Td>
-                        <Td dim>{emp.department}</Td>
                         <Td dim>{emp.location}</Td>
                         {included.has("systems") && (
                           <td
@@ -1260,186 +1484,73 @@ function EmployeeAssetsTab({ filterOpts, toast }) {
                               >
                                 <div className="px-4 py-3 d-flex flex-column gap-3">
                                   {included.has("systems") && sysCount > 0 && (
-                                    <SubSection
-                                      icon={Monitor}
-                                      label="Systems"
-                                      color="#60a5fa"
-                                    >
-                                      <div className="table-responsive">
-                                        <table
-                                          className="table mb-0"
-                                          style={{ fontSize: "0.75rem" }}
-                                        >
-                                          <thead>
-                                            <tr>
-                                              <Th>Asset Tag</Th>
-                                              <Th>Type</Th>
-                                              <Th>Brand</Th>
-                                              <Th>Model</Th>
-                                              <Th>Serial</Th>
-                                              <Th>Gen</Th>
-                                              <Th>Status</Th>
-                                              <Th>Condition</Th>
-                                              <Th>Location</Th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {emp.systems.map((s, i) => (
-                                              <tr key={i}>
-                                                <Td mono>{s.asset_tag}</Td>
-                                                <Td>{s.type}</Td>
-                                                <Td>{s.manufacturer}</Td>
-                                                <Td>{s.model}</Td>
-                                                <Td mono>{s.serial_number}</Td>
-                                                <Td dim>{s.generation}</Td>
-                                                <td
-                                                  className="align-middle"
-                                                  style={{
-                                                    padding: "0.4rem 0.75rem",
-                                                  }}
-                                                >
-                                                  <StatusBadge v={s.status} />
-                                                </td>
-                                                <Td dim>{s.condition}</Td>
-                                                <Td dim>{s.location}</Td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </SubSection>
+                                    <div>
+                                      <p
+                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
+                                        style={{
+                                          fontSize: "10px",
+                                          color: "#60a5fa",
+                                        }}
+                                      >
+                                        <Monitor size={10} /> Systems
+                                      </p>
+                                      <DetailTable
+                                        typeKey="systems"
+                                        data={emp.systems}
+                                      />
+                                    </div>
                                   )}
                                   {included.has("mobiles") && mobCount > 0 && (
-                                    <SubSection
-                                      icon={Smartphone}
-                                      label="Mobile Devices"
-                                      color="#4ade80"
-                                    >
-                                      <div className="table-responsive">
-                                        <table
-                                          className="table mb-0"
-                                          style={{ fontSize: "0.75rem" }}
-                                        >
-                                          <thead>
-                                            <tr>
-                                              <Th>Asset Tag</Th>
-                                              <Th>Brand</Th>
-                                              <Th>Model</Th>
-                                              <Th>OS</Th>
-                                              <Th>Storage</Th>
-                                              <Th>Status</Th>
-                                              <Th>Condition</Th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {emp.mobiles.map((m, i) => (
-                                              <tr key={i}>
-                                                <Td mono>{m.asset_tag}</Td>
-                                                <Td>{m.manufacturer}</Td>
-                                                <Td>{m.model}</Td>
-                                                <Td dim>{m.os}</Td>
-                                                <Td dim>
-                                                  {m.storage_capacity}
-                                                </Td>
-                                                <td
-                                                  className="align-middle"
-                                                  style={{
-                                                    padding: "0.4rem 0.75rem",
-                                                  }}
-                                                >
-                                                  <StatusBadge v={m.status} />
-                                                </td>
-                                                <Td dim>{m.condition}</Td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </SubSection>
+                                    <div>
+                                      <p
+                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
+                                        style={{
+                                          fontSize: "10px",
+                                          color: "#4ade80",
+                                        }}
+                                      >
+                                        <Smartphone size={10} /> Mobile Devices
+                                      </p>
+                                      <DetailTable
+                                        typeKey="mobiles"
+                                        data={emp.mobiles}
+                                      />
+                                    </div>
                                   )}
                                   {included.has("sims") && simCount > 0 && (
-                                    <SubSection
-                                      icon={CreditCard}
-                                      label="SIM Cards"
-                                      color="#a78bfa"
-                                    >
-                                      <div className="table-responsive">
-                                        <table
-                                          className="table mb-0"
-                                          style={{ fontSize: "0.75rem" }}
-                                        >
-                                          <thead>
-                                            <tr>
-                                              <Th>Phone Number</Th>
-                                              <Th>Vendor</Th>
-                                              <Th>Package</Th>
-                                              <Th>Service Type</Th>
-                                              <Th>Status</Th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {emp.sims.map((s, i) => (
-                                              <tr key={i}>
-                                                <Td mono>{s.phone_number}</Td>
-                                                <Td>{s.vendor}</Td>
-                                                <Td dim>{s.package_name}</Td>
-                                                <Td dim>{s.service_type}</Td>
-                                                <td
-                                                  className="align-middle"
-                                                  style={{
-                                                    padding: "0.4rem 0.75rem",
-                                                  }}
-                                                >
-                                                  <StatusBadge v={s.status} />
-                                                </td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </SubSection>
+                                    <div>
+                                      <p
+                                        className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
+                                        style={{
+                                          fontSize: "10px",
+                                          color: "#a78bfa",
+                                        }}
+                                      >
+                                        <CreditCard size={10} /> SIM Cards
+                                      </p>
+                                      <DetailTable
+                                        typeKey="sims"
+                                        data={emp.sims}
+                                      />
+                                    </div>
                                   )}
                                   {included.has("inventory") &&
                                     invCount > 0 && (
-                                      <SubSection
-                                        icon={PackageCheck}
-                                        label="Accessories / Inventory"
-                                        color="#2dd4bf"
-                                      >
-                                        <div className="table-responsive">
-                                          <table
-                                            className="table mb-0"
-                                            style={{ fontSize: "0.75rem" }}
-                                          >
-                                            <thead>
-                                              <tr>
-                                                <Th>Item</Th>
-                                                <Th>Category</Th>
-                                                <Th>Qty</Th>
-                                                <Th>ASN #</Th>
-                                                <Th>Issued Date</Th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {emp.inventory.map((inv, i) => (
-                                                <tr key={i}>
-                                                  <Td>{inv.item_name}</Td>
-                                                  <Td dim>
-                                                    {inv.category_name}
-                                                  </Td>
-                                                  <Td>
-                                                    {inv.qty} {inv.unit}
-                                                  </Td>
-                                                  <Td mono>{inv.asn_number}</Td>
-                                                  <Td dim>
-                                                    {fmtDate(inv.assigned_date)}
-                                                  </Td>
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      </SubSection>
+                                      <div>
+                                        <p
+                                          className="text-uppercase fw-semibold mb-2 d-flex align-items-center gap-2"
+                                          style={{
+                                            fontSize: "10px",
+                                            color: "#2dd4bf",
+                                          }}
+                                        >
+                                          <PackageCheck size={10} /> Accessories
+                                        </p>
+                                        <DetailTable
+                                          typeKey="inventory"
+                                          data={emp.inventory}
+                                        />
+                                      </div>
                                     )}
                                   {total === 0 && (
                                     <p className="small text-secondary fst-italic mb-0">
