@@ -11,18 +11,18 @@ const config = {
   exportFile: "network-export.csv",
   searchPlaceholder: "Search by brand, model, IP, MAC…",
   qrData: (row) => {
+    const brandModel = `${row.brand || ""} ${row.model || ""}`.trim();
     const tag =
       row.asset_tag ||
       genAssetTag(row.purchase_date, "ID") ||
-      `${row.brand || ""} ${row.model || ""}`.trim() ||
+      brandModel ||
       "Network Device";
     return {
       label: tag,
       value: `Tag:${tag}\nType:${row.device_type || ""}\nBrand:${row.brand || ""}\nModel:${row.model || ""}\nSN:${row.serial_number || ""}\nIP:${row.ip_address || ""}\nAssigned:${row.assigned_to || "Unassigned"}`,
       details: [
         row.device_type && `Type: ${row.device_type}`,
-        (row.brand || row.model) &&
-          `${row.brand || ""} ${row.model || ""}`.trim(),
+        (row.brand || row.model) && brandModel,
         row.ip_address && `IP: ${row.ip_address}`,
         row.assigned_to ? `Assigned To: ${row.assigned_to}` : "Unassigned",
       ].filter(Boolean),
