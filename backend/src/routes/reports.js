@@ -771,6 +771,54 @@ router.get("/department-utilization", requireAuth, async (req, res, next) => {
   }
 });
 
+// ── CONSUMABLE RE-ISSUANCE (abuse check) ──────────────────
+// Employees repeatedly issued the same low-value accessory within the window.
+// Flags potential abuse / frequent re-issuance (headsets, mice, adapters…).
+router.get("/reissuance", requireAuth, async (req, res, next) => {
+  try {
+    const months = Math.min(24, Math.max(1, parseInt(req.query.months) || 12));
+    const minTimes = Math.min(20, Math.max(1, parseInt(req.query.min) || 2));
+    const keywords = [
+      "%headset%",
+      "%mouse%",
+      "%adapter%",
+      "%keyboard%",
+      "%charger%",
+      "%cable%",
+      "%dongle%",
+    ];
+    const r = await db.query(
+      `
+      SELECT
+        e.id           AS employee_id,
+        e.full_name,
+        e.department,
+        i.id           AS item_id,
+        i.name         AS item_name,
+        i.unit,
+        c.name         AS category_name,
+        COUNT(DISTINCT ia.id) AS times_issued,
+        SUM(iai.qty)          AS total_qty,
+        MAX(ia.assigned_date) AS last_issued
+      FROM inv_assignments ia
+      JOIN inv_assignment_items iai ON iai.assignment_id = ia.id
+      JOIN inv_items      i ON i.id = iai.item_id
+      LEFT JOIN inv_categories c ON c.id = i.category_id
+      JOIN employees      e ON e.id = ia.assignee_id
+      WHERE ia.assigned_date >= (CURRENT_DATE - ($1 || ' months')::INTERVAL)
+        AND (i.name ILIKE ANY($2::text[]) OR c.name ILIKE '%accessor%')
+      GROUP BY e.id, e.full_name, e.department, i.id, i.name, i.unit, c.name
+      HAVING COUNT(DISTINCT ia.id) >= $3
+      ORDER BY times_issued DESC, total_qty DESC, e.full_name ASC
+    `,
+      [months, keywords, minTimes],
+    );
+    res.json(r.rows);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── FORECAST ─────────────────────────────────────────────
 // Projected stockout date per inventory item based on avg daily consumption
 router.get("/forecast", requireAuth, async (req, res, next) => {
