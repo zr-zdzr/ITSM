@@ -23,12 +23,30 @@ function Fld({ label, required, children, half = true }) {
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
 
+// Employee-backed assignment types that require picking an employee.
+const EMPLOYEE_TYPES = ["employee", "wfh", "user"];
+
+const dtStyle = { fontSize: "11px", letterSpacing: "0.05em" };
+const secLabelStyle = { fontSize: "10px", letterSpacing: "0.1em" };
+
 function SecHead({ title }) {
   return (
     <div className="col-span-2 form-sec-head">
       <span>{title}</span>
       <hr />
     </div>
+  );
+}
+
+// Uppercase section label used across the detail view (CPU/RAM/Storage/Notes).
+function SectionLabel({ children }) {
+  return (
+    <p
+      className="fw-bold text-secondary text-uppercase mb-2"
+      style={secLabelStyle}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -67,10 +85,7 @@ function SystemDeviceForm({ vals, setVals }) {
   }, [toast]);
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
-  const needEmployee =
-    vals.assigned_type === "employee" ||
-    vals.assigned_type === "wfh" ||
-    vals.assigned_type === "user";
+  const needEmployee = EMPLOYEE_TYPES.includes(vals.assigned_type);
 
   return (
     <div
@@ -492,7 +507,7 @@ function DetailCell({ label, value }) {
     <div className="col-6">
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
-        style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+        style={dtStyle}
       >
         {label}
       </dt>
@@ -548,12 +563,7 @@ function SystemDeviceView({ row }) {
       {/* CPU */}
       {(row.cpu || row.cpu2) && (
         <div className="pt-3 border-top">
-          <p
-            className="fw-bold text-secondary text-uppercase mb-2"
-            style={{ fontSize: "10px", letterSpacing: "0.1em" }}
-          >
-            Processor
-          </p>
+          <SectionLabel>Processor</SectionLabel>
           <div className="row g-2 small">
             {row.cpu && (
               <div className="col-6">
@@ -574,12 +584,9 @@ function SystemDeviceView({ row }) {
       {/* RAM */}
       {ramCount > 0 && (
         <div className="pt-3 border-top">
-          <p
-            className="fw-bold text-secondary text-uppercase mb-2"
-            style={{ fontSize: "10px", letterSpacing: "0.1em" }}
-          >
+          <SectionLabel>
             RAM — {ramCount} slot{ramCount !== 1 ? "s" : ""} installed
-          </p>
+          </SectionLabel>
           <div className="d-flex flex-column gap-1">
             {[1, 2, 3, 4]
               .filter((n) => row[`ram${n}_size`])
@@ -613,12 +620,9 @@ function SystemDeviceView({ row }) {
       {/* Disks */}
       {diskCount > 0 && (
         <div className="pt-3 border-top">
-          <p
-            className="fw-bold text-secondary text-uppercase mb-2"
-            style={{ fontSize: "10px", letterSpacing: "0.1em" }}
-          >
+          <SectionLabel>
             Storage — {diskCount} disk{diskCount !== 1 ? "s" : ""}
-          </p>
+          </SectionLabel>
           <div className="d-flex flex-column gap-1">
             {[1, 2, 3]
               .filter((n) => row[`disk${n}_size`] || row[`disk${n}_type`])
@@ -643,12 +647,7 @@ function SystemDeviceView({ row }) {
 
       {row.notes && (
         <div className="pt-3 border-top">
-          <p
-            className="fw-bold text-secondary text-uppercase mb-2"
-            style={{ fontSize: "10px", letterSpacing: "0.1em" }}
-          >
-            Notes
-          </p>
+          <SectionLabel>Notes</SectionLabel>
           <p className="small text-secondary mb-0">{row.notes}</p>
         </div>
       )}
@@ -706,12 +705,9 @@ const config = {
       genAssetTag(row.purchase_date, "ID") ||
       row.serial_number ||
       "System Device";
-    const assignedName =
-      row.assigned_type === "employee" ||
-      row.assigned_type === "user" ||
-      row.assigned_type === "wfh"
-        ? row.assigned_user_name
-        : null;
+    const assignedName = EMPLOYEE_TYPES.includes(row.assigned_type)
+      ? row.assigned_user_name
+      : null;
     return {
       label: tag,
       value: `Tag:${tag}\nType:${row.type || ""}\nBrand:${row.manufacturer || ""}\nModel:${row.model || ""}\nSN:${row.serial_number || ""}\nAssigned:${assignedName || row.assigned_type || "In Stock"}`,
