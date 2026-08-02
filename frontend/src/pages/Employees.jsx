@@ -584,8 +584,9 @@ function EmployeeProfile({ row, onReactivated }) {
   if (!data) return null;
 
   const { employee: emp, systems, mobiles, sims, gws, inventory } = data;
-  // Buyout is an offboarding action — offer it only for ex-employees.
-  const canBuyout = !emp.is_active;
+  // Buyout is available for any employee (offboarding or an active staff
+  // member purchasing a company asset).
+  const canBuyout = true;
   const buyoutBtn = (assetType, assetId, label) => (
     <button
       key="buy"
