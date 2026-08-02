@@ -44,6 +44,7 @@ app.use("/api/inventory", require("./routes/inventory").router);
 app.use("/api/requests", require("./routes/requests"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/asset-history", require("./routes/asset-history"));
+app.use("/api/purchases", require("./routes/purchases"));
 app.use("/api/maintenance", require("./routes/maintenance"));
 app.use("/api/search", require("./routes/search"));
 app.use("/api/alerts", require("./routes/alerts"));
@@ -551,6 +552,58 @@ async function runMigrations() {
   );
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_sub_heads_head ON sub_heads(head_id)`,
+  );
+
+  // ── Asset Buyouts (asset_purchases ledger) ────────────────
+  // Append-only, immutable, one-sale-per-asset. Mirrors asset_history:
+  // soft asset_id FK, employee FK ON DELETE SET NULL, plus a buyer name
+  // snapshot so the record stays intact even if the employee row changes.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS asset_purchases (
+      id                  SERIAL PRIMARY KEY,
+      asset_type          VARCHAR(20)   NOT NULL,
+      asset_id            INTEGER       NOT NULL,
+      asset_label         VARCHAR(150),
+      buyer_employee_id   INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+      buyer_name_snapshot VARCHAR(100)  NOT NULL,
+      sale_price_pkr      NUMERIC(12,2)  NOT NULL CHECK (sale_price_pkr >= 0),
+      book_value_pkr      NUMERIC(12,2),
+      sale_date           DATE           NOT NULL DEFAULT CURRENT_DATE,
+      invoice_number      VARCHAR(100),
+      payment_reference   VARCHAR(100),
+      notes               TEXT,
+      performed_by        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at          TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_asset_purchases_asset ON asset_purchases(asset_type, asset_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_asset_purchases_buyer ON asset_purchases(buyer_employee_id)`,
+  );
+  // An asset can only be sold once.
+  await db.query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS uq_asset_purchase_once ON asset_purchases(asset_type, asset_id)`,
+  );
+  // Allow 'sold' as a terminal status on buyable hardware.
+  await db.query(
+    `ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_status_check`,
+  );
+  await db.query(
+    `ALTER TABLE systems ADD CONSTRAINT systems_status_check CHECK (status IN ('in_use','available','assigned','repair','retired','lost','sold'))`,
+  );
+  await db.query(
+    `ALTER TABLE mobiles DROP CONSTRAINT IF EXISTS mobiles_status_check`,
+  );
+  await db.query(
+    `ALTER TABLE mobiles ADD CONSTRAINT mobiles_status_check CHECK (status IN ('in_use','available','repair','retired','sold'))`,
+  );
+  await db.query(
+    `ALTER TABLE network_devices DROP CONSTRAINT IF EXISTS network_devices_status_check`,
+  );
+  await db.query(
+    `ALTER TABLE network_devices ADD CONSTRAINT network_devices_status_check CHECK (status IN ('in_use','available','repair','retired','sold'))`,
   );
 }
 
