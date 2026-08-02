@@ -5,3 +5,8 @@ uploads/
 *.log
 frontend/dist/
 frontend-backup-*/
+
+# Local dev/testing helpers (not app code)
+backup.sh
+ngrok-start.sh
+itms-full-backup-*.zip
