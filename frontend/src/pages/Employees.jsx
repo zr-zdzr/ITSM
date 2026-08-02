@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
+import Modal from "../components/ui/Modal";
 import { api } from "../lib/api";
+import { useToast } from "../contexts/ToastContext";
 import {
   PackageCheck,
   RotateCcw,
@@ -16,6 +18,7 @@ import {
   CreditCard,
   Cloud,
   Printer,
+  BadgeDollarSign,
 } from "lucide-react";
 import { cn, fmtDate } from "../lib/utils";
 
@@ -352,21 +355,22 @@ function EmployeeProfile({ row, onReactivated }) {
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
   const [reactivating, setReactivating] = useState(false);
+  const [buyout, setBuyout] = useState(null); // { asset_type, asset_id, label }
+
+  async function load() {
+    try {
+      const d = await api.get(`/api/employees/${row.id}/profile`);
+      setData(d);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .get(`/api/employees/${row.id}/profile`)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id]);
 
   async function reactivate() {
@@ -580,6 +584,20 @@ function EmployeeProfile({ row, onReactivated }) {
   if (!data) return null;
 
   const { employee: emp, systems, mobiles, sims, gws, inventory } = data;
+  // Buyout is an offboarding action — offer it only for ex-employees.
+  const canBuyout = !emp.is_active;
+  const buyoutBtn = (assetType, assetId, label) => (
+    <button
+      key="buy"
+      className="btn btn-sm btn-outline-success py-0 px-2 d-flex align-items-center gap-1"
+      style={{ fontSize: 11 }}
+      onClick={() =>
+        setBuyout({ asset_type: assetType, asset_id: assetId, label })
+      }
+    >
+      <BadgeDollarSign size={11} /> Buyout
+    </button>
+  );
   const initials = emp.full_name
     .split(" ")
     .map((n) => n[0])
@@ -683,6 +701,7 @@ function EmployeeProfile({ row, onReactivated }) {
               "Serial No.",
               "Status",
               "Condition",
+              ...(canBuyout ? ["Actions"] : []),
             ]}
             rows={systems.map((s) => [
               <code key="t" style={{ fontSize: 11 }}>
@@ -695,6 +714,25 @@ function EmployeeProfile({ row, onReactivated }) {
               </code>,
               <StatusPill key="st" status={s.status} />,
               s.condition || "—",
+              ...(canBuyout
+                ? [
+                    s.status === "sold" ? (
+                      <span
+                        key="sold"
+                        className="text-secondary"
+                        style={{ fontSize: 11 }}
+                      >
+                        Sold
+                      </span>
+                    ) : (
+                      buyoutBtn(
+                        "systems",
+                        s.id,
+                        s.asset_tag || s.serial_number || "asset",
+                      )
+                    ),
+                  ]
+                : []),
             ])}
           />
         </AssetSection>
@@ -714,6 +752,7 @@ function EmployeeProfile({ row, onReactivated }) {
               "IMEI",
               "Status",
               "Condition",
+              ...(canBuyout ? ["Actions"] : []),
             ]}
             rows={mobiles.map((m) => [
               <code key="t" style={{ fontSize: 11 }}>
@@ -728,6 +767,25 @@ function EmployeeProfile({ row, onReactivated }) {
               </code>,
               <StatusPill key="st" status={m.status} />,
               m.condition || "—",
+              ...(canBuyout
+                ? [
+                    m.status === "sold" ? (
+                      <span
+                        key="sold"
+                        className="text-secondary"
+                        style={{ fontSize: 11 }}
+                      >
+                        Sold
+                      </span>
+                    ) : (
+                      buyoutBtn(
+                        "mobiles",
+                        m.id,
+                        m.asset_tag || m.serial_number || "asset",
+                      )
+                    ),
+                  ]
+                : []),
             ])}
           />
         </AssetSection>
@@ -821,6 +879,13 @@ function EmployeeProfile({ row, onReactivated }) {
           {printing ? "Generating PDF…" : "Print / Export PDF"}
         </button>
       </div>
+
+      <BuyoutModal
+        target={buyout}
+        buyer={emp}
+        onClose={() => setBuyout(null)}
+        onDone={load}
+      />
     </div>
   );
 }
@@ -1481,6 +1546,151 @@ function EmployeeClearance({ row, onReactivated }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Asset Buyout Modal ────────────────────────────────────────
+// Records a departing employee's purchase of an assigned hardware asset.
+function BuyoutModal({ target, buyer, onClose, onDone }) {
+  const { toast } = useToast();
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({
+    sale_price_pkr: "",
+    invoice_number: "",
+    sale_date: today,
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Reset the form whenever a new asset is targeted.
+  useEffect(() => {
+    if (target) {
+      setForm({
+        sale_price_pkr: "",
+        invoice_number: "",
+        sale_date: today,
+        notes: "",
+      });
+      setErr("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  if (!target) return null;
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  async function submit() {
+    if (form.sale_price_pkr === "" || Number(form.sale_price_pkr) < 0) {
+      setErr("Enter a valid sale price (0 or more).");
+      return;
+    }
+    setSaving(true);
+    setErr("");
+    try {
+      await api.post("/api/purchases", {
+        asset_type: target.asset_type,
+        asset_id: target.asset_id,
+        buyer_employee_id: buyer.id,
+        sale_price_pkr: Number(form.sale_price_pkr),
+        invoice_number: form.invoice_number || null,
+        sale_date: form.sale_date || null,
+        notes: form.notes || null,
+      });
+      toast(`${target.label} sold to ${buyer.full_name}`, "success");
+      onDone?.();
+      onClose();
+    } catch (e) {
+      setErr(e.message || "Buyout failed");
+      setSaving(false);
+    }
+  }
+
+  const inp = "form-control form-control-sm";
+  return (
+    <Modal open onClose={onClose} title="Record Asset Buyout" size="md">
+      <div className="row g-3">
+        <div className="col-12">
+          <div
+            className="rounded-2 px-3 py-2 small"
+            style={{ background: "var(--surface-subtle)" }}
+          >
+            <span className="text-secondary">Selling</span>{" "}
+            <span className="font-monospace fw-medium">{target.label}</span>{" "}
+            <span className="text-secondary">to</span>{" "}
+            <span className="fw-medium">{buyer.full_name}</span>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small fw-medium mb-1">
+            Sale Price (PKR)<span className="text-danger ms-1">*</span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className={inp}
+            value={form.sale_price_pkr}
+            onChange={(e) => set("sale_price_pkr", e.target.value)}
+            placeholder="0.00"
+            autoFocus
+          />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small fw-medium mb-1">Sale Date</label>
+          <input
+            type="date"
+            className={inp}
+            value={form.sale_date}
+            onChange={(e) => set("sale_date", e.target.value)}
+          />
+        </div>
+        <div className="col-12">
+          <label className="form-label small fw-medium mb-1">
+            Invoice / Receipt No.
+          </label>
+          <input
+            className={inp}
+            value={form.invoice_number}
+            onChange={(e) => set("invoice_number", e.target.value)}
+            placeholder="e.g. BUYOUT-2026-001"
+          />
+        </div>
+        <div className="col-12">
+          <label className="form-label small fw-medium mb-1">Note</label>
+          <textarea
+            className={inp}
+            rows={2}
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
+            placeholder="Any additional context…"
+            style={{ resize: "none" }}
+          />
+        </div>
+        {err && (
+          <div className="col-12">
+            <div className="text-danger small">{err}</div>
+          </div>
+        )}
+        <div className="col-12 d-flex justify-content-end gap-2 pt-1">
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            className="btn btn-sm btn-success d-flex align-items-center gap-1"
+            onClick={submit}
+            disabled={saving}
+          >
+            <BadgeDollarSign size={14} />
+            {saving ? "Recording…" : "Record Buyout"}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
