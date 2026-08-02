@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Download, Printer } from "lucide-react";
 import Modal from "./Modal";

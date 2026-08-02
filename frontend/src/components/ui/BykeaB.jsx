@@ -1,4 +1,3 @@
-import React from "react";
 
 // Single compound path with evenodd: inner bumps punch through as transparent holes
 export default function BykeaB({

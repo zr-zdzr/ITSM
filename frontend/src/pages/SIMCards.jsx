@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";

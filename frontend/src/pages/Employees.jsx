@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import { api } from "../lib/api";

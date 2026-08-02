@@ -1,4 +1,3 @@
-import React from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
