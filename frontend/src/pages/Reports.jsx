@@ -19,6 +19,7 @@ import {
   History,
   TrendingDown,
   BarChart2,
+  Repeat,
 } from "lucide-react";
 import {
   BarChart,
@@ -851,6 +852,190 @@ function DepartmentUtilizationTab({ toast }) {
 }
 
 // ── Tab bar ───────────────────────────────────────────────
+// ── CONSUMABLE RE-ISSUANCE TAB (abuse check) ──────────────
+function ReissuanceTab({ toast }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [months, setMonths] = useState("12");
+  const [minTimes, setMinTimes] = useState("2");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRows(
+        await api.get(
+          `/api/reports/reissuance?months=${months}&min=${minTimes}`,
+        ),
+      );
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [months, minTimes, toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // 3+ issuances of the same accessory in the window = worth investigating.
+  const isFlagged = (r) => Number(r.times_issued) >= 3;
+
+  async function pdfExport() {
+    try {
+      const head = [
+        "Employee",
+        "Department",
+        "Item",
+        "Category",
+        "Times Issued",
+        "Total Qty",
+        "Last Issued",
+      ];
+      const body = rows.map((r) => [
+        r.full_name,
+        r.department || "—",
+        r.item_name,
+        r.category_name || "—",
+        r.times_issued,
+        `${r.total_qty} ${r.unit || ""}`.trim(),
+        fmtDate(r.last_issued),
+      ]);
+      await exportPDF("Consumable Re-issuance Report", head, body);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3">
+      {/* Controls */}
+      <div className="itms-card p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-6 col-md-2">
+            <label className="form-label small mb-1">Period</label>
+            <select
+              className="form-select form-select-sm"
+              value={months}
+              onChange={(e) => setMonths(e.target.value)}
+            >
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="24">Last 24 months</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-3">
+            <label className="form-label small mb-1">Min. times issued</label>
+            <select
+              className="form-select form-select-sm"
+              value={minTimes}
+              onChange={(e) => setMinTimes(e.target.value)}
+            >
+              <option value="2">2+ (re-issued)</option>
+              <option value="3">3+ (frequent)</option>
+              <option value="4">4+</option>
+              <option value="5">5+ (heavy)</option>
+            </select>
+          </div>
+          <div className="col-auto">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={pdfExport}
+              disabled={loading || rows.length === 0}
+            >
+              <FileDown size={13} className="me-1" />
+              PDF
+            </button>
+          </div>
+        </div>
+        <p className="small text-secondary mb-0 mt-2">
+          Employees issued the same low-value accessory (headset, mouse,
+          adapter, keyboard, charger, cable, dongle, or any “accessory” category
+          item) at least the selected number of times in the period. Rows issued
+          3+ times are highlighted.
+        </p>
+      </div>
+
+      {/* Table */}
+      <div className="itms-card overflow-hidden">
+        <div className="table-responsive">
+          <table
+            className="table table-hover mb-0"
+            style={{ fontSize: "0.8rem" }}
+          >
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Department</th>
+                <th>Item</th>
+                <th>Category</th>
+                <th className="text-center">Times Issued</th>
+                <th className="text-center">Total Qty</th>
+                <th>Last Issued</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-4">
+                    Loading…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-secondary py-4">
+                    No re-issuance found for this period.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r, i) => (
+                  <tr key={`${r.employee_id}-${r.item_id}-${i}`}>
+                    <td className="fw-medium">{r.full_name}</td>
+                    <td>
+                      {r.department || (
+                        <span className="text-secondary">—</span>
+                      )}
+                    </td>
+                    <td>{r.item_name}</td>
+                    <td>
+                      {r.category_name || (
+                        <span className="text-secondary">—</span>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <span
+                        className="badge rounded-pill px-2"
+                        style={{
+                          background: isFlagged(r)
+                            ? "rgba(239,68,68,0.15)"
+                            : "rgba(113,113,122,0.18)",
+                          color: isFlagged(r) ? "#f87171" : "#a1a1aa",
+                          fontSize: "11px",
+                        }}
+                      >
+                        {r.times_issued}
+                        {isFlagged(r) && (
+                          <AlertTriangle size={10} className="ms-1" />
+                        )}
+                      </span>
+                    </td>
+                    <td className="text-center">
+                      {r.total_qty} {r.unit || ""}
+                    </td>
+                    <td className="text-secondary">{fmtDate(r.last_issued)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS = [
   { id: "employee-assets", label: "Employee Assets", icon: Users },
   { id: "warranty", label: "Warranty", icon: AlertTriangle },
@@ -863,6 +1048,7 @@ const TABS = [
   { id: "cost-analytics", label: "Cost Analytics", icon: DollarSign },
   { id: "stock-movements", label: "Stock Movements", icon: Package },
   { id: "dept-utilization", label: "Dept. Utilization", icon: Building2 },
+  { id: "reissuance", label: "Re-issuance", icon: Repeat },
   { id: "asset-history", label: "Asset History", icon: History },
   { id: "forecast", label: "Forecast", icon: TrendingDown },
   { id: "cost-summary", label: "Cost Summary", icon: BarChart2 },
@@ -3802,6 +3988,7 @@ export default function Reports() {
           {tab === "dept-utilization" && (
             <DepartmentUtilizationTab toast={toast} />
           )}
+          {tab === "reissuance" && <ReissuanceTab toast={toast} />}
           {tab === "asset-history" && (
             <AssetHistoryTab filterOpts={filterOpts} toast={toast} />
           )}
