@@ -1,19 +1,27 @@
 import { useEffect, useState } from "react";
 import {
-  UserCheck, UserX, ArrowLeftRight, RefreshCw,
-  Wrench, Trash2, Activity, History,
+  UserCheck,
+  UserX,
+  ArrowLeftRight,
+  RefreshCw,
+  Wrench,
+  Trash2,
+  Activity,
+  History,
+  BadgeDollarSign,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/utils";
 
 const EVENT_META = {
-  assigned:      { label: "Assigned",     icon: UserCheck,        color: "#4ade80" },
-  unassigned:    { label: "Unassigned",   icon: UserX,            color: "#f87171" },
-  transferred:   { label: "Transferred",  icon: ArrowLeftRight,   color: "#60a5fa" },
-  replaced:      { label: "Replaced",     icon: RefreshCw,        color: "#fb923c" },
-  repaired:      { label: "Repaired",     icon: Wrench,           color: "#a78bfa" },
-  disposed:      { label: "Disposed",     icon: Trash2,           color: "#71717a" },
-  status_change: { label: "Status Change",icon: Activity,         color: "#facc15" },
+  assigned: { label: "Assigned", icon: UserCheck, color: "#4ade80" },
+  unassigned: { label: "Unassigned", icon: UserX, color: "#f87171" },
+  transferred: { label: "Transferred", icon: ArrowLeftRight, color: "#60a5fa" },
+  replaced: { label: "Replaced", icon: RefreshCw, color: "#fb923c" },
+  repaired: { label: "Repaired", icon: Wrench, color: "#a78bfa" },
+  disposed: { label: "Disposed", icon: Trash2, color: "#71717a" },
+  purchased: { label: "Purchased", icon: BadgeDollarSign, color: "#10b981" },
+  status_change: { label: "Status Change", icon: Activity, color: "#facc15" },
 };
 
 function EventBadge({ eventType }) {
@@ -22,7 +30,11 @@ function EventBadge({ eventType }) {
   return (
     <span
       className="d-inline-flex align-items-center gap-1 px-2 py-1 rounded-2 fw-semibold"
-      style={{ fontSize: "11px", background: meta.color + "22", color: meta.color }}
+      style={{
+        fontSize: "11px",
+        background: meta.color + "22",
+        color: meta.color,
+      }}
     >
       <Icon size={11} />
       {meta.label}
@@ -59,7 +71,11 @@ export default function AssetHistoryTimeline({ assetType, assetId }) {
       {loading ? (
         <div className="d-flex gap-2 flex-column">
           {[1, 2].map((i) => (
-            <div key={i} className="skeleton-box rounded" style={{ height: 36 }} />
+            <div
+              key={i}
+              className="skeleton-box rounded"
+              style={{ height: 36 }}
+            />
           ))}
         </div>
       ) : events.length === 0 ? (
@@ -78,7 +94,9 @@ export default function AssetHistoryTimeline({ assetType, assetId }) {
               <div className="flex-grow-1 small">
                 <div>
                   {ev.from_employee_name && (
-                    <span className="text-secondary">{ev.from_employee_name} → </span>
+                    <span className="text-secondary">
+                      {ev.from_employee_name} →{" "}
+                    </span>
                   )}
                   {ev.to_employee_name ? (
                     <span className="fw-semibold">{ev.to_employee_name}</span>
@@ -97,7 +115,10 @@ export default function AssetHistoryTimeline({ assetType, assetId }) {
                   </div>
                 )}
               </div>
-              <div className="flex-shrink-0 text-secondary" style={{ fontSize: "11px", whiteSpace: "nowrap" }}>
+              <div
+                className="flex-shrink-0 text-secondary"
+                style={{ fontSize: "11px", whiteSpace: "nowrap" }}
+              >
                 {fmtDate(ev.created_at)}
               </div>
             </div>
