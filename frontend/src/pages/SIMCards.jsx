@@ -6,6 +6,19 @@ import { useToast } from "../contexts/ToastContext";
 const inp = "form-control form-control-sm";
 const sel = "form-select form-select-sm";
 
+// Employee-backed assignment types that require picking an employee.
+const EMPLOYEE_TYPES = ["employee", "wfh", "user"];
+
+const NAMED_ON_LABELS = {
+  inventory: "In Stock",
+  employee: "Employee",
+  user: "Employee",
+  wfh: "WFH",
+  service: "Service",
+};
+const PURPOSE_LABELS = { official: "Official", service: "Service" };
+const STATUS_LABELS = { active: "Active", suspended: "Suspended" };
+
 function Fld({ label, required, children, half = true }) {
   return (
     <div className={half ? "" : "col-12"}>
@@ -60,7 +73,7 @@ function SIMCardForm({ vals, setVals }) {
   }, [toast]);
 
   const set = (k, v) => setVals((p) => ({ ...p, [k]: v }));
-  const needEmployee = ["employee", "wfh", "user"].includes(vals.assigned_type);
+  const needEmployee = EMPLOYEE_TYPES.includes(vals.assigned_type);
 
   return (
     <div
@@ -87,7 +100,7 @@ function SIMCardForm({ vals, setVals }) {
             value={vals.assigned_type || "inventory"}
             onChange={(e) => {
               set("assigned_type", e.target.value);
-              if (!["employee", "wfh", "user"].includes(e.target.value))
+              if (!EMPLOYEE_TYPES.includes(e.target.value))
                 set("assigned_user_id", null);
             }}
           >
@@ -272,12 +285,14 @@ function SIMCardForm({ vals, setVals }) {
   );
 }
 
-function Field({ label, value }) {
+const dtStyle = { fontSize: "11px", letterSpacing: "0.05em" };
+
+function Field({ label, value, full = false }) {
   return (
-    <div className="col-6">
+    <div className={full ? "col-12" : "col-6"}>
       <dt
         className="text-secondary fw-semibold text-uppercase mb-1"
-        style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+        style={dtStyle}
       >
         {label}
       </dt>
@@ -287,22 +302,12 @@ function Field({ label, value }) {
 }
 
 function SIMCardView(row) {
-  const namedOnLabel = {
-    inventory: "In Stock",
-    employee: "Employee",
-    user: "Employee",
-    wfh: "WFH",
-    service: "Service",
-  };
-  const purposeLabel = { official: "Official", service: "Service" };
-  const statusLabel = { active: "Active", suspended: "Suspended" };
-
   return (
     <dl className="row g-3">
       <Field label="Number" value={row.phone_number} />
       <Field
         label="Named On"
-        value={namedOnLabel[row.assigned_type] || row.assigned_type}
+        value={NAMED_ON_LABELS[row.assigned_type] || row.assigned_type}
       />
       <Field label="Employee" value={row.assigned_user_name} />
       <Field label="SIM Holder" value={row.sim_holder} />
@@ -313,44 +318,30 @@ function SIMCardView(row) {
       <Field label="Calling Package" value={row.package_name} />
       <Field label="Data Package" value={row.data_limit} />
       <Field label="Type" value={row.sim_type} />
-      <Field label="Status" value={statusLabel[row.status] || row.status} />
+      <Field label="Status" value={STATUS_LABELS[row.status] || row.status} />
       <Field
         label="Purpose"
-        value={purposeLabel[row.purpose] || row.purpose || "—"}
+        value={PURPOSE_LABELS[row.purpose] || row.purpose}
       />
-      {row.notes && (
-        <div className="col-12">
-          <dt
-            className="text-secondary fw-semibold text-uppercase mb-1"
-            style={{ fontSize: "11px", letterSpacing: "0.05em" }}
-          >
-            Notes
-          </dt>
-          <dd className="small mb-0">{row.notes}</dd>
-        </div>
-      )}
+      {row.notes && <Field label="Notes" value={row.notes} full />}
     </dl>
   );
 }
 
+const NAMED_ON_BADGE_CLASS = {
+  employee: "badge-assign-employee",
+  user: "badge-assign-employee",
+  inventory: "badge-assign-inventory",
+  wfh: "badge-assign-wfh",
+  service: "badge-assign-service",
+};
+
 function NamedOnBadge({ row }) {
-  const map = {
-    employee: {
-      label: row.assigned_user_name || "Employee",
-      cls: "badge-assign-employee",
-    },
-    user: {
-      label: row.assigned_user_name || "Employee",
-      cls: "badge-assign-employee",
-    },
-    inventory: { label: "In Stock", cls: "badge-assign-inventory" },
-    wfh: { label: row.assigned_user_name || "WFH", cls: "badge-assign-wfh" },
-    service: { label: "Service", cls: "badge-assign-service" },
-  };
-  const { label, cls } = map[row.assigned_type] || {
-    label: row.assigned_type,
-    cls: "badge-assign-default",
-  };
+  const cls = NAMED_ON_BADGE_CLASS[row.assigned_type] || "badge-assign-default";
+  // Employee-backed types show the assignee's name; others show the type label.
+  const label = EMPLOYEE_TYPES.includes(row.assigned_type)
+    ? row.assigned_user_name || NAMED_ON_LABELS[row.assigned_type]
+    : NAMED_ON_LABELS[row.assigned_type] || row.assigned_type;
   return (
     <span
       className={`badge rounded-pill px-2 py-1 ${cls}`}
@@ -382,7 +373,7 @@ const config = {
     {
       key: "purpose",
       label: "Purpose",
-      render: (v) => (v ? (v === "official" ? "Official" : "Service") : "—"),
+      render: (v) => PURPOSE_LABELS[v] || "—",
     },
   ],
 
