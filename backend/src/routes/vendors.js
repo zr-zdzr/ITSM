@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const db = require("../config/db");
 const { requireAuth, perm } = require("../middleware/auth");
+const { saveToRecycleBin } = require("../utils/recycle");
 
 const COLS = [
   "name",
@@ -12,6 +13,13 @@ const COLS = [
   "address",
   "notes",
 ];
+
+async function log(userId, action, id, label, details) {
+  await db.query(
+    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
+    [userId, action, "vendors", id, label, details],
+  );
+}
 
 router.get(
   "/",
@@ -83,13 +91,61 @@ router.put(
   },
 );
 
+// ── DELETE ALL ────────────────────────────────────────────────
+// Must stay above "/:id", or Express matches "all" as an id.
+router.delete(
+  "/all",
+  requireAuth,
+  perm("vendors", "delete"),
+  async (req, res, next) => {
+    try {
+      const all = await db.query("SELECT * FROM vendors");
+      await Promise.all(
+        all.rows.map((row) =>
+          saveToRecycleBin("vendors", "vendors", row, row.name, req.user.id),
+        ),
+      );
+      const r = await db.query("DELETE FROM vendors RETURNING id");
+      await log(
+        req.user.id,
+        "deleted_all",
+        null,
+        "All Vendors",
+        `Deleted all ${r.rowCount} vendors`,
+      );
+      res.json({ deleted: r.rowCount });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── DELETE ONE ────────────────────────────────────────────────
 router.delete(
   "/:id",
   requireAuth,
   perm("vendors", "delete"),
   async (req, res, next) => {
     try {
-      await db.query("DELETE FROM vendors WHERE id = $1", [req.params.id]);
+      const r = await db.query(
+        "DELETE FROM vendors WHERE id = $1 RETURNING *",
+        [req.params.id],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await saveToRecycleBin(
+        "vendors",
+        "vendors",
+        r.rows[0],
+        r.rows[0].name,
+        req.user.id,
+      );
+      await log(
+        req.user.id,
+        "deleted",
+        r.rows[0].id,
+        r.rows[0].name,
+        "Deleted vendor",
+      );
       res.json({ ok: true });
     } catch (err) {
       next(err);

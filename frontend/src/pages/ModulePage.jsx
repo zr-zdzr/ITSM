@@ -35,7 +35,7 @@ const DELETE_BEHAVIOR = {
   sims: { single: "recycle", all: "recycle" },
   gws: { single: "recycle", all: "recycle" },
   employees: { single: "deactivate", all: "recycle" },
-  vendors: { single: "permanent", all: "permanent" },
+  vendors: { single: "recycle", all: "recycle" },
 };
 
 // Unknown modules fall back to the strongest warning rather than a promise
