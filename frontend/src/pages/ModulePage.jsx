@@ -23,6 +23,33 @@ import QRModal from "../components/ui/QRModal";
 
 const EMPTY = {};
 
+// What a delete actually does per module — mirrors the backend routes.
+//   recycle    → row is copied to recycle_bin (restorable 30 days) before removal
+//   deactivate → row is only flagged inactive; nothing is removed
+//   permanent  → row is removed outright, with no recycle_bin copy
+// "single" also covers Delete Selected, which loops the same per-id endpoint.
+const DELETE_BEHAVIOR = {
+  systems: { single: "recycle", all: "recycle" },
+  network: { single: "recycle", all: "recycle" },
+  mobiles: { single: "recycle", all: "recycle" },
+  sims: { single: "recycle", all: "recycle" },
+  gws: { single: "recycle", all: "recycle" },
+  employees: { single: "deactivate", all: "recycle" },
+  vendors: { single: "permanent", all: "permanent" },
+};
+
+// Unknown modules fall back to the strongest warning rather than a promise
+// of recoverability we can't keep.
+const PERMANENT = { single: "permanent", all: "permanent" };
+
+function deleteOutcome(behavior) {
+  if (behavior === "deactivate")
+    return "will be marked inactive and moved to the Ex-Employees list. Asset history is preserved.";
+  if (behavior === "recycle")
+    return "will be moved to the Recycle Bin, and can be restored there for 30 days.";
+  return "will be permanently deleted. This cannot be undone.";
+}
+
 export default function ModulePage({ config, headerExtra }) {
   const {
     apiPath,
@@ -39,6 +66,8 @@ export default function ModulePage({ config, headerExtra }) {
   } = config;
   const { canPerm } = useAuth();
   const { toast } = useToast();
+
+  const delBehavior = DELETE_BEHAVIOR[mod] || PERMANENT;
 
   const canCreate = canPerm(mod, "create");
   const canUpdate = canPerm(mod, "update");
@@ -703,16 +732,18 @@ export default function ModulePage({ config, headerExtra }) {
       <Modal
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
-        title={mod === "employees" ? "Move to Ex-Employee" : "Confirm Delete"}
+        title={
+          delBehavior.single === "deactivate"
+            ? "Move to Ex-Employee"
+            : "Confirm Delete"
+        }
         size="sm"
       >
         <div className="d-flex gap-3">
           <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
           <div className="small mb-0">
             <p className="mb-1">
-              {mod === "employees"
-                ? "This will mark the employee as an Ex-Employee. Their record and asset history will be preserved and accessible from the Ex-Employees list."
-                : "Are you sure you want to delete this record? It will be moved to the recycle bin."}
+              This record {deleteOutcome(delBehavior.single)}
             </p>
             {confirmDelete &&
               (confirmDelete.asset_tag ||
@@ -743,7 +774,9 @@ export default function ModulePage({ config, headerExtra }) {
             className="btn btn-danger btn-sm"
             onClick={() => deleteRow(confirmDelete)}
           >
-            {mod === "employees" ? "Move to Ex-Employee" : "Delete"}
+            {delBehavior.single === "deactivate"
+              ? "Move to Ex-Employee"
+              : "Delete"}
           </button>
         </div>
       </Modal>
@@ -761,7 +794,7 @@ export default function ModulePage({ config, headerExtra }) {
             <strong className="text-danger">
               {selectedIds.size} record{selectedIds.size > 1 ? "s" : ""}
             </strong>{" "}
-            will be permanently deleted. This cannot be undone.
+            {deleteOutcome(delBehavior.single)}
           </p>
         </div>
         <div className="d-flex justify-content-end gap-2 mt-4">
@@ -881,7 +914,7 @@ export default function ModulePage({ config, headerExtra }) {
           <AlertTriangle size={20} className="text-danger flex-shrink-0 mt-1" />
           <p className="small mb-0">
             All <strong className="text-danger">{rows.length} records</strong>{" "}
-            will be permanently deleted. This <strong>cannot be undone</strong>.
+            {deleteOutcome(delBehavior.all)}
           </p>
         </div>
         <div className="d-flex justify-content-end gap-2 mt-4">
