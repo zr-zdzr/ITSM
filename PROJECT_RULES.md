@@ -6,10 +6,10 @@ This project is an internal office management portal running in Docker container
 
 ## Technology Stack
 
-* Frontend: React
-* Backend: Go (Golang)
-* Database: PostgreSQL
-* Containerization: Docker & Docker Compose
+- Frontend: React
+- Backend: Go (Golang)
+- Database: PostgreSQL
+- Containerization: Docker & Docker Compose
 
 ## Core Rules
 
@@ -21,12 +21,13 @@ This project is an internal office management portal running in Docker container
 6. All modules must support CRUD permissions.
 7. Every database table must include:
 
-   * id
-   * created_at
-   * updated_at
-   * created_by
-   * updated_by
-   * status
+   - id
+   - created_at
+   - updated_at
+   - created_by
+   - updated_by
+   - status
+
 8. Use soft delete instead of permanent delete unless specified.
 9. Maintain audit logging for important actions.
 10. Use environment variables for secrets and configuration.
@@ -43,27 +44,27 @@ This project is an internal office management portal running in Docker container
 
 ## UI Rules
 
-* Clean admin dashboard design
-* Sidebar navigation
-* Reusable components
-* Dark/light mode ready
-* Proper form validation
-* Data tables with filters
+- Clean admin dashboard design
+- Sidebar navigation
+- Reusable components
+- Dark/light mode ready
+- Proper form validation
+- Data tables with filters
 
 ## Coding Standards
 
 ### Frontend
 
-* Use functional React components
-* Use hooks
-* Keep components reusable
-* Avoid large monolithic pages
+- Use functional React components
+- Use hooks
+- Keep components reusable
+- Avoid large monolithic pages
 
 ### Backend
 
-* Use service/repository architecture
-* Separate handlers, services, repositories, models
-* Maintain clean API contracts
+- Use service/repository architecture
+- Separate handlers, services, repositories, models
+- Maintain clean API contracts
 
 ## AI Instructions
 
