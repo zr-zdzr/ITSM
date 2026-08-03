@@ -12,6 +12,7 @@ const MODULE_LABELS = {
   sims: "SIM Card",
   gws: "Cloud ID",
   employees: "Employee",
+  vendors: "Vendor",
 };
 
 const MODULE_COLORS = {
@@ -21,6 +22,7 @@ const MODULE_COLORS = {
   sims: { bg: "rgba(168,85,247,0.1)", color: "#c4b5fd" },
   gws: { bg: "rgba(6,182,212,0.1)", color: "#67e8f9" },
   employees: { bg: "rgba(245,158,11,0.1)", color: "#fcd34d" },
+  vendors: { bg: "rgba(236,72,153,0.1)", color: "#f9a8d4" },
 };
 
 const ACTION_STYLES = {
