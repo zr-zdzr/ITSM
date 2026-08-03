@@ -10,3 +10,12 @@ frontend-backup-*/
 backup.sh
 ngrok-start.sh
 itms-full-backup-*.zip
+
+# Generated handover / presentation material (not app code).
+# Rebuilt on demand; kept out of git so binaries don't bloat history.
+# Paths are anchored to the repo root so a future src/design/ etc. is unaffected.
+/ITMS-System-Documentation.*
+/ITMS-Presentation.*
+/ITMS-Design-Flow.*
+/ITMS-Development-Prompt.txt
+/design/
