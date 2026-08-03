@@ -38,9 +38,11 @@ Backend health: `http://localhost:3000/api/health`
 ### Backend (`backend/src/`)
 
 - **`server.js`** — Express entry point. Mounts all routes, runs `runMigrations()` and `seedAdmin()` on startup. Schema migrations are written inline in `runMigrations()` using `IF NOT EXISTS` / `IF NOT EXISTS` guards — new DDL goes there, not in `schema.sql`.
-- **`migrations/schema.sql`** — Initial schema loaded by Docker Postgres on first container creation only. Subsequent changes must be in `runMigrations()`.
+- **`backend/migrations/schema.sql`** (note: outside `src/`) — Initial schema, mounted by docker-compose into the Postgres container's `docker-entrypoint-initdb.d`, so it runs on first container creation only. Subsequent changes must be in `runMigrations()`.
 - **`config/db.js`** — pg Pool singleton; import this everywhere for DB access.
-- **`config/passport.js`** — Google OAuth2 + local strategy. Google login restricted to `ALLOWED_DOMAIN` (bykea.com); `SUPER_ADMIN_EMAIL` gets super_admin on first login.
+- **`config/passport.js`** — session plumbing only (`serializeUser` / `deserializeUser`). No Passport strategies are registered. There is **no Google OAuth** in this codebase.
+- **`routes/auth.js`** — authentication is local email + password, hand-rolled rather than via a Passport strategy: look up the user by email where `password_hash IS NOT NULL`, `bcrypt.compare()`, reject if `is_active` is false, then `req.login()` to establish the session. Routes: `/login`, `/logout`, `/me`, `/change-password`. Every attempt is written to the activity log (`login`, `login_failed`, `login_blocked`).
+- **`seedAdmin()`** (in `server.js`) — on startup, upserts a `super_admin` from `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD`. Skipped when `ADMIN_PASSWORD` is unset.
 - **`middleware/auth.js`** — `requireAuth`, `requireRole`, `perm(module, action)`. Use `perm('module','create'|'update'|'delete'|'read')` on routes. `super_admin` bypasses all checks; `viewer` is read-only.
 - **`routes/`** — One file per resource. Routes log to `activity_log` table. Soft-deletes go through `utils/recycle.js` into the `recycle_bin` table (30-day TTL).
 

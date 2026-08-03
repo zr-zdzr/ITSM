@@ -7,7 +7,7 @@ This project is an internal office management portal running in Docker container
 ## Technology Stack
 
 - Frontend: React
-- Backend: Go (Golang)
+- Backend: Node.js (Express)
 - Database: PostgreSQL
 - Containerization: Docker & Docker Compose
 
@@ -20,7 +20,6 @@ This project is an internal office management portal running in Docker container
 5. Maintain strict separation between frontend, backend, and database.
 6. All modules must support CRUD permissions.
 7. Every database table must include:
-
    - id
    - created_at
    - updated_at
@@ -62,8 +61,9 @@ This project is an internal office management portal running in Docker container
 
 ### Backend
 
-- Use service/repository architecture
-- Separate handlers, services, repositories, models
+- One Express router file per resource under `src/routes/`
+- Keep shared concerns in `src/middleware/` (auth, permissions) and `src/utils/`
+- Access the database through the shared `pg` Pool in `src/config/db.js`
 - Maintain clean API contracts
 
 ## AI Instructions
