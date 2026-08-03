@@ -1,0 +1,57 @@
+// ITMS — System Architecture
+// Render: dot -Tpng 01-architecture.dot -o 01-architecture.png
+digraph architecture {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.2, margin="0.22,0.14"];
+  edge [fontname="Helvetica", fontsize=9, color="#8a9099", penwidth=1.1];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — System Architecture</font></b><br/><font point-size="10" color="#6b7078">Three Docker containers on one host</font><br/> >;
+
+  browser [label="Browser\n(staff workstation)", fillcolor="#e8f0fe", color="#2a6fdb"];
+
+  subgraph cluster_host {
+    label=<<b>Docker host</b>>;
+    fontsize=11;
+    fontcolor="#6b7078";
+    style="rounded,dashed";
+    color="#c3c9d1";
+    margin=18;
+
+    subgraph cluster_fe {
+      label=<<b>frontend container</b>>;
+      fontsize=10; fontcolor="#6b7078";
+      style="rounded,filled"; fillcolor="#fbfcfd"; color="#dfe3e8";
+      nginx [label="nginx : 80\l\l/         → React static build\l/api/*    → backend:3000\l/auth/*   → backend:3000\l",
+             fillcolor="#e9f7ee", color="#00aa2f"];
+    }
+
+    subgraph cluster_be {
+      label=<<b>backend container</b>>;
+      fontsize=10; fontcolor="#6b7078";
+      style="rounded,filled"; fillcolor="#fbfcfd"; color="#dfe3e8";
+      express [label="Express (Node.js) : 3000\l\l• Passport.js — session auth\l• requireAuth / requireRole / perm()\l• REST routes, one file per resource\l• pg Pool\l",
+               fillcolor="#e9f7ee", color="#00aa2f"];
+      boot [label="On start-up\lrunMigrations()  ·  seedAdmin()", shape=note,
+            fillcolor="#fff8e6", color="#e0b34d", fontsize=9];
+    }
+
+    subgraph cluster_db {
+      label=<<b>db container</b>>;
+      fontsize=10; fontcolor="#6b7078";
+      style="rounded,filled"; fillcolor="#fbfcfd"; color="#dfe3e8";
+      pg [label="PostgreSQL 16 : 5432", shape=cylinder, fillcolor="#f0ecfd",
+          color="#7a5af0", margin="0.25,0.18"];
+    }
+  }
+
+  browser -> nginx [label="  HTTP :80"];
+  nginx  -> express [label="  proxy /api, /auth"];
+  express -> pg [label="  SQL"];
+  express -> boot [style=dotted, arrowhead=none, color="#e0b34d"];
+  // NOTE: do not add `rank=same` across these nodes — it breaks cluster
+  // containment in Graphviz and ejects the backend from the host box.
+}

@@ -1,0 +1,64 @@
+// ITMS — Data Model (principal tables and relationships, as built)
+// Render: dot -Tpng 07-data-model.dot -o 07-data-model.png
+digraph datamodel {
+  rankdir=LR;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.1, margin="0.18,0.10"];
+  edge [fontname="Helvetica", fontsize=8.5, color="#8a9099", penwidth=1.0,
+        arrowsize=0.7];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Data Model</font></b><br/><font point-size="10" color="#6b7078">Principal tables as implemented (current-holder model)</font><br/> >;
+
+  users     [label="users\lid · email · role\lpassword_hash\l", fillcolor="#e8f0fe", color="#2a6fdb"];
+  uperms    [label="user_permissions\luser_id · module\lcan_create/read/update/delete\l", fillcolor="#e8f0fe", color="#2a6fdb"];
+  employees [label="employees\lid · full_name · email\ldepartment · designation\lis_active · leaving_date\l", fillcolor="#e9f7ee", color="#00aa2f"];
+
+  systems  [label="systems\lasset_tag · serial_number\lassigned_user_id · assigned_type\lstatus · condition\l"];
+  network  [label="network_devices\lasset_tag · serial_number\lassigned_user_id\l"];
+  mobiles  [label="mobiles\lasset_tag · imei\lassigned_user_id\l"];
+  sims     [label="sims\lphone_number · monthly_cost\lassigned_user_id\l"];
+  gws      [label="gws_accounts\lemail · org_unit\llicense · status\l"];
+
+  vendors  [label="vendors\lname · category\lcontact · email\l"];
+  purchases[label="asset_purchases\lvendor · cost · date\l"];
+  maint    [label="maintenance_log\lasset_type · asset_id\levent_type · cost_pkr\l"];
+
+  invitems [label="inv_items\lname · category\lstock levels\l", fillcolor="#f0ecfd", color="#7a5af0"];
+  invassn  [label="inv_assignments\l+ inv_assignment_items\l", fillcolor="#f0ecfd", color="#7a5af0"];
+  invreq   [label="inv_requests\l+ inv_request_items\l", fillcolor="#f0ecfd", color="#7a5af0"];
+  invalert [label="inv_alerts\lthreshold · resolved\l", fillcolor="#f0ecfd", color="#7a5af0"];
+
+  history  [label="asset_history\lasset · employee\laction · timestamp\l", fillcolor="#fff8e6", color="#e0b34d"];
+  activity [label="activity_log\luser · action · table\lrecord_label · details\l", fillcolor="#fff8e6", color="#e0b34d"];
+  recycle  [label="recycle_bin\lmodule · table_name\ldata (JSON) · expires_at\l", fillcolor="#fff8e6", color="#e0b34d"];
+
+  users -> uperms [label=" 1..n"];
+  users -> activity [label=" performs"];
+
+  employees -> systems  [label=" holds"];
+  employees -> network  [label=" holds"];
+  employees -> mobiles  [label=" holds"];
+  employees -> sims     [label=" holds"];
+  employees -> gws      [label=" owns"];
+
+  vendors -> purchases [label=" supplies"];
+  purchases -> systems [style=dashed, label=" procures"];
+  systems -> maint [style=dashed, label=" serviced"];
+
+  invitems -> invassn [label=" issued"];
+  invitems -> invalert [label=" triggers"];
+  invreq -> invassn [label=" fulfilled by"];
+  employees -> invreq [label=" raises"];
+
+  systems -> history [style=dashed, color="#e0b34d"];
+  employees -> history [style=dashed, color="#e0b34d"];
+  systems -> recycle [style=dashed, color="#e0b34d", label=" on delete"];
+  gws -> recycle [style=dashed, color="#e0b34d"];
+  vendors -> recycle [style=dashed, color="#e0b34d"];
+
+  note [label="Current model stores the CURRENT holder on each asset table\n(assigned_user_id) with history in asset_history.\nA junction/event-ledger alternative is specified in\ndocs/asset-lifecycle-architecture.md but is not implemented.",
+        shape=note, fillcolor="#fbfcfd", color="#b6bcc4", fontsize=9];
+}

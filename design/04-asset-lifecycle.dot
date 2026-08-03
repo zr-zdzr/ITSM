@@ -1,0 +1,38 @@
+// ITMS — Asset Lifecycle
+// Render: dot -Tpng 04-asset-lifecycle.dot -o 04-asset-lifecycle.png
+digraph lifecycle {
+  rankdir=TB;          // TB keeps a printable aspect ratio; LR renders very wide
+  nodesep=0.5;
+  ranksep=0.6;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.1, margin="0.20,0.12"];
+  edge [fontname="Helvetica", fontsize=9, color="#8a9099", penwidth=1.0];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Asset Lifecycle</font></b><br/><font point-size="10" color="#6b7078">Every transition is timestamped, attributed and written to the activity log</font><br/> >;
+
+  procured [label="Procured\nvendor · cost · warranty", fillcolor="#e8f0fe", color="#2a6fdb"];
+  stock    [label="In Stock\nunassigned", fillcolor="#f4f6f8"];
+  assigned [label="Assigned\nheld by an employee", fillcolor="#e9f7ee", color="#00aa2f"];
+  repair   [label="In Repair\nmaintenance logged", fillcolor="#fff8e6", color="#e0b34d"];
+  lost     [label="Lost / Damaged\nwritten off", fillcolor="#fff1f0", color="#d95c5c"];
+  retired  [label="Sold / Disposed", fillcolor="#f0ecfd", color="#7a5af0"];
+
+  procured -> stock    [label="  received"];
+  stock    -> assigned [label="  issue to employee"];
+  assigned -> assigned [label="  transfer to another employee\l(close old holding, open new)\l",
+                        color="#00aa2f", fontcolor="#00aa2f"];
+  assigned -> stock    [label="  returned"];
+  assigned -> repair   [label="  damage reported\l(employee still responsible)\l"];
+  repair   -> stock    [label="  repaired"];
+  repair   -> lost     [label="  unrepairable"];
+  assigned -> lost     [label="  reported lost"];
+  stock    -> retired  [label="  sold / disposed"];
+  lost     -> retired  [label="  written off"];
+
+  hist [label="History is never overwritten.\nA transfer CLOSES the previous holding and OPENS a new one,\nso the chain of custody and each past holder's record stay intact.",
+        shape=note, fillcolor="#fff8e6", color="#e0b34d", fontsize=9];
+  assigned -> hist [style=dotted, arrowhead=none, color="#e0b34d"];
+}

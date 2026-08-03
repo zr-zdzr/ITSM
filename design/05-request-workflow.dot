@@ -1,0 +1,54 @@
+// ITMS — Request → Fulfilment Workflow, and Offboarding
+// Render: dot -Tpng 05-request-workflow.dot -o 05-request-workflow.png
+digraph workflows {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.1, margin="0.20,0.12"];
+  edge [fontname="Helvetica", fontsize=9, color="#8a9099", penwidth=1.0];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Request Fulfilment &amp; Offboarding</font></b><br/> >;
+
+  subgraph cluster_req {
+    label=<<b>Request → Fulfilment</b>>;
+    fontsize=11; fontcolor="#2a6fdb";
+    style="rounded"; color="#cfdcf2"; margin=16;
+
+    submit  [label="Request raised\nemployee + items", fillcolor="#e8f0fe", color="#2a6fdb"];
+    queue   [label="Review queue"];
+    review  [label="IT reviews", shape=diamond, fillcolor="#fff8e6",
+             color="#e0b34d", margin="0.05,0.02"];
+    cancel  [label="Cancelled\nreason recorded", fillcolor="#fff1f0", color="#d95c5c"];
+    fulfil  [label="Fulfilled\nstock issued or asset assigned",
+             fillcolor="#e9f7ee", color="#00aa2f"];
+    assign  [label="Assignment record created\nasset → employee"];
+
+    submit -> queue -> review;
+    review -> cancel [label="  reject"];
+    review -> fulfil [label="  approve"];
+    fulfil -> assign;
+  }
+
+  subgraph cluster_off {
+    label=<<b>Employee Offboarding</b>>;
+    fontsize=11; fontcolor="#00aa2f";
+    style="rounded"; color="#cfe8d6"; margin=16;
+
+    leave   [label="Employee leaving", fillcolor="#e8f0fe", color="#2a6fdb"];
+    profile [label="Open employee profile\n= recovery checklist of held assets"];
+    ret     [label="Return or transfer\neach held asset"];
+    cloud   [label="Suspend Cloud ID"];
+    deact   [label="Mark inactive\nis_active = false, leaving_date set",
+             fillcolor="#e9f7ee", color="#00aa2f"];
+    ex      [label="Appears in Ex-Employees\nrecord + history retained permanently",
+             fillcolor="#f0ecfd", color="#7a5af0"];
+
+    leave -> profile -> ret -> cloud -> deact -> ex;
+  }
+
+  never [label="The employee row is NEVER deleted.\nOffboarding is a change of state, not a removal —\nso historical assignments stay meaningful.",
+         shape=note, fillcolor="#fff8e6", color="#e0b34d", fontsize=9];
+  deact -> never [style=dotted, arrowhead=none, color="#e0b34d"];
+}
