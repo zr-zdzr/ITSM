@@ -1,0 +1,58 @@
+// ITMS — Authentication & Permission Flow
+// Render: dot -Tpng 03-auth-permission-flow.dot -o 03-auth-permission-flow.png
+digraph authflow {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.1, margin="0.20,0.12"];
+  edge [fontname="Helvetica", fontsize=9, color="#8a9099", penwidth=1.0];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Authentication &amp; Permission Flow</font></b><br/><font point-size="10" color="#6b7078">Enforced on the server for every request, not only hidden in the UI</font><br/> >;
+
+  start [label="Request from browser", shape=ellipse, fillcolor="#e8f0fe", color="#2a6fdb"];
+  sess  [label="Valid session cookie?", shape=diamond, fillcolor="#fff8e6",
+         color="#e0b34d", margin="0.05,0.02"];
+  login [label="Redirect to /login\nemail + password", fillcolor="#fff1f0", color="#d95c5c"];
+  auth  [label="Passport local strategy\nverify against users table"];
+
+  role  [label="Role?", shape=diamond, fillcolor="#fff8e6", color="#e0b34d",
+         margin="0.05,0.02"];
+  sa    [label="super_admin\nbypasses all checks", fillcolor="#e9f7ee", color="#00aa2f"];
+  viewer[label="viewer\nread-only everywhere", fillcolor="#f0ecfd", color="#7a5af0"];
+  user  [label="user\nlook up user_permissions", fillcolor="#e8f0fe", color="#2a6fdb"];
+
+  perm  [label="perm(module, action)\nallowed?", shape=diamond,
+         fillcolor="#fff8e6", color="#e0b34d", margin="0.05,0.02"];
+  deny  [label="403 Forbidden", fillcolor="#fff1f0", color="#d95c5c"];
+  allow [label="Handler runs", fillcolor="#e9f7ee", color="#00aa2f"];
+  logrow[label="Write row to activity_log\nuser · action · record · timestamp",
+         shape=note, fillcolor="#fff8e6", color="#e0b34d", fontsize=9];
+  resp  [label="JSON response", shape=ellipse, fillcolor="#e9f7ee", color="#00aa2f"];
+
+  start -> sess;
+  sess  -> login [label="  no"];
+  login -> auth;
+  auth  -> sess [label="  session created", style=dashed];
+  sess  -> role [label="  yes"];
+
+  role -> sa     [label="  super_admin"];
+  role -> viewer [label="  viewer"];
+  role -> user   [label="  user"];
+
+  sa     -> allow;
+  viewer -> perm [label="  read only"];
+  user   -> perm;
+
+  perm -> deny  [label="  no"];
+  perm -> allow [label="  yes"];
+
+  allow -> logrow [label="  if mutating"];
+  logrow -> resp;
+  allow -> resp [label="  if read"];
+
+  note [label="Frontend mirrors this with canPerm(module, action)\nfrom AuthContext — to hide controls only.\nThe server remains the authority.",
+        shape=note, fillcolor="#f4f6f8", color="#b6bcc4", fontsize=9];
+  perm -> note [style=dotted, arrowhead=none, color="#c3c9d1"];
+}

@@ -18,4 +18,9 @@ itms-full-backup-*.zip
 /ITMS-Presentation.*
 /ITMS-Design-Flow.*
 /ITMS-Development-Prompt.txt
-/design/
+
+# Diagram sources ARE tracked — the .dot files are editable sources, not output.
+# Everything rendered from them (PNG/SVG/etc.) is ignored.
+/design/*
+!/design/*.dot
+!/design/README.md

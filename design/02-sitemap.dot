@@ -1,0 +1,60 @@
+// ITMS — Navigation / Site Map
+// Render: dot -Tpng -Gdpi=110 02-sitemap.dot -o 02-sitemap.png
+//
+// Routes are grouped into one node per sidebar section rather than one node per
+// route: a node-per-route layout renders either very tall (rankdir=LR) or very
+// wide (rankdir=TB), and shrinks illegibly when placed on a page.
+digraph sitemap {
+  rankdir=LR;
+  nodesep=0.4;
+  ranksep=0.9;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.2, margin="0.22,0.16"];
+  edge [color="#8a9099", penwidth=1.1, arrowsize=0.8];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Navigation Map</font></b><br/><font point-size="10" color="#6b7078">Routes as implemented in App.jsx, grouped as the sidebar groups them</font><br/> >;
+
+  login [label="/login\lEmail + password\l", fillcolor="#fff1f0", color="#d95c5c"];
+  dash  [label="/\lDashboard\l\lCategory counts\lRecent activity\lReplacement analysis\lStock analytics\l",
+         fillcolor="#e9f7ee", color="#00aa2f"];
+
+  inv [label=<<table border="0" cellborder="0" cellspacing="1">
+        <tr><td align="left"><b><font color="#00aa2f">INVENTORY</font></b></td></tr>
+        <tr><td align="left">/systems &#160;&#160;System Devices</td></tr>
+        <tr><td align="left">/network &#160;&#160;Network Devices</td></tr>
+        <tr><td align="left">/mobiles &#160;&#160;Mobile Devices</td></tr>
+        <tr><td align="left">/sims &#160;&#160;SIM Cards</td></tr>
+        <tr><td align="left">/gws &#160;&#160;Cloud IDs</td></tr>
+        <tr><td align="left">/employees &#160;&#160;Employees</td></tr>
+      </table>>, color="#00aa2f", fillcolor="#f6fbf7"];
+
+  stock [label=<<table border="0" cellborder="0" cellspacing="1">
+        <tr><td align="left"><b><font color="#2a6fdb">STOCK &amp; REQUESTS</font></b></td></tr>
+        <tr><td align="left">/inventory &#160;&#160;Inventory Stock</td></tr>
+        <tr><td align="left">/requests &#160;&#160;Requests</td></tr>
+        <tr><td align="left">/assignments &#160;&#160;Assignments</td></tr>
+        <tr><td align="left">/masterdata/heads &#160;&#160;Master Data</td></tr>
+      </table>>, color="#2a6fdb", fillcolor="#f7faff"];
+
+  admin [label=<<table border="0" cellborder="0" cellspacing="1">
+        <tr><td align="left"><b><font color="#7a5af0">REPORTING &amp; ADMIN</font></b></td></tr>
+        <tr><td align="left">/reports &#160;&#160;Reports</td></tr>
+        <tr><td align="left">/vendors &#160;&#160;Vendors</td></tr>
+        <tr><td align="left">/users &#160;&#160;User Management</td></tr>
+        <tr><td align="left">/logs &#160;&#160;Activity Log</td></tr>
+      </table>>, color="#7a5af0", fillcolor="#faf8ff"];
+
+  recycle [label="Recycle Bin\lModal from the global header,\lnot a route\l", shape=note,
+           fillcolor="#fff8e6", color="#e0b34d", fontsize=9];
+
+  login -> dash [label="  authenticated  ", fontsize=9, fontcolor="#6b7078"];
+  dash -> inv;
+  dash -> stock;
+  dash -> admin;
+  dash -> recycle [style=dotted, arrowhead=none, color="#e0b34d"];
+
+  { rank=same; inv; stock; admin; recycle; }
+}

@@ -1,0 +1,62 @@
+// ITMS — Delete & Recovery Flow (per-module behaviour)
+// Render: dot -Tpng 06-delete-recovery-flow.dot -o 06-delete-recovery-flow.png
+digraph deleteflow {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Helvetica";
+  node [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled",
+        color="#d7dbe0", fillcolor="#f4f6f8", penwidth=1.1, margin="0.20,0.12"];
+  edge [fontname="Helvetica", fontsize=9, color="#8a9099", penwidth=1.0];
+
+  labelloc="t";
+  label=<<b><font point-size="16">ITMS — Delete &amp; Recovery Flow</font></b><br/><font point-size="10" color="#6b7078">Confirmation wording is derived from the module's real behaviour</font><br/> >;
+
+  click  [label="User clicks Delete\n(single · selected · all)", shape=ellipse,
+          fillcolor="#e8f0fe", color="#2a6fdb"];
+  lookup [label="DELETE_BEHAVIOR[module]", shape=diamond, fillcolor="#fff8e6",
+          color="#e0b34d", margin="0.05,0.02"];
+
+  deact  [label="deactivate\nEmployees (single / selected)", fillcolor="#e9f7ee", color="#00aa2f"];
+  recyc  [label="recycle\nSystems · Network · Mobiles · SIMs\nCloud IDs · Vendors · Employees (all)",
+          fillcolor="#e8f0fe", color="#2a6fdb"];
+  perm   [label="permanent\nunknown modules (safe default)", fillcolor="#fff1f0", color="#d95c5c"];
+
+  cdeact [label="\"marked inactive and moved to the\nEx-Employees list. Asset history is preserved.\"",
+          shape=note, fontsize=9, fillcolor="#fbfcfd"];
+  crecyc [label="\"moved to the Recycle Bin, and can be\nrestored there for 30 days.\"",
+          shape=note, fontsize=9, fillcolor="#fbfcfd"];
+  cperm  [label="\"permanently deleted.\nThis cannot be undone.\"",
+          shape=note, fontsize=9, fillcolor="#fbfcfd"];
+
+  softd  [label="UPDATE is_active = false\nleaving_date set", fillcolor="#e9f7ee", color="#00aa2f"];
+  copy   [label="saveToRecycleBin()\nfull row copied as JSON"];
+  del    [label="DELETE row from table"];
+  bin    [label="Recycle Bin\n30-day expiry", shape=cylinder, fillcolor="#f0ecfd",
+          color="#7a5af0", margin="0.24,0.16"];
+  restore[label="Restore\nreinsert from stored JSON\n(fresh id assigned)", fillcolor="#e9f7ee", color="#00aa2f"];
+  purge  [label="Automatic purge\nafter 30 days", fillcolor="#fff1f0", color="#d95c5c"];
+  hard   [label="Permanently Delete\nexplicit second confirmation", fillcolor="#fff1f0", color="#d95c5c"];
+  log    [label="activity_log entry written", shape=note, fillcolor="#fff8e6",
+          color="#e0b34d", fontsize=9];
+
+  click -> lookup;
+  lookup -> deact [label="  deactivate"];
+  lookup -> recyc [label="  recycle"];
+  lookup -> perm  [label="  permanent"];
+
+  deact -> cdeact [style=dotted, arrowhead=none];
+  recyc -> crecyc [style=dotted, arrowhead=none];
+  perm  -> cperm  [style=dotted, arrowhead=none];
+
+  deact -> softd;
+  recyc -> copy -> del -> bin;
+  bin -> restore [label="  within 30 days"];
+  bin -> purge   [label="  expired"];
+  bin -> hard    [label="  user chooses"];
+
+  softd -> log;
+  del   -> log;
+
+  { rank=same; deact; recyc; perm; }
+  { rank=same; cdeact; crecyc; cperm; }
+}
