@@ -24,18 +24,18 @@ ITMS is an internal web portal for Bykea's IT department to manage and track all
 
 ### Backend
 
-| Technology      | Purpose                                                        |
-| --------------- | -------------------------------------------------------------- |
-| Node.js         | JavaScript runtime                                             |
-| Express.js      | HTTP server and REST API framework                             |
-| Passport.js     | Authentication — Google OAuth2 and local (username + password) |
-| bcryptjs        | Password hashing                                               |
-| pg              | PostgreSQL client with connection pooling                      |
-| express-session | Session management (cookie-based)                              |
-| multer          | File upload handling (CSV imports)                             |
-| csv-parse       | Parsing uploaded CSV files                                     |
-| csv-stringify   | Generating CSV export files                                    |
-| dotenv          | Loading environment variables from `.env`                      |
+| Technology      | Purpose                                                                     |
+| --------------- | --------------------------------------------------------------------------- |
+| Node.js         | JavaScript runtime                                                          |
+| Express.js      | HTTP server and REST API framework                                          |
+| Passport.js     | Session plumbing for local email + password auth (no strategies registered) |
+| bcryptjs        | Password hashing                                                            |
+| pg              | PostgreSQL client with connection pooling                                   |
+| express-session | Session management (cookie-based)                                           |
+| multer          | File upload handling (CSV imports)                                          |
+| csv-parse       | Parsing uploaded CSV files                                                  |
+| csv-stringify   | Generating CSV export files                                                 |
+| dotenv          | Loading environment variables from `.env`                                   |
 
 ### Frontend
 
@@ -110,12 +110,15 @@ Permissions are enforced on both the backend (`perm()` middleware) and the front
 
 ### Login (`/login`)
 
-Entry point for the portal. Supports two login methods:
+Entry point for the portal. There is one login method: **local email + password**.
 
-- **Local login** — admin username and password (configured in `.env`)
-- **Google OAuth** — restricted to `@bykea.com` accounts only
+The user is looked up by email (only accounts that have a `password_hash`), the password is
+checked with `bcrypt.compare()`, and the login is rejected if `is_active` is false. Every
+attempt — success or failure — is written to the activity log as `login`, `login_failed` or
+`login_blocked`.
 
-The `SUPER_ADMIN_EMAIL` in `.env` is automatically promoted to `super_admin` on first Google login.
+A `super_admin` account is seeded on start-up from `ADMIN_USERNAME` / `ADMIN_PASSWORD` in
+`.env`. All other users are created from the User Management page.
 
 ---
 
@@ -326,20 +329,19 @@ Manages the list of IT vendors and suppliers.
 
 ## 8. Environment Variables (`.env`)
 
-| Variable               | Purpose                                                           |
-| ---------------------- | ----------------------------------------------------------------- |
-| `ADMIN_USERNAME`       | Local admin login username                                        |
-| `ADMIN_PASSWORD`       | Local admin login password                                        |
-| `POSTGRES_DB`          | PostgreSQL database name                                          |
-| `POSTGRES_USER`        | PostgreSQL username                                               |
-| `POSTGRES_PASSWORD`    | PostgreSQL password                                               |
-| `SESSION_SECRET`       | Secret key for signing session cookies (use a long random string) |
-| `GOOGLE_CLIENT_ID`     | Google OAuth app client ID                                        |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth app client secret                                    |
-| `GOOGLE_CALLBACK_URL`  | OAuth redirect URL (e.g. `http://localhost/auth/google/callback`) |
-| `ALLOWED_DOMAIN`       | Only this email domain can log in via Google (e.g. `bykea.com`)   |
-| `SUPER_ADMIN_EMAIL`    | This Google account gets `super_admin` role on first login        |
-| `GROQ_API_KEY`         | API key for the ChatBot assistant (get from console.groq.com)     |
+| Variable            | Purpose                                                           |
+| ------------------- | ----------------------------------------------------------------- |
+| `ADMIN_USERNAME`    | Local admin login username                                        |
+| `ADMIN_PASSWORD`    | Local admin login password                                        |
+| `POSTGRES_DB`       | PostgreSQL database name                                          |
+| `POSTGRES_USER`     | PostgreSQL username                                               |
+| `POSTGRES_PASSWORD` | PostgreSQL password                                               |
+| `SESSION_SECRET`    | Secret key for signing session cookies (use a long random string) |
+| `GROQ_API_KEY`      | API key for the ChatBot assistant (get from console.groq.com)     |
+
+There is no Google OAuth in this system — authentication is local email + password (see
+§5 → Login). The `super_admin` account is seeded on start-up from `ADMIN_USERNAME` /
+`ADMIN_PASSWORD`, not from a Google login.
 
 ---
 
