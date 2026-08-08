@@ -228,11 +228,12 @@ CREATE INDEX IF NOT EXISTS idx_employees_portal_user  ON employees(portal_user_i
 -- Activity log indexes
 CREATE INDEX IF NOT EXISTS idx_activity_created       ON activity_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_user_created  ON activity_log(user_id, created_at DESC);
--- Recycle bin indexes
-CREATE INDEX IF NOT EXISTS idx_recycle_bin_expires    ON recycle_bin(expires_at);
-CREATE INDEX IF NOT EXISTS idx_recycle_bin_deleted_by ON recycle_bin(deleted_by);
-CREATE INDEX IF NOT EXISTS idx_recycle_bin_module     ON recycle_bin(module);
--- Maintenance log indexes
-CREATE INDEX IF NOT EXISTS idx_maint_logged_by        ON maintenance_log(logged_by);
+-- NOTE: indexes on recycle_bin and maintenance_log used to live here, but this
+-- file runs before runMigrations() and neither table is created here — so a
+-- genuinely fresh database aborted on them (psql runs init scripts with
+-- ON_ERROR_STOP=1). They now sit in runMigrations() beside their CREATE TABLE.
 -- GWS indexes
-CREATE INDEX IF NOT EXISTS idx_gws_linked_user        ON gws_accounts(linked_user_id) WHERE linked_user_id IS NOT NULL;
+-- (idx_gws_linked_user removed: it indexed gws_accounts.linked_user_id, a
+--  column no CREATE TABLE or migration in this repo ever defines and no code
+--  reads. It exists only in databases where it was added by hand, so on a
+--  fresh install this statement aborted the init.)

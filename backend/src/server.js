@@ -128,6 +128,17 @@ async function runMigrations() {
       expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '90 days'
     )
   `);
+  // Moved here from schema.sql, which runs first and does not create this
+  // table — indexing it there aborted a fresh database init.
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_recycle_bin_expires ON recycle_bin(expires_at)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_recycle_bin_deleted_by ON recycle_bin(deleted_by)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_recycle_bin_module ON recycle_bin(module)`,
+  );
 
   // ── INVENTORY / REQUESTS / ASSIGNMENTS ──────────────────
   await db.query(`
@@ -320,6 +331,10 @@ async function runMigrations() {
       created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Also moved out of schema.sql for the same reason as the recycle_bin ones.
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_maint_logged_by ON maintenance_log(logged_by)`,
+  );
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`,
   );
@@ -749,12 +764,20 @@ function scheduleWeeklyMaintenance() {
   setTimeout(run, 60_000);
 }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-  console.log(`ITMS backend running on :${PORT}`);
-  await runMigrations().catch((err) =>
-    console.error("Migration error:", err.message),
-  );
-  await seedAdmin().catch((err) => console.error("Seed error:", err.message));
-  scheduleWeeklyMaintenance();
-});
+// Only bind a port when started directly (`node src/server.js`). Requiring this
+// file — which the tests do — must give back a configured app without opening a
+// socket or arming the weekly maintenance timer, or the test process would
+// never exit.
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, async () => {
+    console.log(`ITMS backend running on :${PORT}`);
+    await runMigrations().catch((err) =>
+      console.error("Migration error:", err.message),
+    );
+    await seedAdmin().catch((err) => console.error("Seed error:", err.message));
+    scheduleWeeklyMaintenance();
+  });
+}
+
+module.exports = { app, runMigrations, seedAdmin };
