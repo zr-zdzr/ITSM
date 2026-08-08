@@ -538,9 +538,14 @@ Initial release.
 #### Infrastructure
 
 - Docker Compose stack: PostgreSQL 16, Express backend, Nginx + React frontend
-- Google OAuth restricted to `@bykea.com` domain
-- Local admin fallback login
+- Local email + password login (bcrypt), with a `super_admin` seeded from `.env` on start-up
 - Session persistence via PostgreSQL (`connect-pg-simple`)
 - Soft delete via recycle bin (30-day retention)
 - CSV import/export on all asset modules
 - Dark/light theme toggle
+
+> **Corrected 2026-08-08.** This entry originally read "Google OAuth restricted to `@bykea.com`
+> domain" plus "Local admin fallback login". Google OAuth was planned but never built — no OAuth
+> route, Passport strategy or callback handler has ever existed in the codebase, and the
+> `GOOGLE_*` variables that survived in `.env.example` until 2026-08-08 were never read by anything.
+> Local email + password has always been the only way in. The line above now says so.
