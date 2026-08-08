@@ -1,10 +1,40 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
+const rateLimit = require("express-rate-limit");
 const db = require("../config/db");
 const { logActivity, getIP } = require("../utils/activity");
 
+// Every failed login was logged but nothing ever stopped one, so a password
+// could be guessed indefinitely. Only failures count toward the limit
+// (skipSuccessfulRequests), so people actively using the app are never
+// throttled — it takes ten *wrong* passwords from one IP to trip.
+// Keyed on IP via the default generator; `trust proxy` is set in server.js,
+// so that is the real client address from X-Forwarded-For, not nginx's.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  handler: async (req, res) => {
+    // Logged like the other outcomes so a burst is visible in the Activity Log.
+    await logActivity(
+      null,
+      "login_ratelimited",
+      "auth",
+      null,
+      req.body?.username || "unknown",
+      "Too many failed attempts — temporarily blocked",
+      getIP(req),
+    );
+    res.status(429).json({
+      error: "Too many failed login attempts. Please try again in 15 minutes.",
+    });
+  },
+});
+
 // ── LOGIN ─────────────────────────────────────────────────
-router.post("/login", async (req, res, next) => {
+router.post("/login", loginLimiter, async (req, res, next) => {
   const { username, password } = req.body;
   if (!username || !password)
     return res.status(400).json({ error: "Username and password required" });

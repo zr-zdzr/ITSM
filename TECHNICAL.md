@@ -24,18 +24,20 @@ ITMS is an internal web portal for Bykea's IT department to manage and track all
 
 ### Backend
 
-| Technology      | Purpose                                                                     |
-| --------------- | --------------------------------------------------------------------------- |
-| Node.js         | JavaScript runtime                                                          |
-| Express.js      | HTTP server and REST API framework                                          |
-| Passport.js     | Session plumbing for local email + password auth (no strategies registered) |
-| bcryptjs        | Password hashing                                                            |
-| pg              | PostgreSQL client with connection pooling                                   |
-| express-session | Session management (cookie-based)                                           |
-| multer          | File upload handling (CSV imports)                                          |
-| csv-parse       | Parsing uploaded CSV files                                                  |
-| csv-stringify   | Generating CSV export files                                                 |
-| dotenv          | Loading environment variables from `.env`                                   |
+| Technology         | Purpose                                                                     |
+| ------------------ | --------------------------------------------------------------------------- |
+| Node.js            | JavaScript runtime                                                          |
+| Express.js         | HTTP server and REST API framework                                          |
+| Passport.js        | Session plumbing for local email + password auth (no strategies registered) |
+| bcryptjs           | Password hashing                                                            |
+| helmet             | Security response headers (CSP left to nginx, which serves the HTML)        |
+| express-rate-limit | Throttles repeated failed logins (10 per IP per 15 min)                     |
+| pg                 | PostgreSQL client with connection pooling                                   |
+| express-session    | Session management (cookie-based)                                           |
+| multer             | File upload handling (CSV imports)                                          |
+| csv-parse          | Parsing uploaded CSV files                                                  |
+| csv-stringify      | Generating CSV export files                                                 |
+| dotenv             | Loading environment variables from `.env`                                   |
 
 ### Frontend
 
