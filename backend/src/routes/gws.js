@@ -4,6 +4,8 @@ const { saveToRecycleBin } = require("../utils/recycle");
 const { parse } = require("csv-parse/sync");
 const { stringify } = require("csv-stringify/sync");
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
+const { logAssetEvent } = require("../utils/assetHistory");
 const { requireAuth, perm } = require("../middleware/auth");
 
 const upload = multer({
@@ -13,10 +15,18 @@ const upload = multer({
 
 const VALID_LICENSES = ["Starter", "Standard", "Vault", "Not Assigned"];
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "gws_accounts", id, label, details],
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(
+    userId,
+    action,
+    "gws_accounts",
+    id,
+    label,
+    details,
+    null,
+    changes,
   );
 }
 
@@ -383,11 +393,9 @@ router.post("/", requireAuth, perm("gws", "create"), async (req, res, next) => {
     if (!d.license)
       return res.status(400).json({ error: "License is required" });
     if (!VALID_LICENSES.includes(d.license))
-      return res
-        .status(400)
-        .json({
-          error: `License must be one of: ${VALID_LICENSES.join(", ")}`,
-        });
+      return res.status(400).json({
+        error: `License must be one of: ${VALID_LICENSES.join(", ")}`,
+      });
 
     const displayName = `${d.first_name.trim()} ${d.last_name.trim()}`.trim();
     const r = await db.query(
@@ -416,29 +424,35 @@ router.post("/", requireAuth, perm("gws", "create"), async (req, res, next) => {
 });
 
 // ── UPDATE ────────────────────────────────────────────────────
-router.put("/:id", requireAuth, perm("gws", "update"), async (req, res, next) => {
-  try {
-    const d = req.body;
-    if (!d.first_name?.trim())
-      return res.status(400).json({ error: "First Name is required" });
-    if (!d.last_name?.trim())
-      return res.status(400).json({ error: "Last Name is required" });
-    if (!d.email?.trim())
-      return res.status(400).json({ error: "Email is required" });
-    if (!isValidEmail(d.email))
-      return res.status(400).json({ error: "Invalid email format" });
-    if (!d.license)
-      return res.status(400).json({ error: "License is required" });
-    if (!VALID_LICENSES.includes(d.license))
-      return res
-        .status(400)
-        .json({
+router.put(
+  "/:id",
+  requireAuth,
+  perm("gws", "update"),
+  async (req, res, next) => {
+    try {
+      const d = req.body;
+      if (!d.first_name?.trim())
+        return res.status(400).json({ error: "First Name is required" });
+      if (!d.last_name?.trim())
+        return res.status(400).json({ error: "Last Name is required" });
+      if (!d.email?.trim())
+        return res.status(400).json({ error: "Email is required" });
+      if (!isValidEmail(d.email))
+        return res.status(400).json({ error: "Invalid email format" });
+      if (!d.license)
+        return res.status(400).json({ error: "License is required" });
+      if (!VALID_LICENSES.includes(d.license))
+        return res.status(400).json({
           error: `License must be one of: ${VALID_LICENSES.join(", ")}`,
         });
 
-    const displayName = `${d.first_name.trim()} ${d.last_name.trim()}`.trim();
-    const r = await db.query(
-      `
+      const displayName = `${d.first_name.trim()} ${d.last_name.trim()}`.trim();
+      const prev = await db.query("SELECT * FROM gws_accounts WHERE id = $1", [
+        req.params.id,
+      ]);
+      const old = prev.rows[0];
+      const r = await db.query(
+        `
       UPDATE gws_accounts SET
         first_name   = $1,
         last_name    = $2,
@@ -449,83 +463,116 @@ router.put("/:id", requireAuth, perm("gws", "update"), async (req, res, next) =>
         license      = $7,
         status       = $8
       WHERE id = $9 RETURNING *`,
-      [
-        d.first_name.trim(),
-        d.last_name.trim(),
-        displayName,
-        d.email.trim(),
-        d.org_unit || null,
-        d.phone_number || null,
-        d.license,
-        d.status || "active",
-        req.params.id,
-      ],
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
-    await log(
-      req.user.id,
-      "updated",
-      r.rows[0].id,
-      d.email,
-      "Updated Cloud ID",
-    );
-    res.json(r.rows[0]);
-  } catch (err) {
-    if (err.code === "23505")
-      return res.status(409).json({ error: "Email already exists" });
-    next(err);
-  }
-});
+        [
+          d.first_name.trim(),
+          d.last_name.trim(),
+          displayName,
+          d.email.trim(),
+          d.org_unit || null,
+          d.phone_number || null,
+          d.license,
+          d.status || "active",
+          req.params.id,
+        ],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      const upd = r.rows[0];
+      const changes = diffRows(old, upd);
+      await log(
+        req.user.id,
+        "updated",
+        upd.id,
+        d.email,
+        changes
+          ? `Updated Cloud ID: ${Object.keys(changes).join(", ")}`
+          : "Updated Cloud ID (no field changes)",
+        changes,
+      );
+
+      // Cloud IDs are not held by an employee the way hardware is — they link to
+      // a portal user and move through a lifecycle. The event worth preserving is
+      // therefore the status transition (active → suspended → archived), which is
+      // exactly what an offboarding review needs to reconstruct.
+      if (old && old.status !== upd.status) {
+        await logAssetEvent({
+          assetType: "gws",
+          assetId: upd.id,
+          assetLabel: upd.email,
+          eventType: "status_change",
+          fromStatus: old.status,
+          toStatus: upd.status,
+          notes: d.notes || null,
+          performedBy: req.user.id,
+        });
+      }
+      res.json(upd);
+    } catch (err) {
+      if (err.code === "23505")
+        return res.status(409).json({ error: "Email already exists" });
+      next(err);
+    }
+  },
+);
 
 // ── DELETE ALL ────────────────────────────────────────────────
-router.delete("/all", requireAuth, perm("gws", "delete"), async (req, res, next) => {
-  try {
-    const all = await db.query("SELECT * FROM gws_accounts");
-    await Promise.all(
-      all.rows.map((row) =>
-        saveToRecycleBin("gws", "gws_accounts", row, row.email, req.user.id),
-      ),
-    );
-    const r = await db.query("DELETE FROM gws_accounts RETURNING id");
-    await log(
-      req.user.id,
-      "deleted_all",
-      null,
-      "All Cloud IDs",
-      `Deleted all ${r.rowCount} Cloud IDs`,
-    );
-    res.json({ deleted: r.rowCount });
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete(
+  "/all",
+  requireAuth,
+  perm("gws", "delete"),
+  async (req, res, next) => {
+    try {
+      const all = await db.query("SELECT * FROM gws_accounts");
+      await Promise.all(
+        all.rows.map((row) =>
+          saveToRecycleBin("gws", "gws_accounts", row, row.email, req.user.id),
+        ),
+      );
+      const r = await db.query("DELETE FROM gws_accounts RETURNING id");
+      await log(
+        req.user.id,
+        "deleted_all",
+        null,
+        "All Cloud IDs",
+        `Deleted all ${r.rowCount} Cloud IDs`,
+      );
+      res.json({ deleted: r.rowCount });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── DELETE ONE ────────────────────────────────────────────────
-router.delete("/:id", requireAuth, perm("gws", "delete"), async (req, res, next) => {
-  try {
-    const r = await db.query(
-      "DELETE FROM gws_accounts WHERE id=$1 RETURNING *",
-      [req.params.id],
-    );
-    if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
-    await saveToRecycleBin(
-      "gws",
-      "gws_accounts",
-      r.rows[0],
-      r.rows[0].email,
-      req.user.id,
-    );
-    await log(
-      req.user.id,
-      "deleted",
-      r.rows[0].id,
-      r.rows[0].email,
-      "Deleted Cloud ID",
-    );
-    res.json({ ok: true });
-  } catch (err) {
-    next(err);
-  }
-});
+router.delete(
+  "/:id",
+  requireAuth,
+  perm("gws", "delete"),
+  async (req, res, next) => {
+    try {
+      const r = await db.query(
+        "DELETE FROM gws_accounts WHERE id=$1 RETURNING *",
+        [req.params.id],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await saveToRecycleBin(
+        "gws",
+        "gws_accounts",
+        r.rows[0],
+        r.rows[0].email,
+        req.user.id,
+      );
+      await log(
+        req.user.id,
+        "deleted",
+        r.rows[0].id,
+        r.rows[0].email,
+        "Deleted Cloud ID",
+      );
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 module.exports = router;

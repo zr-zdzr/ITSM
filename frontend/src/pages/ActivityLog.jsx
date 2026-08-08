@@ -6,6 +6,10 @@ import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 
+// Rows fetched per request. Search and the action filter run client-side over
+// what has been loaded, so this also decides how much those can see at once.
+const PAGE_SIZE = 200;
+
 const ACTION_STYLES = {
   login: { bg: "rgba(34,197,94,0.1)", color: "#4ade80" },
   logout: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
@@ -63,18 +67,32 @@ export default function ActivityLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get("/api/users/activity/log");
-      setLogs(data);
-    } catch (e) {
-      toast(e.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+  // The endpoint is paged now — it used to hand back a bare array capped at
+  // 500 rows, which silently hid everything older. `total` is what the server
+  // says exists, so the UI can be honest about how much is not on screen.
+  const load = useCallback(
+    async (nextOffset = 0) => {
+      setLoading(true);
+      try {
+        const data = await api.get(
+          `/api/users/activity/log?limit=${PAGE_SIZE}&offset=${nextOffset}`,
+        );
+        setLogs((prev) =>
+          nextOffset === 0 ? data.rows : [...prev, ...data.rows],
+        );
+        setTotal(data.total);
+        setOffset(nextOffset);
+      } catch (e) {
+        toast(e.message, "error");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     if (me?.role !== "super_admin") return;
@@ -116,6 +134,11 @@ export default function ActivityLog() {
       <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
         <p className="small text-secondary mb-0">
           {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+          {total > logs.length && (
+            <span className="ms-1">
+              · showing {logs.length} of {total} in the log
+            </span>
+          )}
         </p>
         <div className="d-flex align-items-center gap-2 flex-wrap">
           <div className="position-relative">
@@ -202,6 +225,12 @@ export default function ActivityLog() {
                 <tr>
                   <td colSpan={7} className="text-center text-secondary py-5">
                     No events found
+                    {total > logs.length && (
+                      <div className="mt-2 small">
+                        Only the {logs.length} most recent of {total} entries
+                        are loaded — load more to search further back.
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -273,6 +302,19 @@ export default function ActivityLog() {
             </tbody>
           </table>
         </div>
+        {logs.length < total && (
+          <div className="text-center py-3 border-top border-secondary-subtle">
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              disabled={loading}
+              onClick={() => load(offset + PAGE_SIZE)}
+            >
+              {loading
+                ? "Loading…"
+                : `Load ${Math.min(PAGE_SIZE, total - logs.length)} older entries`}
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

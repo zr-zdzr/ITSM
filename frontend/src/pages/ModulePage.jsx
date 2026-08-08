@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
+import { RECYCLE_RETENTION_DAYS } from "../lib/utils";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import DataTable from "../components/ui/DataTable";
@@ -24,7 +25,7 @@ import QRModal from "../components/ui/QRModal";
 const EMPTY = {};
 
 // What a delete actually does per module — mirrors the backend routes.
-//   recycle    → row is copied to recycle_bin (restorable 30 days) before removal
+//   recycle    → row is copied to recycle_bin (restorable, see RECYCLE_RETENTION_DAYS) before removal
 //   deactivate → row is only flagged inactive; nothing is removed
 //   permanent  → row is removed outright, with no recycle_bin copy
 // "single" also covers Delete Selected, which loops the same per-id endpoint.
@@ -46,7 +47,7 @@ function deleteOutcome(behavior) {
   if (behavior === "deactivate")
     return "will be marked inactive and moved to the Ex-Employees list. Asset history is preserved.";
   if (behavior === "recycle")
-    return "will be moved to the Recycle Bin, and can be restored there for 30 days.";
+    return `will be moved to the Recycle Bin, and can be restored there for ${RECYCLE_RETENTION_DAYS} days.`;
   return "will be permanently deleted. This cannot be undone.";
 }
 

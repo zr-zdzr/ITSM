@@ -4,6 +4,7 @@ const { saveToRecycleBin } = require("../utils/recycle");
 const { parse } = require("csv-parse/sync");
 const { stringify } = require("csv-stringify/sync");
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
 const { requireAuth, perm } = require("../middleware/auth");
 
 const upload = multer({
@@ -21,10 +22,18 @@ const VALID_LOCATIONS = [
 ];
 const VALID_EMP_TYPES = ["Permanent", "Contractual"];
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "employees", id, label, details],
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(
+    userId,
+    action,
+    "employees",
+    id,
+    label,
+    details,
+    null,
+    changes,
   );
 }
 
@@ -419,6 +428,9 @@ router.put(
         return res.status(400).json({ error: "Department is required" });
       if (!d.location)
         return res.status(400).json({ error: "Location is required" });
+      const prev = await db.query("SELECT * FROM employees WHERE id=$1", [
+        req.params.id,
+      ]);
       const r = await db.query(
         `UPDATE employees SET
          full_name=$1, email=$2, designation=$3, department=$4,
@@ -441,12 +453,16 @@ router.put(
         ],
       );
       if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      const changes = diffRows(prev.rows[0], r.rows[0]);
       await log(
         req.user.id,
         "updated",
         r.rows[0].id,
         fullName,
-        "Updated employee",
+        changes
+          ? `Updated employee: ${Object.keys(changes).join(", ")}`
+          : "Updated employee (no field changes)",
+        changes,
       );
       res.json(r.rows[0]);
     } catch (err) {

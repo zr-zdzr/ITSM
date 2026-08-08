@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const db = require("../config/db");
 const { requireAuth } = require("../middleware/auth");
+const { logActivity, getIP } = require("../utils/activity");
 
 // Whitelist tables and their updatable columns
 const ALLOWED = {
@@ -44,17 +45,18 @@ router.patch("/", requireAuth, async (req, res, next) => {
 
   try {
     await db.query(sql, vals);
-    // Activity log — one entry per asset would be too noisy; log a summary
-    await db.query(
-      "INSERT INTO activity_log (user_id, action, table_name, record_id, record_label, details) VALUES ($1,$2,$3,$4,$5,$6)",
-      [
-        req.user.id,
-        "bulk_update",
-        table,
-        null,
-        `${ids.length} records`,
-        JSON.stringify({ updates, ids }),
-      ],
+    // Activity log — one entry per asset would be too noisy; log a summary.
+    // The affected ids and the applied field values go in `changes` so the
+    // entry stays queryable instead of being a JSON blob inside a text column.
+    await logActivity(
+      req.user.id,
+      "bulk_update",
+      table,
+      null,
+      `${ids.length} records`,
+      `Bulk update applied to ${ids.length} ${table} records`,
+      getIP(req),
+      { applied: updates, ids },
     );
     res.json({ updated: ids.length });
   } catch (err) {

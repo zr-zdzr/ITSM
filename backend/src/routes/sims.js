@@ -4,6 +4,8 @@ const { saveToRecycleBin } = require("../utils/recycle");
 const { parse } = require("csv-parse/sync");
 const { stringify } = require("csv-stringify/sync");
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
+const { logAssetEvent } = require("../utils/assetHistory");
 const { requireAuth, perm } = require("../middleware/auth");
 
 const upload = multer({
@@ -11,11 +13,10 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "sims", id, label, details],
-  );
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(userId, action, "sims", id, label, details, null, changes);
 }
 
 function normalizeRow(raw) {
@@ -353,6 +354,10 @@ router.put(
       const d = req.body;
       if (!d.phone_number)
         return res.status(400).json({ error: "Number is required" });
+      const prev = await db.query("SELECT * FROM sims WHERE id=$1", [
+        req.params.id,
+      ]);
+      const old = prev.rows[0];
       const r = await db.query(
         `UPDATE sims SET
          phone_number=$1, assigned_type=$2, assigned_user_id=$3, sim_holder=$4,
@@ -373,14 +378,61 @@ router.put(
         ],
       );
       if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      const upd = r.rows[0];
+      const changes = diffRows(old, upd);
       await log(
         req.user.id,
         "updated",
-        r.rows[0].id,
+        upd.id,
         d.phone_number,
-        "Updated SIM card",
+        changes
+          ? `Updated SIM card: ${Object.keys(changes).join(", ")}`
+          : "Updated SIM card (no field changes)",
+        changes,
       );
-      res.json(r.rows[0]);
+
+      // SIMs recorded no chain of custody at all until now, so a number could
+      // move between staff with nothing to show who held it when. Mirrors the
+      // systems/mobiles/network pattern.
+      if (old) {
+        const oldEmp = old.assigned_user_id
+          ? Number(old.assigned_user_id)
+          : null;
+        const newEmp = upd.assigned_user_id
+          ? Number(upd.assigned_user_id)
+          : null;
+        if (oldEmp !== newEmp || old.assigned_type !== upd.assigned_type) {
+          let eventType = "status_change";
+          if (!oldEmp && newEmp) eventType = "assigned";
+          else if (oldEmp && !newEmp) eventType = "unassigned";
+          else if (oldEmp && newEmp) eventType = "transferred";
+          await logAssetEvent({
+            assetType: "sim",
+            assetId: upd.id,
+            assetLabel: upd.phone_number,
+            eventType,
+            fromEmployeeId: oldEmp,
+            toEmployeeId: newEmp,
+            fromStatus: old.status,
+            toStatus: upd.status,
+            notes: d.notes || null,
+            performedBy: req.user.id,
+          });
+        } else if (old.status !== upd.status) {
+          await logAssetEvent({
+            assetType: "sim",
+            assetId: upd.id,
+            assetLabel: upd.phone_number,
+            eventType: "status_change",
+            fromEmployeeId: oldEmp,
+            toEmployeeId: newEmp,
+            fromStatus: old.status,
+            toStatus: upd.status,
+            performedBy: req.user.id,
+          });
+        }
+      }
+      res.json(upd);
     } catch (err) {
       next(err);
     }
