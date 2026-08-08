@@ -1,11 +1,20 @@
 const router = require("express").Router();
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
 const { requireAuth, perm } = require("../middleware/auth");
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "inventory", id, label, details],
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(
+    userId,
+    action,
+    "inventory",
+    id,
+    label,
+    details,
+    null,
+    changes,
   );
 }
 
@@ -90,6 +99,10 @@ router.put(
     try {
       const { name, parent_id, description, icon, sort_order, is_active } =
         req.body;
+      const before = await db.query(
+        "SELECT * FROM inv_categories WHERE id=$1",
+        [req.params.id],
+      );
       const r = await db.query(
         `UPDATE inv_categories SET name=$1, parent_id=$2, description=$3, icon=$4, sort_order=$5, is_active=$6
        WHERE id=$7 RETURNING *`,
@@ -104,6 +117,17 @@ router.put(
         ],
       );
       if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      const changes = diffRows(before.rows[0], r.rows[0]);
+      await log(
+        req.user.id,
+        "updated",
+        r.rows[0].id,
+        r.rows[0].name,
+        changes
+          ? `Category updated: ${Object.keys(changes).join(", ")}`
+          : "Category updated (no field changes)",
+        changes,
+      );
       res.json(r.rows[0]);
     } catch (e) {
       next(e);
@@ -117,9 +141,19 @@ router.delete(
   perm("inventory", "delete"),
   async (req, res, next) => {
     try {
-      await db.query("UPDATE inv_categories SET is_active=false WHERE id=$1", [
-        req.params.id,
-      ]);
+      // Deactivates rather than deletes, so nothing is destroyed here.
+      const r = await db.query(
+        "UPDATE inv_categories SET is_active=false WHERE id=$1 RETURNING *",
+        [req.params.id],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await log(
+        req.user.id,
+        "deactivated",
+        r.rows[0].id,
+        r.rows[0].name,
+        "Category marked inactive (record retained)",
+      );
       res.json({ ok: true });
     } catch (e) {
       next(e);
@@ -260,6 +294,9 @@ router.put(
         reorder_level,
         reorder_qty,
       } = req.body;
+      const before = await db.query("SELECT * FROM inv_items WHERE id=$1", [
+        req.params.id,
+      ]);
       const r = await db.query(
         `UPDATE inv_items SET name=$1, category_id=$2, description=$3, model=$4, manufacturer=$5,
         sku=$6, tracking_type=$7, unit=$8, updated_at=NOW()
@@ -289,6 +326,17 @@ router.put(
         );
       }
       await checkAlerts(parseInt(req.params.id));
+      const changes = diffRows(before.rows[0], r.rows[0]);
+      await log(
+        req.user.id,
+        "updated",
+        r.rows[0].id,
+        r.rows[0].name,
+        changes
+          ? `Item updated: ${Object.keys(changes).join(", ")}`
+          : "Item updated (no field changes)",
+        changes,
+      );
       res.json(r.rows[0]);
     } catch (e) {
       next(e);
@@ -452,9 +500,17 @@ router.post(
   perm("inventory", "update"),
   async (req, res, next) => {
     try {
-      await db.query(
-        "UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW() WHERE id=$1",
+      const r = await db.query(
+        "UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW() WHERE id=$1 RETURNING *",
         [req.params.id],
+      );
+      if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
+      await log(
+        req.user.id,
+        "resolved",
+        r.rows[0].id,
+        `Alert #${r.rows[0].id}`,
+        "Stock alert marked resolved",
       );
       res.json({ ok: true });
     } catch (e) {

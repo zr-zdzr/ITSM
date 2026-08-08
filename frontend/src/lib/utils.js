@@ -1,3 +1,9 @@
+// How long a deleted record stays restorable in the Recycle Bin. Must match
+// the recycle_bin.expires_at default in backend/src/server.js runMigrations().
+// Kept in one place because this number was previously spelled out in four
+// separate strings and drifted from the backend the moment it changed.
+export const RECYCLE_RETENTION_DAYS = 90;
+
 export function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }

@@ -5,6 +5,7 @@ const { logAssetEvent } = require("../utils/assetHistory");
 const { parse } = require("csv-parse/sync");
 const { stringify } = require("csv-stringify/sync");
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
 const { requireAuth, perm } = require("../middleware/auth");
 
 const upload = multer({
@@ -12,10 +13,18 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "systems", id, label, details],
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(
+    userId,
+    action,
+    "systems",
+    id,
+    label,
+    details,
+    null,
+    changes,
   );
 }
 
@@ -724,12 +733,16 @@ router.put(
       );
       if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
       const upd = r.rows[0];
+      const changes = diffRows(old, upd);
       await log(
         req.user.id,
         "updated",
         upd.id,
         upd.asset_tag || upd.serial_number,
-        "Updated system",
+        changes
+          ? `Updated system: ${Object.keys(changes).join(", ")}`
+          : "Updated system (no field changes)",
+        changes,
       );
       if (old) {
         const label = upd.asset_tag || upd.serial_number;

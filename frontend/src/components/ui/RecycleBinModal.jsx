@@ -3,7 +3,7 @@ import { Trash2, RotateCcw, Clock, AlertTriangle } from "lucide-react";
 import Modal from "./Modal";
 import { api } from "../../lib/api";
 import { useToast } from "../../contexts/ToastContext";
-import { cn } from "../../lib/utils";
+import { cn, RECYCLE_RETENTION_DAYS } from "../../lib/utils";
 
 const MODULE_LABELS = {
   systems: "System",
@@ -100,7 +100,7 @@ export default function RecycleBinModal({ open, onClose, onCountChange }) {
       <Modal open={open} onClose={onClose} title="Recycle Bin" size="xl">
         <div className="d-flex align-items-center gap-2 small text-secondary mb-3">
           <Clock size={12} />
-          Items are automatically purged after 30 days.
+          Items are automatically purged after {RECYCLE_RETENTION_DAYS} days.
         </div>
 
         {loading ? (
@@ -280,7 +280,7 @@ export default function RecycleBinModal({ open, onClose, onCountChange }) {
               permanently deleted and cannot be recovered.
             </p>
             <p className="small text-secondary mb-0">
-              This bypasses the 30-day recovery window.
+              This bypasses the {RECYCLE_RETENTION_DAYS}-day recovery window.
             </p>
           </div>
         </div>

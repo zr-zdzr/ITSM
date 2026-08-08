@@ -91,7 +91,7 @@ async function runMigrations() {
       data        JSONB NOT NULL,
       deleted_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
       deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days'
+      expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '90 days'
     )
   `);
 
@@ -605,6 +605,70 @@ async function runMigrations() {
   await db.query(
     `ALTER TABLE network_devices ADD CONSTRAINT network_devices_status_check CHECK (status IN ('in_use','available','repair','retired','sold'))`,
   );
+
+  // ── AUDIT TRAIL DURABILITY & 90-DAY RETENTION ───────────────
+  // Retention moves 30d → 90d. The column default only affects new rows, so
+  // existing bin entries are re-based off their own deleted_at — an item
+  // deleted yesterday gets 89 days left, not 90 from today.
+  await db.query(
+    `ALTER TABLE recycle_bin ALTER COLUMN expires_at SET DEFAULT NOW() + INTERVAL '90 days'`,
+  );
+  await db.query(
+    `UPDATE recycle_bin SET expires_at = deleted_at + INTERVAL '90 days'
+      WHERE expires_at < deleted_at + INTERVAL '90 days'`,
+  );
+
+  // activity_log.user_id and asset_history.*_employee_id are ON DELETE SET NULL,
+  // so deleting a person used to anonymise every record they touched. Storing
+  // the label at write time means the trail still reads "Ali Raza deleted
+  // L10247" after Ali's account is gone. Denormalised on purpose: an audit row
+  // records what was true when it happened, and must not shift underneath us.
+  await db.query(
+    `ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS user_label VARCHAR(150)`,
+  );
+  // Field-level diff for updates: {"status":["available","in_use"], ...}.
+  // Without it an update only ever said "Updated system", never what changed.
+  await db.query(
+    `ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS changes JSONB`,
+  );
+  await db.query(
+    `ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS from_employee_label VARCHAR(150)`,
+  );
+  await db.query(
+    `ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS to_employee_label VARCHAR(150)`,
+  );
+  await db.query(
+    `ALTER TABLE asset_history ADD COLUMN IF NOT EXISTS performed_by_label VARCHAR(150)`,
+  );
+
+  // Backfill labels for rows written before the columns existed. Only touches
+  // rows whose FK still resolves — anything already orphaned is unrecoverable,
+  // which is precisely the hole these columns close going forward.
+  await db.query(
+    `UPDATE activity_log a SET user_label = COALESCE(u.name, u.email)
+       FROM users u WHERE u.id = a.user_id AND a.user_label IS NULL`,
+  );
+  await db.query(
+    `UPDATE asset_history h SET from_employee_label = e.full_name
+       FROM employees e WHERE e.id = h.from_employee_id AND h.from_employee_label IS NULL`,
+  );
+  await db.query(
+    `UPDATE asset_history h SET to_employee_label = e.full_name
+       FROM employees e WHERE e.id = h.to_employee_id AND h.to_employee_label IS NULL`,
+  );
+  await db.query(
+    `UPDATE asset_history h SET performed_by_label = COALESCE(u.name, u.email)
+       FROM users u WHERE u.id = h.performed_by AND h.performed_by_label IS NULL`,
+  );
+
+  // The admin Activity Log filters by action and by actor; without these it
+  // falls back to a sequential scan once the table outgrows memory.
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_activity_action ON activity_log (action)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_activity_table_record ON activity_log (table_name, record_id)`,
+  );
 }
 
 // ── Global error handler ──────────────────────────────────────
@@ -620,11 +684,27 @@ function scheduleWeeklyMaintenance() {
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   async function run() {
     try {
-      const { rowCount } = await db.query(
-        "DELETE FROM recycle_bin WHERE expires_at < NOW()",
-      );
+      // Archive each expiring row into the activity log before it goes, so a
+      // record that ages out of the bin is still recoverable from the trail.
+      // Done as one statement so a crash between the two cannot lose data:
+      // if the INSERT fails the DELETE never runs and the rows survive to the
+      // next weekly pass.
+      const { rowCount } = await db.query(`
+        WITH expired AS (
+          DELETE FROM recycle_bin WHERE expires_at < NOW() RETURNING *
+        )
+        INSERT INTO activity_log
+          (user_id, user_label, action, table_name, record_id, record_label, details, changes)
+        SELECT NULL, 'system', 'expired', e.table_name, e.record_id, e.record_name,
+               'Retention window elapsed; purged from Recycle Bin automatically. '
+                 || 'Full record snapshot retained with this entry.',
+               jsonb_build_object('snapshot', e.data)
+        FROM expired e
+      `);
       if (rowCount > 0)
-        console.log(`Recycle bin: purged ${rowCount} expired records`);
+        console.log(
+          `Recycle bin: purged ${rowCount} expired records (snapshots archived to activity_log)`,
+        );
       await db.query("VACUUM ANALYZE");
       console.log("Weekly VACUUM ANALYZE completed");
     } catch (e) {

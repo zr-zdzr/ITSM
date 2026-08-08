@@ -1,13 +1,13 @@
 const router = require('express').Router();
 const db = require('../config/db');
+const { logActivity, diffRows } = require("../utils/activity");
 const { requireAuth, perm } = require('../middleware/auth');
 const { checkAlerts } = require('./inventory');
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    'INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)',
-    [userId, action, 'inv_requests', id, label, details]
-  );
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(userId, action, "inv_requests", id, label, details, null, changes);
 }
 
 async function nextReqNumber() {

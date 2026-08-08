@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const db = require("../config/db");
+const { logActivity, diffRows } = require("../utils/activity");
 const { requireAuth, perm } = require("../middleware/auth");
 const { saveToRecycleBin } = require("../utils/recycle");
 
@@ -14,10 +15,18 @@ const COLS = [
   "notes",
 ];
 
-async function log(userId, action, id, label, details) {
-  await db.query(
-    "INSERT INTO activity_log (user_id,action,table_name,record_id,record_label,details) VALUES ($1,$2,$3,$4,$5,$6)",
-    [userId, action, "vendors", id, label, details],
+// Delegates to the shared helper so this route's entries also capture
+// user_label (which survives account deletion) and the field-level diff.
+async function log(userId, action, id, label, details, changes) {
+  await logActivity(
+    userId,
+    action,
+    "vendors",
+    id,
+    label,
+    details,
+    null,
+    changes,
   );
 }
 
@@ -57,6 +66,13 @@ router.post(
         `INSERT INTO vendors (${keys.join(", ")}) VALUES (${ph}) RETURNING *`,
         vals,
       );
+      await log(
+        req.user.id,
+        "created",
+        rows[0].id,
+        rows[0].name,
+        "Vendor created",
+      );
       res.status(201).json(rows[0]);
     } catch (err) {
       next(err);
@@ -79,11 +95,26 @@ router.put(
         .map((k, i) => `${k} = $${i + 1}`)
         .join(", ");
       const vals = [...Object.values(pick), req.params.id];
+      // Read the row first so the log can say which fields actually moved.
+      const before = await db.query("SELECT * FROM vendors WHERE id = $1", [
+        req.params.id,
+      ]);
       const { rows } = await db.query(
         `UPDATE vendors SET ${sets} WHERE id = $${vals.length} RETURNING *`,
         vals,
       );
       if (!rows[0]) return res.status(404).json({ error: "Not found" });
+      const changes = diffRows(before.rows[0], rows[0]);
+      await log(
+        req.user.id,
+        "updated",
+        rows[0].id,
+        rows[0].name,
+        changes
+          ? `Updated: ${Object.keys(changes).join(", ")}`
+          : "Updated vendor (no field changes)",
+        changes,
+      );
       res.json(rows[0]);
     } catch (err) {
       next(err);
