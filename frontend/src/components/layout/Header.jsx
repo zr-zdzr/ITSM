@@ -51,14 +51,33 @@ const TITLES = {
     title: "Assignments",
     sub: "Assigned items & return tracking",
   },
+  "/vendors": { title: "Vendors", sub: "IT vendors and suppliers" },
+  "/masterdata/heads": {
+    title: "Head & Sub-Head",
+    sub: "Master data for cost heads",
+  },
 };
+
+// Turn "/masterdata/heads" into "Heads" so a route nobody added here still
+// shows something true. The old fallback was TITLES["/"], which meant any
+// unregistered page confidently announced itself as the Dashboard — /vendors
+// and /masterdata/heads had both been doing exactly that.
+function deriveTitle(pathname) {
+  const slug = pathname.split("/").filter(Boolean).pop() || "";
+  if (!slug) return null;
+  const title = slug
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return { title, sub: "" };
+}
 
 export default function Header({ onRefresh, onMobileMenuToggle }) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const { title, sub } = TITLES[location.pathname] || TITLES["/"];
+  const { title, sub } =
+    TITLES[location.pathname] || deriveTitle(location.pathname) || TITLES["/"];
   const [open, setOpen] = useState(false);
   const [cpModal, setCpModal] = useState(false);
   const [cpData, setCpData] = useState({ cur: "", nw: "", con: "" });
