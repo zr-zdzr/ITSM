@@ -1,27 +1,61 @@
 require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
+const helmet = require("helmet");
 const PgStore = require("connect-pg-simple")(session);
 const passport = require("passport");
 const bcrypt = require("bcryptjs");
 const db = require("./config/db");
 require("./config/passport");
 
+// A missing SESSION_SECRET used to fall back to a hard-coded string, which
+// silently made every session forgeable by anyone who has read this file.
+// In production that is a deploy error, not something to paper over.
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "FATAL: SESSION_SECRET is not set. Refusing to start in production — " +
+        "sessions signed with a public default can be forged.",
+    );
+    process.exit(1);
+  }
+  console.warn(
+    "WARNING: SESSION_SECRET is not set. Using an insecure development default.",
+  );
+}
+
 const app = express();
 app.set("trust proxy", 1);
+
+// The backend answers with JSON only — nginx serves the HTML and static assets —
+// so the headers that matter here are the transport/framing ones. CSP is left off
+// deliberately: it governs how a *document* may load resources, so it belongs on
+// the nginx side, and setting it on JSON responses would only be decorative.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
   session({
     store: new PgStore({ pool: db, tableName: "session" }),
-    secret: process.env.SESSION_SECRET || "itms-dev-secret",
+    secret: SESSION_SECRET || "itms-dev-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: false,
+      // "auto" marks the cookie Secure only on HTTPS requests. With
+      // `trust proxy` set above, that is decided from the X-Forwarded-Proto
+      // nginx sends, so the cookie hardens itself the moment the app is put
+      // behind TLS without breaking today's plain-HTTP LAN access.
+      secure: "auto",
       sameSite: "lax",
     },
   }),
