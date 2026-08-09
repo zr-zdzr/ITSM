@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Same image as docker-compose.yml so CI matches production.
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: itms_user
+          POSTGRES_PASSWORD: itms_secret
+          POSTGRES_DB: itms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itms_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: backend
+        # The harness derives its throwaway itms_test database from this URL;
+        # the real database named here is never written to.
+        env:
+          DATABASE_URL: postgres://itms_user:itms_secret@localhost:5432/itms
+          SESSION_SECRET: ci-only-not-a-secret
+        run: npm test
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
