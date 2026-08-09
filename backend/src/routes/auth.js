@@ -1,8 +1,14 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const rateLimit = require("express-rate-limit");
+const passport = require("passport");
 const db = require("../config/db");
 const { logActivity, getIP } = require("../utils/activity");
+const {
+  googleEnabled,
+  isBreakGlassAdmin,
+  ALLOWED_DOMAIN,
+} = require("../utils/googleAuth");
 
 // Every failed login was logged but nothing ever stopped one, so a password
 // could be guessed indefinitely. Only failures count toward the limit
@@ -37,10 +43,67 @@ const loginLimiter = rateLimit({
 });
 
 // ── LOGIN ─────────────────────────────────────────────────
+// Which login methods exist right now — the Login page renders from this.
+router.get("/config", (req, res) => {
+  res.json({ google: googleEnabled(), domain: ALLOWED_DOMAIN });
+});
+
+// ── GOOGLE SSO ────────────────────────────────────────────
+// Both routes 404 while dormant so nothing advertises a dead flow.
+router.get("/google", (req, res, next) => {
+  if (!googleEnabled()) return res.status(404).json({ error: "Not enabled" });
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    hd: ALLOWED_DOMAIN, // advisory hint; the real check is server-side
+  })(req, res, next);
+});
+
+router.get("/google/callback", (req, res, next) => {
+  if (!googleEnabled()) return res.status(404).json({ error: "Not enabled" });
+  passport.authenticate("google", async (err, user, info) => {
+    if (err) return next(err);
+    if (!user) {
+      const code = info?.message || "google_failed";
+      await logActivity(
+        null,
+        "login_failed",
+        "auth",
+        null,
+        "google",
+        `Google sign-in rejected: ${code}`,
+        getIP(req),
+      ).catch(() => {});
+      return res.redirect(`/login?error=${encodeURIComponent(code)}`);
+    }
+    req.login(user, async (loginErr) => {
+      if (loginErr) return next(loginErr);
+      await db.query("UPDATE users SET last_login=NOW() WHERE id=$1", [
+        user.id,
+      ]);
+      await logActivity(
+        user.id,
+        "login",
+        "auth",
+        null,
+        user.email,
+        "Login successful (Google SSO)",
+        getIP(req),
+      );
+      res.redirect("/");
+    });
+  })(req, res, next);
+});
+
 router.post("/login", loginLimiter, async (req, res, next) => {
   const { username, password } = req.body;
   if (!username || !password)
     return res.status(400).json({ error: "Username and password required" });
+  // Once SSO is live, passwords work for exactly one account: the env-seeded
+  // break-glass admin. Everyone else signs in with Google.
+  if (googleEnabled() && username !== (process.env.ADMIN_USERNAME || "admin"))
+    return res
+      .status(403)
+      .json({ error: "Password login is disabled — sign in with Google" });
   const ip = getIP(req);
   try {
     const result = await db.query(
@@ -164,6 +227,12 @@ router.get("/me", async (req, res, next) => {
 router.post("/change-password", async (req, res, next) => {
   if (!req.isAuthenticated())
     return res.status(401).json({ error: "Not authenticated" });
+  // With SSO live there are no local passwords to change — except the
+  // break-glass admin's.
+  if (googleEnabled() && !isBreakGlassAdmin(req.user))
+    return res
+      .status(400)
+      .json({ error: "Passwords are managed by Google sign-in" });
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password)
     return res

@@ -74,6 +74,14 @@ export default function UserManagement() {
   const [provisionConfirm, setProvisionConfirm] = useState(false);
   const [provisionResult, setProvisionResult] = useState(null);
   const [provisioning, setProvisioning] = useState(false);
+  const [ssoMode, setSsoMode] = useState(false);
+
+  useEffect(() => {
+    api
+      .get("/auth/config")
+      .then((c) => setSsoMode(c.google === true))
+      .catch(() => setSsoMode(false));
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,12 +128,17 @@ export default function UserManagement() {
   }
 
   function downloadProvisionCsv() {
-    const rows = [
-      "name,email,temp_password",
-      ...provisionResult.created.map(
-        (c) => `"${c.name}","${c.email}","${c.temp_password}"`,
-      ),
-    ].join("\n");
+    const rows = ssoMode
+      ? [
+          "name,email",
+          ...provisionResult.created.map((c) => `"${c.name}","${c.email}"`),
+        ].join("\n")
+      : [
+          "name,email,temp_password",
+          ...provisionResult.created.map(
+            (c) => `"${c.name}","${c.email}","${c.temp_password}"`,
+          ),
+        ].join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([rows], { type: "text/csv" }));
     a.download = "employee-accounts.csv";
@@ -135,7 +148,9 @@ export default function UserManagement() {
 
   async function addUser() {
     if (!form.employee_id) return toast("Select an employee", "error");
-    if (!form.password || form.password.length < 6)
+    // Under Google SSO accounts are passwordless — the person signs in with
+    // their company Google account.
+    if (!ssoMode && (!form.password || form.password.length < 6))
       return toast("Password must be at least 6 characters", "error");
     setSaving(true);
     try {
@@ -379,20 +394,27 @@ export default function UserManagement() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="form-label small fw-medium mb-1">
-              Password<span className="text-danger ms-1">*</span>
-            </label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, password: e.target.value }))
-              }
-              className={inp}
-              placeholder="Min. 6 characters"
-            />
-          </div>
+          {ssoMode ? (
+            <p className="small text-secondary mb-0">
+              No password needed — they will sign in with their company Google
+              account.
+            </p>
+          ) : (
+            <div>
+              <label className="form-label small fw-medium mb-1">
+                Password<span className="text-danger ms-1">*</span>
+              </label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, password: e.target.value }))
+                }
+                className={inp}
+                placeholder="Min. 6 characters"
+              />
+            </div>
+          )}
           <div>
             <label className="form-label small fw-medium mb-1">Role</label>
             <select
@@ -541,9 +563,19 @@ export default function UserManagement() {
       >
         <p className="small text-secondary">
           This creates a portal login (role <b>employee</b>) for every active
-          employee that has an email address and no account yet. Each account
-          gets a one-time temporary password shown <b>only once</b> on the next
-          screen, and the employee must change it on first login.
+          employee that has an email address and no account yet.{" "}
+          {ssoMode ? (
+            <>
+              Accounts are passwordless — each person signs in with their
+              company Google account.
+            </>
+          ) : (
+            <>
+              Each account gets a one-time temporary password shown{" "}
+              <b>only once</b> on the next screen, and the employee must change
+              it on first login.
+            </>
+          )}
         </p>
         <div className="d-flex justify-content-end gap-2">
           <button
@@ -570,13 +602,15 @@ export default function UserManagement() {
       >
         {provisionResult && (
           <div className="d-flex flex-column gap-3">
-            <div
-              className="p-2 rounded-2 small"
-              style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24" }}
-            >
-              These temporary passwords are shown only once — download or copy
-              them now. They are not stored anywhere.
-            </div>
+            {!ssoMode && (
+              <div
+                className="p-2 rounded-2 small"
+                style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24" }}
+              >
+                These temporary passwords are shown only once — download or copy
+                them now. They are not stored anywhere.
+              </div>
+            )}
             {!provisionResult.created.length ? (
               <p className="small text-secondary mb-0">
                 No eligible employees — everyone active with an email already
@@ -592,7 +626,7 @@ export default function UserManagement() {
                     <tr className="small text-secondary">
                       <th>Name</th>
                       <th>Email</th>
-                      <th>Temp Password</th>
+                      {!ssoMode && <th>Temp Password</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -600,7 +634,9 @@ export default function UserManagement() {
                       <tr key={c.email}>
                         <td>{c.name}</td>
                         <td className="text-secondary">{c.email}</td>
-                        <td className="font-monospace">{c.temp_password}</td>
+                        {!ssoMode && (
+                          <td className="font-monospace">{c.temp_password}</td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

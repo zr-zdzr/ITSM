@@ -4,6 +4,7 @@ const db = require("../config/db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { logActivity, getIP } = require("../utils/activity");
 const { saveToRecycleBin } = require("../utils/recycle");
+const { googleEnabled } = require("../utils/googleAuth");
 
 const adminOnly = requireRole("super_admin");
 
@@ -208,11 +209,16 @@ router.put(
 // ── CREATE USER FROM EMPLOYEE ─────────────────────────────
 router.post("/", requireAuth, adminOnly, async (req, res, next) => {
   const { employee_id, password, role } = req.body;
-  if (!employee_id || !password || !role)
-    return res
-      .status(400)
-      .json({ error: "employee_id, password and role are required" });
-  if (password.length < 6)
+  // Under Google SSO, accounts have no local password — the person signs in
+  // with their @bykea.com identity and the row is linked by email.
+  const needsPassword = !googleEnabled();
+  if (!employee_id || !role || (needsPassword && !password))
+    return res.status(400).json({
+      error: needsPassword
+        ? "employee_id, password and role are required"
+        : "employee_id and role are required",
+    });
+  if (needsPassword && password.length < 6)
     return res
       .status(400)
       .json({ error: "Password must be at least 6 characters" });
@@ -235,7 +241,7 @@ router.post("/", requireAuth, adminOnly, async (req, res, next) => {
         .status(409)
         .json({ error: "This employee already has a portal account" });
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = needsPassword ? await bcrypt.hash(password, 10) : null;
     const r = await db.query(
       `INSERT INTO users (email,name,password_hash,role,department,designation,is_active)
        VALUES ($1,$2,$3,$4,$5,$6,true)
@@ -270,16 +276,21 @@ router.post("/", requireAuth, adminOnly, async (req, res, next) => {
 
 // ── BULK-PROVISION EMPLOYEE ACCOUNTS ──────────────────────
 // Creates a portal login (role 'employee') for every active employee that has
-// an email and no account yet. Temp passwords are returned ONCE in the
-// response for the admin to distribute — only bcrypt hashes are stored, and
-// nothing secret reaches the activity log. Idempotent: a second call finds
-// no eligible employees and creates nothing.
+// an email and no account yet. Idempotent: a second call finds no eligible
+// employees and creates nothing.
+//
+// Local-auth mode: temp passwords are returned ONCE in the response for the
+// admin to distribute — only bcrypt hashes are stored, and nothing secret
+// reaches the activity log.
+// Google SSO mode: accounts are created passwordless — the employee's first
+// @bykea.com sign-in links them; there is nothing to distribute.
 router.post(
   "/bulk-provision",
   requireAuth,
   adminOnly,
   async (req, res, next) => {
     try {
+      const sso = googleEnabled();
       const eligible = await db.query(
         `SELECT id, full_name, email, department, designation
          FROM employees
@@ -289,15 +300,22 @@ router.post(
       const created = [];
       const skipped = [];
       for (const emp of eligible.rows) {
-        const tempPassword = require("crypto")
-          .randomBytes(9)
-          .toString("base64url");
-        const hash = await bcrypt.hash(tempPassword, 10);
+        const tempPassword = sso
+          ? null
+          : require("crypto").randomBytes(9).toString("base64url");
+        const hash = tempPassword ? await bcrypt.hash(tempPassword, 10) : null;
         try {
           const r = await db.query(
             `INSERT INTO users (email, name, password_hash, role, department, designation, is_active, must_change_password)
-             VALUES ($1,$2,$3,'employee',$4,$5,true,true) RETURNING id`,
-            [emp.email, emp.full_name, hash, emp.department, emp.designation],
+             VALUES ($1,$2,$3,'employee',$4,$5,true,$6) RETURNING id`,
+            [
+              emp.email,
+              emp.full_name,
+              hash,
+              emp.department,
+              emp.designation,
+              !sso,
+            ],
           );
           await db.query("UPDATE employees SET portal_user_id=$1 WHERE id=$2", [
             r.rows[0].id,
@@ -307,7 +325,7 @@ router.post(
             employee_id: emp.id,
             name: emp.full_name,
             email: emp.email,
-            temp_password: tempPassword,
+            ...(sso ? {} : { temp_password: tempPassword }),
           });
         } catch (err) {
           if (err.code === "23505") {
@@ -378,12 +396,18 @@ router.put("/:id", requireAuth, adminOnly, async (req, res, next) => {
 });
 
 // ── ADMIN RESET PASSWORD ──────────────────────────────────
+// Local-auth mode only: under Google SSO there are no local passwords to
+// reset (the break-glass admin's comes from the ADMIN_PASSWORD env var).
 router.patch(
   "/:id/password",
   requireAuth,
   adminOnly,
   async (req, res, next) => {
     try {
+      if (googleEnabled())
+        return res
+          .status(400)
+          .json({ error: "Passwords are managed by Google sign-in" });
       const { new_password } = req.body;
       if (!new_password || new_password.length < 6)
         return res

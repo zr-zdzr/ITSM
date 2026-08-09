@@ -44,6 +44,11 @@ process.env.DATABASE_URL = testUrl;
 process.env.NODE_ENV = "test";
 // Keep seedAdmin() a no-op unless a test asks for it.
 delete process.env.ADMIN_PASSWORD;
+// A developer's .env may carry Google SSO credentials; with them present the
+// whole app switches to Google-only login and every password-based test
+// fails. Tests always start dormant — google-auth.test.js opts in per test.
+delete process.env.GOOGLE_CLIENT_ID;
+delete process.env.GOOGLE_CLIENT_SECRET;
 
 /** Drop and recreate the test database, then apply the full schema. */
 async function createTestDatabase() {
