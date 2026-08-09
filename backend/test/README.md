@@ -46,6 +46,7 @@ Two consequences worth knowing:
 | `systems.test.js`     | asset-module CRUD (systems as the representative module): validation, filters, audit diffs, asset_history events, recycle bin, per-verb permissions |
 | `csv.test.js`         | CSV import upsert semantics (match by tag, then by make+model+serial), bad-row skipping, export round-trip, permission gates                        |
 | `assignments.test.js` | inventory assign/return flows: stock ledger consistency, transactional rollback, partial and damaged returns                                        |
+| `maintenance.test.js` | repair ↔ parts consumption: atomic stock decrement through the ledger, restock-on-delete flag, low-stock alert firing, per-asset-module permissions |
 
 The first four files are the **risky** surface — auth, authorisation, and anything that destroys
 data. The last three cover the main business flows; systems stands in for the other asset modules,

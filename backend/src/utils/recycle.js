@@ -19,8 +19,17 @@ const ALLOWED_TABLES = new Set([
   "sub_heads",
 ]);
 
-async function saveToRecycleBin(module, tableName, record, recordName, userId) {
-  await db.query(
+// Pass a pg client as the final argument to make the bin insert part of the
+// caller's transaction; defaults to the pool for the existing callers.
+async function saveToRecycleBin(
+  module,
+  tableName,
+  record,
+  recordName,
+  userId,
+  client = db,
+) {
+  await client.query(
     `INSERT INTO recycle_bin (module, table_name, record_id, record_name, data, deleted_by)
      VALUES ($1,$2,$3,$4,$5,$6)`,
     [
