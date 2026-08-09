@@ -34,6 +34,14 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      # Google Workspace SSO — DELIBERATELY commented out. Uncommenting these
+      # three lines (and rebuilding) switches sign-in to Google-only for
+      # everyone except ADMIN_USERNAME. Verify the OAuth client and callback
+      # URL in Google Cloud Console first; stale credentials here mean a
+      # broken sign-in button for every employee.
+      # GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
     depends_on:
       db:
         condition: service_healthy

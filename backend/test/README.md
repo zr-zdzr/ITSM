@@ -49,6 +49,7 @@ Two consequences worth knowing:
 | `maintenance.test.js` | repair ↔ parts consumption: atomic stock decrement through the ledger, restock-on-delete flag, low-stock alert firing, per-asset-module permissions                                                      |
 | `units.test.js`       | serialized units + bins: stock counters synced to unit statuses, per-unit ledger rows, repairs installing units by serial, serialized items locked out of raw adjusts/assignments, QR lookup endpoint    |
 | `tickets.test.js`     | support tickets + employee role: owner-or-IT read scoping, the employee whitelist (403 on every other module), internal-comment visibility, lifecycle guards, bulk provisioning + forced password change |
+| `google-auth.test.js` | Google SSO: server-side domain gate, identity linking + auto-provisioning, and the mode switch (passwords refused for all but the break-glass admin, password endpoints shut down, passwordless provisioning) |
 
 The first four files are the **risky** surface — auth, authorisation, and anything that destroys
 data. The last three cover the main business flows; systems stands in for the other asset modules,

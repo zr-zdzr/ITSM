@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { KeyRound } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
@@ -15,8 +15,19 @@ export default function ForcePasswordChange() {
   const { toast } = useToast();
   const [form, setForm] = useState({ cur: "", nw: "", confirm: "" });
   const [saving, setSaving] = useState(false);
+  const [ssoMode, setSsoMode] = useState(null);
 
-  if (!user?.must_change_password) return null;
+  useEffect(() => {
+    if (user?.must_change_password)
+      api
+        .get("/auth/config")
+        .then((c) => setSsoMode(c.google === true))
+        .catch(() => setSsoMode(false));
+  }, [user?.must_change_password]);
+
+  // Under Google SSO there is no local password to change — the flag is a
+  // leftover from the temp-password flow and clears on first Google sign-in.
+  if (!user?.must_change_password || ssoMode !== false) return null;
 
   async function submit() {
     if (form.nw.length < 6)

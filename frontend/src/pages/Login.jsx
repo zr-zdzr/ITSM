@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Eye,
@@ -21,13 +21,40 @@ const FEATURES = [
   { icon: ShieldCheck, text: "Role-based access control" },
 ];
 
+// Error slugs the Google callback can redirect back with.
+const SSO_ERRORS = {
+  domain: "Only company Google accounts may sign in.",
+  deactivated: "Your account has been deactivated — contact IT.",
+  no_email: "Google did not return a verified email for your account.",
+  google_failed: "Google sign-in failed — please try again.",
+};
+
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [show, setShow] = useState(false);
+  // null = unknown yet; once loaded, google:true switches the page to SSO-first
+  // with the password form demoted to an admin-only fallback.
+  const [authConfig, setAuthConfig] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+
+  useEffect(() => {
+    api
+      .get("/auth/config")
+      .then(setAuthConfig)
+      .catch(() => setAuthConfig({ google: false }));
+    const slug = params.get("error");
+    if (slug) setError(SSO_ERRORS[slug] || SSO_ERRORS.google_failed);
+    // params is stable enough for a mount-only read
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const googleMode = authConfig?.google === true;
+  const showPasswordForm = !googleMode || showAdminLogin;
 
   async function submit(e) {
     e.preventDefault();
@@ -220,78 +247,115 @@ export default function Login() {
               </motion.div>
             )}
 
-            <form onSubmit={submit}>
-              <div className="mb-3">
-                <label
-                  className="form-label small fw-semibold text-secondary text-uppercase"
-                  style={{ letterSpacing: "0.05em", fontSize: "0.7rem" }}
+            {googleMode && (
+              <>
+                <a
+                  href="/auth/google"
+                  className="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 fw-semibold text-decoration-none"
                 >
-                  Username
-                </label>
-                <input
-                  type="text"
-                  autoComplete="username"
-                  required
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, username: e.target.value }))
-                  }
-                  className="form-control"
-                  placeholder="Enter your username"
-                />
-              </div>
-
-              <div className="mb-4">
-                <label
-                  className="form-label small fw-semibold text-secondary text-uppercase"
-                  style={{ letterSpacing: "0.05em", fontSize: "0.7rem" }}
+                  {/* Google "G" */}
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      fill="currentColor"
+                      d="M21.35 11.1H12v3.2h5.36c-.5 2.5-2.62 3.9-5.36 3.9a5.9 5.9 0 1 1 0-11.8c1.5 0 2.87.55 3.93 1.45l2.37-2.37A9.4 9.4 0 0 0 12 2.6a9.4 9.4 0 1 0 0 18.8c5.42 0 9.01-3.81 9.01-9.18 0-.38-.04-.76-.11-1.12z"
+                    />
+                  </svg>
+                  Sign in with Google
+                </a>
+                <p
+                  className="text-secondary text-center mt-2 mb-0"
+                  style={{ fontSize: "0.75rem" }}
                 >
-                  Password
-                </label>
-                <div className="position-relative">
-                  <input
-                    type={show ? "text" : "password"}
-                    autoComplete="current-password"
-                    required
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, password: e.target.value }))
-                    }
-                    className="form-control pe-5"
-                    placeholder="••••••••"
-                  />
+                  Use your @{authConfig.domain} account
+                </p>
+                <div className="text-center mt-3">
                   <button
                     type="button"
-                    onClick={() => setShow((s) => !s)}
-                    className="btn btn-link text-secondary position-absolute top-50 end-0 translate-middle-y pe-2 p-0"
-                    style={{ zIndex: 5 }}
+                    onClick={() => setShowAdminLogin((s) => !s)}
+                    className="btn btn-link text-secondary p-0"
+                    style={{ fontSize: "0.75rem", textDecoration: "none" }}
                   >
-                    {show ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showAdminLogin ? "Hide" : "Administrator sign-in"}
                   </button>
                 </div>
-              </div>
+                {showAdminLogin && <hr style={{ borderColor: "#27272a" }} />}
+              </>
+            )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
-              >
-                {loading ? (
-                  <>
-                    <div
-                      className="spinner-border spinner-border-sm"
-                      role="status"
-                      style={{ width: "1rem", height: "1rem" }}
+            {showPasswordForm && (
+              <form onSubmit={submit}>
+                <div className="mb-3">
+                  <label
+                    className="form-label small fw-semibold text-secondary text-uppercase"
+                    style={{ letterSpacing: "0.05em", fontSize: "0.7rem" }}
+                  >
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    required
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, username: e.target.value }))
+                    }
+                    className="form-control"
+                    placeholder="Enter your username"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label
+                    className="form-label small fw-semibold text-secondary text-uppercase"
+                    style={{ letterSpacing: "0.05em", fontSize: "0.7rem" }}
+                  >
+                    Password
+                  </label>
+                  <div className="position-relative">
+                    <input
+                      type={show ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
+                      value={form.password}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, password: e.target.value }))
+                      }
+                      className="form-control pe-5"
+                      placeholder="••••••••"
                     />
-                    Signing in…
-                  </>
-                ) : (
-                  <>
-                    <LogIn size={15} /> Sign In
-                  </>
-                )}
-              </button>
-            </form>
+                    <button
+                      type="button"
+                      onClick={() => setShow((s) => !s)}
+                      className="btn btn-link text-secondary position-absolute top-50 end-0 translate-middle-y pe-2 p-0"
+                      style={{ zIndex: 5 }}
+                    >
+                      {show ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 fw-semibold"
+                >
+                  {loading ? (
+                    <>
+                      <div
+                        className="spinner-border spinner-border-sm"
+                        role="status"
+                        style={{ width: "1rem", height: "1rem" }}
+                      />
+                      Signing in…
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={15} /> Sign In
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </motion.div>
       </div>
