@@ -718,6 +718,52 @@ async function runMigrations() {
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_activity_table_record ON activity_log (table_name, record_id)`,
   );
+
+  // ── SCHEMA DRIFT REPAIR ─────────────────────────────────────
+  // These 34 columns and one sequence existed only on the long-lived
+  // production database, added by hand and never captured in a migration.
+  // Every one of them is read or written by the routes, so a fresh install
+  // 500'd across systems/mobiles/sims/gws until they were recreated here.
+  // Types mirror the live database exactly (information_schema, 2026-08-09).
+  await db.query(`CREATE SEQUENCE IF NOT EXISTS system_asset_seq START 1`);
+  const driftRepair = [
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS asset_tag VARCHAR(30)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS condition VARCHAR(20)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS department VARCHAR(100)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS generation VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS purpose TEXT`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk1_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk1_type VARCHAR(20)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk2_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk2_type VARCHAR(20)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk3_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk3_type VARCHAR(20)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk4_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS disk4_type VARCHAR(20)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram1_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram1_bus VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram2_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram2_bus VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram3_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram3_bus VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram4_size VARCHAR(50)`,
+    `ALTER TABLE systems ADD COLUMN IF NOT EXISTS ram4_bus VARCHAR(50)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS systems_asset_tag_key ON systems(asset_tag)`,
+    `ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS condition VARCHAR(20)`,
+    `ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS department VARCHAR(100)`,
+    `ALTER TABLE mobiles ADD COLUMN IF NOT EXISTS warranty_start DATE`,
+    `ALTER TABLE sims ADD COLUMN IF NOT EXISTS user_name VARCHAR(100)`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS creation_date DATE`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS department VARCHAR(100)`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS designation VARCHAR(100)`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS gws_role VARCHAR(30)`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS last_login DATE`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS linked_user_id INTEGER`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS storage_limit NUMERIC DEFAULT 30`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS storage_used NUMERIC DEFAULT 0`,
+    `ALTER TABLE gws_accounts ADD COLUMN IF NOT EXISTS two_fa BOOLEAN DEFAULT false`,
+  ];
+  for (const sql of driftRepair) await db.query(sql);
 }
 
 // ── Global error handler ──────────────────────────────────────

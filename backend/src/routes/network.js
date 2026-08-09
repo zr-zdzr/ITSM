@@ -330,10 +330,11 @@ router.put(
   async (req, res, next) => {
     try {
       const d = req.body;
-      const prev = await db.query(
-        "SELECT id, status, asset_tag, brand, model FROM network_devices WHERE id=$1",
-        [req.params.id],
-      );
+      // Full row, not a column subset: diffRows() compares every column of the
+      // updated row, so a partial "before" makes untouched fields look changed.
+      const prev = await db.query("SELECT * FROM network_devices WHERE id=$1", [
+        req.params.id,
+      ]);
       const old = prev.rows[0];
       const r = await db.query(
         `

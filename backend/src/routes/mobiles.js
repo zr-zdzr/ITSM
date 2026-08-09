@@ -450,10 +450,11 @@ router.put(
       if (!d.serial_number)
         return res.status(400).json({ error: "Serial Number is required" });
 
-      const prev = await db.query(
-        "SELECT id, assigned_user_id, assigned_type, status, asset_tag FROM mobiles WHERE id=$1",
-        [req.params.id],
-      );
+      // Full row, not a column subset: diffRows() compares every column of the
+      // updated row, so a partial "before" makes untouched fields look changed.
+      const prev = await db.query("SELECT * FROM mobiles WHERE id=$1", [
+        req.params.id,
+      ]);
       const old = prev.rows[0];
       const r = await db.query(
         `UPDATE mobiles SET
