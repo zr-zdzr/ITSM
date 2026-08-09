@@ -41,6 +41,14 @@ async function checkAlerts(itemId, client) {
        )`,
       [itemId, alertType, reorder_level, qty_available],
     );
+    // An item can only be in one state: recovering from out_of_stock to
+    // low_stock (or vice versa) must retire the alert of the other type,
+    // or both banners show at once.
+    await q.query(
+      `UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW()
+       WHERE item_id=$1 AND is_resolved=false AND alert_type <> $2::varchar`,
+      [itemId, alertType],
+    );
   } else {
     await q.query(
       `UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW()

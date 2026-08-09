@@ -181,6 +181,44 @@ test("draining units below the reorder level opens a low-stock alert", async () 
   assert.equal(alerts.rows[0].alert_type, "low_stock");
 });
 
+test("moving between alert bands retires the other band's alert", async () => {
+  const { agent } = await adminAgent();
+  // A serialized item starts at qty 0 → out_of_stock alert opens.
+  const item = await makeSerializedItem(agent);
+  let open = await db.query(
+    "SELECT alert_type FROM inv_alerts WHERE item_id=$1 AND is_resolved=false",
+    [item.id],
+  );
+  assert.deepEqual(
+    open.rows.map((r) => r.alert_type),
+    ["out_of_stock"],
+  );
+
+  // Adding units (2 <= reorder_level 2) moves it to low_stock — exactly one
+  // open alert must remain, not both.
+  await agent
+    .post(`/api/inventory/items/${item.id}/units`)
+    .send({ serials: ["F-1", "F-2"] });
+  open = await db.query(
+    "SELECT alert_type FROM inv_alerts WHERE item_id=$1 AND is_resolved=false",
+    [item.id],
+  );
+  assert.deepEqual(
+    open.rows.map((r) => r.alert_type),
+    ["low_stock"],
+  );
+
+  // Fully restocked → nothing open.
+  await agent
+    .post(`/api/inventory/items/${item.id}/units`)
+    .send({ serials: ["F-3", "F-4", "F-5"] });
+  open = await db.query(
+    "SELECT count(*)::int n FROM inv_alerts WHERE item_id=$1 AND is_resolved=false",
+    [item.id],
+  );
+  assert.equal(open.rows[0].n, 0);
+});
+
 test("serialized items are locked out of raw adjustments, assignments and requests", async () => {
   const { agent } = await adminAgent();
   const item = await makeSerializedItem(agent);

@@ -63,6 +63,9 @@ const TITLES = {
 // unregistered page confidently announced itself as the Dashboard — /vendors
 // and /masterdata/heads had both been doing exactly that.
 function deriveTitle(pathname) {
+  // Detail routes ending in an id would otherwise derive a bare number.
+  if (/^\/inventory\/units\/\d+$/.test(pathname))
+    return { title: "Stock Unit", sub: "Serialized unit detail" };
   const slug = pathname.split("/").filter(Boolean).pop() || "";
   if (!slug) return null;
   const title = slug
