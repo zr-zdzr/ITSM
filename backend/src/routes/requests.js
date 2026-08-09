@@ -76,8 +76,15 @@ router.get("/", requireAuth, async (req, res, next) => {
   }
 });
 
+// "IT" here matches the GET / definition above: super_admin or the 'user'
+// role. Employees and viewers must not see other people's requests.
+const requestIsIT = (user) =>
+  user.role === "super_admin" || user.role === "user";
+
 router.get("/queue", requireAuth, async (req, res, next) => {
   try {
+    if (!requestIsIT(req.user))
+      return res.status(403).json({ error: "Permission denied" });
     const r = await db.query(
       `${REQUEST_DETAIL_SQL}
        WHERE r.status IN ('submitted','in_review','approved')
@@ -93,9 +100,15 @@ router.get("/queue", requireAuth, async (req, res, next) => {
 
 router.get("/count", requireAuth, async (req, res, next) => {
   try {
-    const r = await db.query(
-      "SELECT COUNT(*) FROM inv_requests WHERE status IN ('submitted','in_review','approved')",
-    );
+    // Non-IT gets their own pending count, not the size of the org backlog.
+    const r = requestIsIT(req.user)
+      ? await db.query(
+          "SELECT COUNT(*) FROM inv_requests WHERE status IN ('submitted','in_review','approved')",
+        )
+      : await db.query(
+          "SELECT COUNT(*) FROM inv_requests WHERE requester_id=$1 AND status IN ('submitted','in_review','approved')",
+          [req.user.id],
+        );
     res.json({ count: parseInt(r.rows[0].count) });
   } catch (e) {
     next(e);
@@ -109,8 +122,13 @@ router.get("/:id", requireAuth, async (req, res, next) => {
     const r = await db.query(`${REQUEST_DETAIL_SQL} WHERE r.id=$1`, [
       req.params.id,
     ]);
-    if (!r.rows[0]) return res.status(404).json({ error: "Not found" });
     const req_row = r.rows[0];
+    // 404, not 403, for someone else's request — ids stay unprobeable.
+    if (
+      !req_row ||
+      (!requestIsIT(req.user) && req_row.requester_id !== req.user.id)
+    )
+      return res.status(404).json({ error: "Not found" });
     const items = await db.query(ITEMS_SQL, [req.params.id]);
     res.json({ ...req_row, items: items.rows });
   } catch (e) {

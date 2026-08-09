@@ -24,6 +24,7 @@ import {
   PackageCheck,
   Store,
   Layers,
+  LifeBuoy,
 } from "lucide-react";
 import BykeaB from "../ui/BykeaB";
 import { cn } from "../../lib/utils";
@@ -329,7 +330,9 @@ export default function Sidebar({
 }) {
   const { user, canPerm } = useAuth();
   const isSA = user?.role === "super_admin";
+  const isEmployee = user?.role === "employee";
   const [pendingCount, setPendingCount] = useState(0);
+  const [ticketCount, setTicketCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -338,11 +341,29 @@ export default function Sidebar({
         .get("/api/requests/count")
         .then((r) => setPendingCount(r.count || 0))
         .catch((e) => console.error("Requests count error:", e.message));
+      // Server-side scoping: IT sees the queue size, everyone else their own.
+      api
+        .get("/api/tickets/count")
+        .then((r) => setTicketCount(r.count || 0))
+        .catch((e) => console.error("Tickets count error:", e.message));
     }
     fetchCount();
     const interval = setInterval(fetchCount, 60000);
     return () => clearInterval(interval);
   }, [user]);
+
+  const ticketsItem = (
+    <StockNavItem
+      item={{
+        id: "tickets",
+        label: "Tickets",
+        icon: LifeBuoy,
+        path: "/tickets",
+      }}
+      collapsed={collapsed}
+      badge={ticketCount}
+    />
+  );
 
   return (
     <aside
@@ -397,93 +418,113 @@ export default function Sidebar({
         className="flex-grow-1 overflow-y-auto overflow-x-hidden py-2 px-2"
         style={{ overflowX: "hidden" }}
       >
-        <SectionLabel label="Overview" collapsed={collapsed} />
-        <NavItem item={NAV[0]} collapsed={collapsed} canPerm={canPerm} />
-
-        <SectionLabel label="Inventory" collapsed={collapsed} />
-        {NAV.slice(1, 7)
-          .filter((item) => canPerm(item.id, "read"))
-          .map((item) => (
-            <NavItem
-              key={item.id}
-              item={item}
-              collapsed={collapsed}
-              canPerm={canPerm}
-            />
-          ))}
-
-        <SectionLabel label="Stock & Requests" collapsed={collapsed} />
-        {STOCK_NAV.filter(
-          (item) => canPerm("inventory", "read") || item.id === "requests",
-        ).map((item) => (
-          <StockNavItem
-            key={item.id}
-            item={item}
-            collapsed={collapsed}
-            badge={item.id === "requests" ? pendingCount : 0}
-          />
-        ))}
-
-        <SectionLabel label="Analytics" collapsed={collapsed} />
-        {canPerm("reports", "read") && (
-          <NavItem item={NAV[7]} collapsed={collapsed} canPerm={canPerm} />
-        )}
-
-        {canPerm("vendors", "read") && (
+        {/* Employees get a self-service sidebar: their tickets and requests,
+            nothing else — everything below is IT/admin surface. */}
+        {isEmployee && (
           <>
-            <SectionLabel label="Procurement" collapsed={collapsed} />
+            <SectionLabel label="Support" collapsed={collapsed} />
+            {ticketsItem}
             <StockNavItem
-              item={{
-                id: "vendors",
-                label: "Vendors",
-                icon: Store,
-                path: "/vendors",
-              }}
+              item={STOCK_NAV[1]}
               collapsed={collapsed}
-              badge={0}
+              badge={pendingCount}
             />
           </>
         )}
-
-        {isSA && (
+        {!isEmployee && (
           <>
-            <SectionLabel label="Master Data" collapsed={collapsed} />
-            <StockNavItem
-              item={{
-                id: "masterdata-heads",
-                label: "Head & Sub-Head",
-                icon: Layers,
-                path: "/masterdata/heads",
-              }}
-              collapsed={collapsed}
-              badge={0}
-            />
-          </>
-        )}
+            <SectionLabel label="Overview" collapsed={collapsed} />
+            <NavItem item={NAV[0]} collapsed={collapsed} canPerm={canPerm} />
 
-        {isSA && (
-          <>
-            <SectionLabel label="Management" collapsed={collapsed} />
-            <NavItem
-              item={{
-                id: "users",
-                label: "User Management",
-                icon: UserCog,
-                path: "/users",
-              }}
-              collapsed={collapsed}
-              canPerm={canPerm}
-            />
-            <NavItem
-              item={{
-                id: "logs",
-                label: "Activity Log",
-                icon: ScrollText,
-                path: "/logs",
-              }}
-              collapsed={collapsed}
-              canPerm={canPerm}
-            />
+            <SectionLabel label="Support" collapsed={collapsed} />
+            {ticketsItem}
+
+            <SectionLabel label="Inventory" collapsed={collapsed} />
+            {NAV.slice(1, 7)
+              .filter((item) => canPerm(item.id, "read"))
+              .map((item) => (
+                <NavItem
+                  key={item.id}
+                  item={item}
+                  collapsed={collapsed}
+                  canPerm={canPerm}
+                />
+              ))}
+
+            <SectionLabel label="Stock & Requests" collapsed={collapsed} />
+            {STOCK_NAV.filter(
+              (item) => canPerm("inventory", "read") || item.id === "requests",
+            ).map((item) => (
+              <StockNavItem
+                key={item.id}
+                item={item}
+                collapsed={collapsed}
+                badge={item.id === "requests" ? pendingCount : 0}
+              />
+            ))}
+
+            <SectionLabel label="Analytics" collapsed={collapsed} />
+            {canPerm("reports", "read") && (
+              <NavItem item={NAV[7]} collapsed={collapsed} canPerm={canPerm} />
+            )}
+
+            {canPerm("vendors", "read") && (
+              <>
+                <SectionLabel label="Procurement" collapsed={collapsed} />
+                <StockNavItem
+                  item={{
+                    id: "vendors",
+                    label: "Vendors",
+                    icon: Store,
+                    path: "/vendors",
+                  }}
+                  collapsed={collapsed}
+                  badge={0}
+                />
+              </>
+            )}
+
+            {isSA && (
+              <>
+                <SectionLabel label="Master Data" collapsed={collapsed} />
+                <StockNavItem
+                  item={{
+                    id: "masterdata-heads",
+                    label: "Head & Sub-Head",
+                    icon: Layers,
+                    path: "/masterdata/heads",
+                  }}
+                  collapsed={collapsed}
+                  badge={0}
+                />
+              </>
+            )}
+
+            {isSA && (
+              <>
+                <SectionLabel label="Management" collapsed={collapsed} />
+                <NavItem
+                  item={{
+                    id: "users",
+                    label: "User Management",
+                    icon: UserCog,
+                    path: "/users",
+                  }}
+                  collapsed={collapsed}
+                  canPerm={canPerm}
+                />
+                <NavItem
+                  item={{
+                    id: "logs",
+                    label: "Activity Log",
+                    icon: ScrollText,
+                    path: "/logs",
+                  }}
+                  collapsed={collapsed}
+                  canPerm={canPerm}
+                />
+              </>
+            )}
           </>
         )}
       </nav>

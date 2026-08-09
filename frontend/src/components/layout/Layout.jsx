@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import ChatBot from "../ui/ChatBot";
+import ForcePasswordChange from "../ForcePasswordChange";
 
 export default function Layout() {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
@@ -53,7 +56,9 @@ export default function Layout() {
           Rafiq · v2.0
         </footer>
       </div>
-      <ChatBot />
+      {/* The assistant queries IT data the employee role cannot reach. */}
+      {user?.role !== "employee" && <ChatBot />}
+      <ForcePasswordChange />
     </div>
   );
 }

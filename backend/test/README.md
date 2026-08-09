@@ -37,17 +37,18 @@ Two consequences worth knowing:
 
 ## What is covered
 
-| File                  | Area                                                                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.test.js`        | login success/failure, deactivated accounts, session cookie flags, logout                                                                                                                             |
-| `permissions.test.js` | `hasPerm()` matrix for all three roles, and `perm()` over HTTP                                                                                                                                        |
-| `recycle.test.js`     | delete → bin → restore, permanent purge, viewer denial, restore allow-list                                                                                                                            |
-| `audit.test.js`       | `diffRows()` unit tests, field-level change capture, attribution surviving user deletion, activity-log paging                                                                                         |
-| `systems.test.js`     | asset-module CRUD (systems as the representative module): validation, filters, audit diffs, asset_history events, recycle bin, per-verb permissions                                                   |
-| `csv.test.js`         | CSV import upsert semantics (match by tag, then by make+model+serial), bad-row skipping, export round-trip, permission gates                                                                          |
-| `assignments.test.js` | inventory assign/return flows: stock ledger consistency, transactional rollback, partial and damaged returns                                                                                          |
-| `maintenance.test.js` | repair ↔ parts consumption: atomic stock decrement through the ledger, restock-on-delete flag, low-stock alert firing, per-asset-module permissions                                                   |
-| `units.test.js`       | serialized units + bins: stock counters synced to unit statuses, per-unit ledger rows, repairs installing units by serial, serialized items locked out of raw adjusts/assignments, QR lookup endpoint |
+| File                  | Area                                                                                                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.test.js`        | login success/failure, deactivated accounts, session cookie flags, logout                                                                                                                                |
+| `permissions.test.js` | `hasPerm()` matrix for all three roles, and `perm()` over HTTP                                                                                                                                           |
+| `recycle.test.js`     | delete → bin → restore, permanent purge, viewer denial, restore allow-list                                                                                                                               |
+| `audit.test.js`       | `diffRows()` unit tests, field-level change capture, attribution surviving user deletion, activity-log paging                                                                                            |
+| `systems.test.js`     | asset-module CRUD (systems as the representative module): validation, filters, audit diffs, asset_history events, recycle bin, per-verb permissions                                                      |
+| `csv.test.js`         | CSV import upsert semantics (match by tag, then by make+model+serial), bad-row skipping, export round-trip, permission gates                                                                             |
+| `assignments.test.js` | inventory assign/return flows: stock ledger consistency, transactional rollback, partial and damaged returns                                                                                             |
+| `maintenance.test.js` | repair ↔ parts consumption: atomic stock decrement through the ledger, restock-on-delete flag, low-stock alert firing, per-asset-module permissions                                                      |
+| `units.test.js`       | serialized units + bins: stock counters synced to unit statuses, per-unit ledger rows, repairs installing units by serial, serialized items locked out of raw adjusts/assignments, QR lookup endpoint    |
+| `tickets.test.js`     | support tickets + employee role: owner-or-IT read scoping, the employee whitelist (403 on every other module), internal-comment visibility, lifecycle guards, bulk provisioning + forced password change |
 
 The first four files are the **risky** surface — auth, authorisation, and anything that destroys
 data. The last three cover the main business flows; systems stands in for the other asset modules,

@@ -17,6 +17,9 @@ function requireRole(...roles) {
 
 // The permission rule itself, decoupled from Express.
 // super_admin bypasses all checks.
+// employee role: hard whitelist — the support module only. Must be checked
+//   BEFORE the universal-read rule below, or every staff member could read
+//   every module (systems, employees, reports…).
 // user role: checks user_permissions table.
 // viewer role: read-only (blocks create/update/delete).
 //
@@ -26,6 +29,7 @@ function requireRole(...roles) {
 async function hasPerm(user, module, action) {
   if (!user) return false;
   if (user.role === "super_admin") return true;
+  if (user.role === "employee") return module === "support";
   if (action === "read") return true;
   if (user.role === "viewer") return false;
   const col = `can_${action}`;

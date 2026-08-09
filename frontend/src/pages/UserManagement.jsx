@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { UserPlus, Trash2, Shield, AlertTriangle, Check } from "lucide-react";
+import {
+  UserPlus,
+  Trash2,
+  Shield,
+  AlertTriangle,
+  Check,
+  Users2,
+  Download,
+} from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,6 +18,8 @@ import { Navigate } from "react-router-dom";
 const ROLE_COLORS = {
   super_admin: { bg: "rgba(244,63,94,0.1)", color: "#fb7185" },
   user: { bg: "rgba(0,170,47,0.1)", color: "#4ade80" },
+  employee: { bg: "rgba(59,130,246,0.1)", color: "#7dd3fc" },
+  viewer: { bg: "rgba(113,113,122,0.15)", color: "#a1a1aa" },
 };
 
 const MODULES = [
@@ -22,6 +32,7 @@ const MODULES = [
   { id: "reports", label: "Reports" },
   { id: "inventory", label: "Inventory / Requests" },
   { id: "vendors", label: "Vendors" },
+  { id: "support", label: "Support Tickets" },
 ];
 const CRUDS = ["create", "read", "update", "delete"];
 
@@ -60,6 +71,10 @@ export default function UserManagement() {
   const [perms, setPerms] = useState(() => emptyPerms());
   const [permSaving, setPermSaving] = useState(false);
 
+  const [provisionConfirm, setProvisionConfirm] = useState(false);
+  const [provisionResult, setProvisionResult] = useState(null);
+  const [provisioning, setProvisioning] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -88,6 +103,35 @@ export default function UserManagement() {
   }, [load, me?.role]);
 
   if (me?.role !== "super_admin") return <Navigate to="/" replace />;
+
+  async function runProvision() {
+    setProvisioning(true);
+    try {
+      const result = await api.post("/api/users/bulk-provision");
+      setProvisionConfirm(false);
+      setProvisionResult(result);
+      await load();
+      loadAvailableEmployees();
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setProvisioning(false);
+    }
+  }
+
+  function downloadProvisionCsv() {
+    const rows = [
+      "name,email,temp_password",
+      ...provisionResult.created.map(
+        (c) => `"${c.name}","${c.email}","${c.temp_password}"`,
+      ),
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([rows], { type: "text/csv" }));
+    a.download = "employee-accounts.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   async function addUser() {
     if (!form.employee_id) return toast("Select an employee", "error");
@@ -163,12 +207,20 @@ export default function UserManagement() {
         <p className="small text-secondary mb-0">
           {users.length} portal user{users.length !== 1 ? "s" : ""}
         </p>
-        <button
-          className="btn btn-primary btn-sm d-flex align-items-center gap-2"
-          onClick={() => setAddModal(true)}
-        >
-          <UserPlus size={14} /> Add User
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          <button
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+            onClick={() => setProvisionConfirm(true)}
+          >
+            <Users2 size={14} /> Provision Employee Accounts
+          </button>
+          <button
+            className="btn btn-primary btn-sm d-flex align-items-center gap-2"
+            onClick={() => setAddModal(true)}
+          >
+            <UserPlus size={14} /> Add User
+          </button>
+        </div>
       </div>
 
       <div className="itms-card overflow-hidden">
@@ -349,6 +401,9 @@ export default function UserManagement() {
               className={sel}
             >
               <option value="user">User</option>
+              <option value="employee">
+                Employee (self-service tickets &amp; requests only)
+              </option>
               <option value="super_admin">Super Admin (full access)</option>
             </select>
           </div>
@@ -476,6 +531,106 @@ export default function UserManagement() {
             Remove
           </button>
         </div>
+      </Modal>
+
+      {/* Provision confirm */}
+      <Modal
+        open={provisionConfirm}
+        onClose={() => setProvisionConfirm(false)}
+        title="Provision Employee Accounts"
+      >
+        <p className="small text-secondary">
+          This creates a portal login (role <b>employee</b>) for every active
+          employee that has an email address and no account yet. Each account
+          gets a one-time temporary password shown <b>only once</b> on the next
+          screen, and the employee must change it on first login.
+        </p>
+        <div className="d-flex justify-content-end gap-2">
+          <button
+            onClick={() => setProvisionConfirm(false)}
+            className="btn btn-secondary btn-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={runProvision}
+            disabled={provisioning}
+            className="btn btn-primary btn-sm"
+          >
+            {provisioning ? "Provisioning…" : "Create Accounts"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Provision results — the only time the temp passwords are visible */}
+      <Modal
+        open={!!provisionResult}
+        onClose={() => setProvisionResult(null)}
+        title="Accounts Created"
+      >
+        {provisionResult && (
+          <div className="d-flex flex-column gap-3">
+            <div
+              className="p-2 rounded-2 small"
+              style={{ background: "rgba(245,158,11,0.1)", color: "#fbbf24" }}
+            >
+              These temporary passwords are shown only once — download or copy
+              them now. They are not stored anywhere.
+            </div>
+            {!provisionResult.created.length ? (
+              <p className="small text-secondary mb-0">
+                No eligible employees — everyone active with an email already
+                has an account.
+              </p>
+            ) : (
+              <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                <table
+                  className="table table-sm mb-0"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  <thead>
+                    <tr className="small text-secondary">
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Temp Password</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {provisionResult.created.map((c) => (
+                      <tr key={c.email}>
+                        <td>{c.name}</td>
+                        <td className="text-secondary">{c.email}</td>
+                        <td className="font-monospace">{c.temp_password}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {provisionResult.skipped.length > 0 && (
+              <p className="small text-secondary mb-0">
+                Skipped:{" "}
+                {provisionResult.skipped.map((s) => s.email).join(", ")}
+              </p>
+            )}
+            <div className="d-flex justify-content-end gap-2">
+              {provisionResult.created.length > 0 && (
+                <button
+                  onClick={downloadProvisionCsv}
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                >
+                  <Download size={13} /> Download CSV
+                </button>
+              )}
+              <button
+                onClick={() => setProvisionResult(null)}
+                className="btn btn-primary btn-sm"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </motion.div>
   );
