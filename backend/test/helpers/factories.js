@@ -77,4 +77,37 @@ async function makeEmployee({ fullName = "Chain Holder", ...rest } = {}) {
   return rows[0];
 }
 
-module.exports = { makeUser, grant, loginAs, makeEmployee, db, app, PASSWORD };
+/** Insert a consumable item together with its stock row. */
+async function makeItem({ name = "USB-C Cable", qty = 10, ...rest } = {}) {
+  const { rows } = await db.query(
+    `INSERT INTO inv_items (name, unit, tracking_type)
+     VALUES ($1,$2,$3) RETURNING *`,
+    [name, rest.unit || "pcs", rest.trackingType || "quantity_returnable"],
+  );
+  const item = rows[0];
+  await db.query(
+    `INSERT INTO inv_stock (item_id, qty_available) VALUES ($1,$2)`,
+    [item.id, qty],
+  );
+  return item;
+}
+
+async function stockOf(itemId) {
+  const { rows } = await db.query(
+    `SELECT qty_available, qty_assigned, qty_damaged FROM inv_stock WHERE item_id=$1`,
+    [itemId],
+  );
+  return rows[0];
+}
+
+module.exports = {
+  makeUser,
+  grant,
+  loginAs,
+  makeEmployee,
+  makeItem,
+  stockOf,
+  db,
+  app,
+  PASSWORD,
+};

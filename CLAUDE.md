@@ -64,14 +64,16 @@ Three roles: `super_admin` (all access), `user` (module-level CRUD permissions i
 ## Key conventions
 
 - **Activity logging**: Every mutation route inserts a row into `activity_log`. Pattern: `INSERT INTO activity_log (user_id, action, table_name, record_id, record_label, details)`.
-- **Soft delete**: Use `utils/recycle.js` helper to move records to `recycle_bin` before hard-deleting. Recycle bin has a 30-day expiry.
+- **Soft delete**: Use `utils/recycle.js` helper to move records to `recycle_bin` before hard-deleting. Recycle bin has a 90-day expiry.
 - **Schema changes**: Add `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements to `runMigrations()` in `server.js`. Never edit `schema.sql` for incremental changes — it only runs on fresh DB init.
 - **CSV import/export**: Routes use `csv-parse` (import) and `csv-stringify` (export). Sample CSV files live in `frontend/downloads/`.
 - **Asset tags**: Generated client-side in `frontend/src/lib/utils.js` `genAssetTag()`.
 - **Tests**: `cd backend && npm test` (`node:test` + `supertest`, no framework). Each run builds a
   throwaway `itms_test` database from `migrations/schema.sql` + `runMigrations()` and drops it
   afterwards, so tests never touch real data. Postgres must be reachable — `docker compose up db` is
-  enough. Coverage is deliberately narrow: auth, `perm()`/`hasPerm()`, recycle-bin delete/restore/purge,
-  and the audit trail. Business CRUD is still verified by hand.
+  enough. Covers auth, `perm()`/`hasPerm()`, recycle-bin delete/restore/purge, the audit trail,
+  asset CRUD (systems as the representative module), CSV import/export, and inventory
+  assignment/return flows. Because the test DB is built from the migrations alone, these tests also
+  catch schema drift — columns that exist only on a hand-modified live database.
 - `src/server.js` exports `{ app, runMigrations, seedAdmin }` and only calls `app.listen()` when run
   directly, so requiring it in a test does not open a socket.

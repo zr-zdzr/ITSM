@@ -37,22 +37,26 @@ Two consequences worth knowing:
 
 ## What is covered
 
-| File | Area |
-| --- | --- |
-| `auth.test.js` | login success/failure, deactivated accounts, session cookie flags, logout |
-| `permissions.test.js` | `hasPerm()` matrix for all three roles, and `perm()` over HTTP |
-| `recycle.test.js` | delete → bin → restore, permanent purge, viewer denial, restore allow-list |
-| `audit.test.js` | `diffRows()` unit tests, field-level change capture, attribution surviving user deletion, activity-log paging |
+| File                  | Area                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.test.js`        | login success/failure, deactivated accounts, session cookie flags, logout                                                                           |
+| `permissions.test.js` | `hasPerm()` matrix for all three roles, and `perm()` over HTTP                                                                                      |
+| `recycle.test.js`     | delete → bin → restore, permanent purge, viewer denial, restore allow-list                                                                          |
+| `audit.test.js`       | `diffRows()` unit tests, field-level change capture, attribution surviving user deletion, activity-log paging                                       |
+| `systems.test.js`     | asset-module CRUD (systems as the representative module): validation, filters, audit diffs, asset_history events, recycle bin, per-verb permissions |
+| `csv.test.js`         | CSV import upsert semantics (match by tag, then by make+model+serial), bad-row skipping, export round-trip, permission gates                        |
+| `assignments.test.js` | inventory assign/return flows: stock ledger consistency, transactional rollback, partial and damaged returns                                        |
 
-This is deliberately the **risky** surface — auth, authorisation, and anything that destroys data —
-not a coverage target. Ordinary CRUD on the asset modules is still verified by hand.
+The first four files are the **risky** surface — auth, authorisation, and anything that destroys
+data. The last three cover the main business flows; systems stands in for the other asset modules,
+which share the same route shape.
 
 ## Adding a test
 
 ```js
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const setup = require("./helpers/setup");        // must come first
+const setup = require("./helpers/setup"); // must come first
 
 let db, makeUser, loginAs;
 
@@ -65,7 +69,7 @@ test.beforeEach(async () => setup.truncateAll());
 ```
 
 `factories.js` provides `makeUser`, `grant`, `loginAs` (returns a supertest agent holding the
-session cookie) and `makeEmployee`.
+session cookie), `makeEmployee`, `makeItem` (consumable item plus its stock row) and `stockOf`.
 
 Helpers live in `test/helpers/` and are excluded from the run by the `test/*.test.js` glob — Node's
 runner would otherwise execute every `.js` file under `test/` as a test file.
