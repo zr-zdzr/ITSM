@@ -75,6 +75,7 @@ app.use("/api/employees", require("./routes/employees"));
 app.use("/api/reports", require("./routes/reports"));
 app.use("/api/recycle-bin", require("./routes/recycle-bin"));
 app.use("/api/inventory", require("./routes/inventory").router);
+app.use("/api/inventory", require("./routes/units"));
 app.use("/api/requests", require("./routes/requests"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/asset-history", require("./routes/asset-history"));
@@ -388,6 +389,53 @@ async function runMigrations() {
   // the vendors CREATE above or a fresh install has nothing to reference.
   await db.query(
     `ALTER TABLE maintenance_log ADD COLUMN IF NOT EXISTS vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL`,
+  );
+
+  // ── SERIALIZED UNITS + BIN LOCATIONS (spare-parts-architecture.md §2b) ──
+  // Serialized items keep their inv_stock row: qty_available is maintained as
+  // the count of 'in_stock' units (and qty_damaged as the count of 'faulty'),
+  // so checkAlerts, forecasts and every existing report work unchanged.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_bins (
+      id          SERIAL PRIMARY KEY,
+      code        VARCHAR(30) UNIQUE NOT NULL,
+      location    VARCHAR(100),
+      description TEXT,
+      is_active   BOOLEAN NOT NULL DEFAULT true,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS inv_units (
+      id                   SERIAL PRIMARY KEY,
+      item_id              INTEGER NOT NULL REFERENCES inv_items(id),
+      serial_no            VARCHAR(100) NOT NULL,
+      status               VARCHAR(20) NOT NULL DEFAULT 'in_stock'
+                           CHECK (status IN ('in_stock','reserved','installed','faulty','rma','scrapped')),
+      bin_id               INTEGER REFERENCES inv_bins(id) ON DELETE SET NULL,
+      cost_pkr             NUMERIC(10,2),
+      installed_asset_type VARCHAR(20),
+      installed_asset_id   INTEGER,
+      maintenance_part_id  INTEGER REFERENCES maintenance_parts(id) ON DELETE SET NULL,
+      notes                TEXT,
+      created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (item_id, serial_no)
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_inv_units_item_status ON inv_units(item_id, status)`,
+  );
+  await db.query(
+    `ALTER TABLE inv_items DROP CONSTRAINT IF EXISTS inv_items_tracking_type_check`,
+  );
+  await db.query(
+    `ALTER TABLE inv_items ADD CONSTRAINT inv_items_tracking_type_check
+       CHECK (tracking_type IN ('quantity','quantity_returnable','serialized'))`,
+  );
+  // One home bin per bulk-consumable item; UNIQUE(item_id) on inv_stock stays.
+  await db.query(
+    `ALTER TABLE inv_stock ADD COLUMN IF NOT EXISTS bin_id INTEGER REFERENCES inv_bins(id) ON DELETE SET NULL`,
   );
   // ── Systems table enhancements ───────────────────────────
   await db.query(

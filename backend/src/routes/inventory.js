@@ -41,6 +41,14 @@ async function checkAlerts(itemId, client) {
        )`,
       [itemId, alertType, reorder_level, qty_available],
     );
+    // An item can only be in one state: recovering from out_of_stock to
+    // low_stock (or vice versa) must retire the alert of the other type,
+    // or both banners show at once.
+    await q.query(
+      `UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW()
+       WHERE item_id=$1 AND is_resolved=false AND alert_type <> $2::varchar`,
+      [itemId, alertType],
+    );
   } else {
     await q.query(
       `UPDATE inv_alerts SET is_resolved=true, resolved_at=NOW()
@@ -403,6 +411,20 @@ router.post(
       );
       if (!sr.rows[0]) return res.status(404).json({ error: "Item not found" });
       const stock = sr.rows[0];
+
+      // Serialized stock is a count of units; a raw quantity bump would
+      // desync it from the units table. Move the units instead.
+      const trk = await client.query(
+        "SELECT tracking_type FROM inv_items WHERE id=$1",
+        [req.params.id],
+      );
+      if (trk.rows[0]?.tracking_type === "serialized") {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error:
+            "This item is serialized — adjust it by adding units or changing a unit's status",
+        });
+      }
 
       let update;
       if (type === "purchase" || (type === "correction" && change > 0)) {

@@ -1,7 +1,7 @@
 # IT Stock Inventory & Spare Parts Management — Architecture
 
-**Status:** Phase 1 (repair ↔ parts consumption) implemented. Phases 2–4 are design-only until
-scheduled.
+**Status:** Phases 1 (repair ↔ parts consumption) and 2 (serialized units + bins) implemented.
+Phases 3–4 are design-only until scheduled.
 **Scope decision (2026-08-09):** extend the existing `inv_*` schema — never a parallel schema. All
 DDL lands in `runMigrations()` (`backend/src/server.js`) as `IF NOT EXISTS` statements, per project
 convention.
@@ -17,13 +17,13 @@ keyboards, headsets), on top of what ITMS already does.
 ITMS already implements the majority of a stock/spares system. The design below adds only what is
 missing.
 
-| Capability | Exists today | Gap this design closes |
-| --- | --- | --- |
-| Consumable stock | `inv_items` / `inv_stock` (one stock row per item, `UNIQUE(item_id)`), append-only `inv_adjustments` movement ledger, six manual adjustment types | No serialized per-unit tracking, no bin/shelf locations, no unit cost anywhere in the catalog |
-| Issue lifecycle | Full request → approve (reserves) → fulfil (assigns) → return (good/damaged/lost) flow with `ASN-`/`RET-` numbering; direct assignment; per-employee ledger | No consumption thresholds per employee ("more than 2 chargers in 90 days"), no anomaly flagging |
-| Reorder | `inv_stock.reorder_level` drives write-triggered `checkAlerts()` (`routes/inventory.js:21-48`) with SQL-level dedup and auto-resolve; `/api/reports/forecast` projects stockout dates | `reorder_qty` is stored but consumed by no logic; alerts fire only on stock *writes* (no sweep); delivery is a 60-second frontend poll — no email, no webhook |
-| Repairs | `maintenance_log` per system/mobile with event vocabulary incl. `replaced_part`, single `cost_pkr` scalar, free-text `performed_by`; rendered by `MaintenanceLog.jsx` in the asset drawer | **A repair cannot record which parts it consumed.** Stock is not decremented, parts carry no cost, `vendors` is referenced by nothing, and no per-asset cost rollup exists |
-| Labels | QR generation + 2.2×2.8 cm label print (`QRModal.jsx`) for systems/mobiles/network | Payload is display text, not a scannable lookup; no QR for stock items or units; no scanning |
+| Capability       | Exists today                                                                                                                                                                              | Gap this design closes                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Consumable stock | `inv_items` / `inv_stock` (one stock row per item, `UNIQUE(item_id)`), append-only `inv_adjustments` movement ledger, six manual adjustment types                                         | No serialized per-unit tracking, no bin/shelf locations, no unit cost anywhere in the catalog                                                                              |
+| Issue lifecycle  | Full request → approve (reserves) → fulfil (assigns) → return (good/damaged/lost) flow with `ASN-`/`RET-` numbering; direct assignment; per-employee ledger                               | No consumption thresholds per employee ("more than 2 chargers in 90 days"), no anomaly flagging                                                                            |
+| Reorder          | `inv_stock.reorder_level` drives write-triggered `checkAlerts()` (`routes/inventory.js:21-48`) with SQL-level dedup and auto-resolve; `/api/reports/forecast` projects stockout dates     | `reorder_qty` is stored but consumed by no logic; alerts fire only on stock _writes_ (no sweep); delivery is a 60-second frontend poll — no email, no webhook              |
+| Repairs          | `maintenance_log` per system/mobile with event vocabulary incl. `replaced_part`, single `cost_pkr` scalar, free-text `performed_by`; rendered by `MaintenanceLog.jsx` in the asset drawer | **A repair cannot record which parts it consumed.** Stock is not decremented, parts carry no cost, `vendors` is referenced by nothing, and no per-asset cost rollup exists |
+| Labels           | QR generation + 2.2×2.8 cm label print (`QRModal.jsx`) for systems/mobiles/network                                                                                                        | Payload is display text, not a scannable lookup; no QR for stock items or units; no scanning                                                                               |
 
 ## 2. ER extensions
 
@@ -64,9 +64,9 @@ Design decisions, and why:
 - **Every consumption writes the `inv_adjustments` ledger** with
   `type='repair_consumption', reference_type='maintenance_log', reference_id=<log id>`, so the
   ledger remains the single source of truth for stock movements. Deleting a repair with restock
-  writes a *compensating* `repair_restock` row — ledger rows are never deleted.
+  writes a _compensating_ `repair_restock` row — ledger rows are never deleted.
 
-### 2b. Phase 2 — serialized units + bin locations (design only)
+### 2b. Phase 2 — serialized units + bin locations (IMPLEMENTED)
 
 ```sql
 CREATE TABLE IF NOT EXISTS inv_bins (
@@ -407,12 +407,12 @@ The only genuinely new infrastructure, deferred to Phase 3, is:
 
 ## 6. Phased roadmap
 
-| Phase | Contents | Status |
-| --- | --- | --- |
-| 1 | `maintenance_parts` + `vendor_id`; POST/GET/DELETE maintenance carry parts, decrement stock through the ledger, cost rollups in the asset drawer; maintenance widened to network devices; tests | **Implemented** |
-| 2 | `inv_bins`, `inv_units`, `tracking_type='serialized'`, unit lifecycle, QR lookup URLs, bin labels | Designed (§2b) |
-| 3 | Purchase orders, goods receipts, unit costs, live `reorder_qty` suggestions, nightly sweep, email/webhook delivery | Designed (§2c) |
-| 4 | Anomaly rules + employee consumption flags in alerts and reports | Designed (§2d) |
+| Phase | Contents                                                                                                                                                                                                                                                                    | Status          |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1     | `maintenance_parts` + `vendor_id`; POST/GET/DELETE maintenance carry parts, decrement stock through the ledger, cost rollups in the asset drawer; maintenance widened to network devices; tests                                                                             | **Implemented** |
+| 2     | `inv_bins`, `inv_units`, `tracking_type='serialized'`, unit lifecycle synced to `inv_stock` through the ledger, repair-consumed serials become `installed` units, QR lookup URLs (`/inventory/units/<id>`), serialized items locked out of raw adjusts/assignments/requests | **Implemented** |
+| 3     | Purchase orders, goods receipts, unit costs, live `reorder_qty` suggestions, nightly sweep, email/webhook delivery                                                                                                                                                          | Designed (§2c)  |
+| 4     | Anomaly rules + employee consumption flags in alerts and reports                                                                                                                                                                                                            | Designed (§2d)  |
 
 Phase order rationale: 1 unblocks cost visibility with zero new infrastructure; 2 and 3 are
 independent of each other; 4 is a small delta once 3's sweep exists.

@@ -14,6 +14,7 @@ import Reports from "./pages/Reports";
 import UserManagement from "./pages/UserManagement";
 import ActivityLog from "./pages/ActivityLog";
 import Inventory from "./pages/Inventory";
+import UnitLookup from "./pages/UnitLookup";
 import Requests from "./pages/Requests";
 import Assignments from "./pages/Assignments";
 import Vendors from "./pages/Vendors";
@@ -64,6 +65,7 @@ function AppRoutes() {
         <Route path="users" element={<UserManagement />} />
         <Route path="logs" element={<ActivityLog />} />
         <Route path="inventory" element={<Inventory />} />
+        <Route path="inventory/units/:id" element={<UnitLookup />} />
         <Route path="requests" element={<Requests />} />
         <Route path="assignments" element={<Assignments />} />
         <Route path="vendors" element={<Vendors />} />
