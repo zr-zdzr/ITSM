@@ -126,6 +126,14 @@ router.post(
       if (!items?.length) throw new Error("At least one item required");
 
       for (const item of items) {
+        const ir0 = await client.query(
+          "SELECT name, tracking_type FROM inv_items WHERE id=$1",
+          [item.item_id],
+        );
+        if (ir0.rows[0]?.tracking_type === "serialized")
+          throw new Error(
+            `${ir0.rows[0].name} is serialized — units move through repairs or unit status changes, not assignments`,
+          );
         const s = await client.query(
           "SELECT * FROM inv_stock WHERE item_id=$1 FOR UPDATE",
           [item.item_id],

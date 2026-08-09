@@ -103,17 +103,48 @@ router.post(
 
       for (const part of parts) {
         const qty = Number(part.qty);
+        const ir0 = await client.query(
+          "SELECT name, tracking_type FROM inv_items WHERE id=$1",
+          [part.item_id],
+        );
+        const itemInfo = ir0.rows[0];
+        // A serialized part is a specific unit: it must be named by serial,
+        // consumed one at a time, and exist in stock right now.
+        let unit = null;
+        if (itemInfo?.tracking_type === "serialized") {
+          if (!part.serial_no)
+            throw Object.assign(
+              new Error(
+                `${itemInfo.name} is serialized — pick a serial number`,
+              ),
+              { status: 400 },
+            );
+          if (qty !== 1)
+            throw Object.assign(
+              new Error(`Serialized parts are consumed one unit per line`),
+              { status: 400 },
+            );
+          const ur = await client.query(
+            `SELECT * FROM inv_units
+             WHERE item_id=$1 AND serial_no=$2 AND status='in_stock' FOR UPDATE`,
+            [part.item_id, part.serial_no],
+          );
+          unit = ur.rows[0];
+          if (!unit)
+            throw Object.assign(
+              new Error(
+                `No in-stock unit ${part.serial_no} of ${itemInfo.name}`,
+              ),
+              { status: 400 },
+            );
+        }
         const s = await client.query(
           "SELECT * FROM inv_stock WHERE item_id=$1 FOR UPDATE",
           [part.item_id],
         );
         if (!s.rows[0] || s.rows[0].qty_available < qty) {
-          const ir = await client.query(
-            "SELECT name FROM inv_items WHERE id=$1",
-            [part.item_id],
-          );
           throw new Error(
-            `Insufficient stock for: ${ir.rows[0]?.name || part.item_id}`,
+            `Insufficient stock for: ${itemInfo?.name || part.item_id}`,
           );
         }
         // Consumed, not on loan: the part now lives inside the repaired asset,
@@ -135,19 +166,27 @@ router.post(
             req.user.id,
           ],
         );
-        await client.query(
+        const partRow = await client.query(
           `INSERT INTO maintenance_parts
              (maintenance_log_id, item_id, qty, unit_cost_pkr, serial_no, notes)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
+           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
           [
             entry.id,
             part.item_id,
             qty,
-            part.unit_cost_pkr || null,
+            part.unit_cost_pkr || unit?.cost_pkr || null,
             part.serial_no || null,
             part.notes || null,
           ],
         );
+        if (unit) {
+          await client.query(
+            `UPDATE inv_units SET status='installed', installed_asset_type=$1,
+                    installed_asset_id=$2, maintenance_part_id=$3, updated_at=NOW()
+             WHERE id=$4`,
+            [type, id, partRow.rows[0].id, unit.id],
+          );
+        }
       }
       await client.query("COMMIT");
 
@@ -237,6 +276,13 @@ router.delete("/:entryId", requireAuth, async (req, res, next) => {
                 `Restocked on deletion of ${label}`,
                 req.user.id,
               ],
+            );
+            // A unit installed by this repair goes back on the shelf.
+            await client.query(
+              `UPDATE inv_units SET status='in_stock', installed_asset_type=NULL,
+                      installed_asset_id=NULL, maintenance_part_id=NULL, updated_at=NOW()
+               WHERE maintenance_part_id = $1`,
+              [part.id],
             );
           }
         }

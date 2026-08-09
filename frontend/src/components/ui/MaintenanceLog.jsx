@@ -55,6 +55,8 @@ export default function MaintenanceLog({ row, assetType }) {
   const [items, setItems] = useState(null);
   const [vendors, setVendors] = useState(null);
   const [confirming, setConfirming] = useState(null);
+  // In-stock units per serialized item, fetched when one is picked.
+  const [unitsByItem, setUnitsByItem] = useState({});
 
   useEffect(() => {
     if (!row?.id) return;
@@ -95,7 +97,20 @@ export default function MaintenanceLog({ row, assetType }) {
   }, [adding, items, vendors]);
 
   function setPart(idx, patch) {
-    setParts((p) => p.map((part, i) => (i === idx ? { ...part, ...patch } : part)));
+    setParts((p) =>
+      p.map((part, i) => (i === idx ? { ...part, ...patch } : part)),
+    );
+    if (patch.item_id) {
+      const picked = (items || []).find(
+        (i) => String(i.id) === String(patch.item_id),
+      );
+      if (picked?.tracking_type === "serialized" && !unitsByItem[picked.id]) {
+        api
+          .get(`/api/inventory/items/${picked.id}/units?status=in_stock`)
+          .then((u) => setUnitsByItem((m) => ({ ...m, [picked.id]: u })))
+          .catch(() => setUnitsByItem((m) => ({ ...m, [picked.id]: [] })));
+      }
+    }
   }
 
   async function save() {
@@ -110,6 +125,7 @@ export default function MaintenanceLog({ row, assetType }) {
             item_id: Number(p.item_id),
             qty: Number(p.qty) || 1,
             unit_cost_pkr: p.unit_cost_pkr ? Number(p.unit_cost_pkr) : null,
+            serial_no: p.serial_no || null,
           })),
       };
       const entry = await api.post(
@@ -316,10 +332,15 @@ export default function MaintenanceLog({ row, assetType }) {
                 const over =
                   item && Number(part.qty) > Number(item.qty_available ?? 0);
                 return (
-                  <div key={idx} className="d-flex gap-2 align-items-center mt-2">
+                  <div
+                    key={idx}
+                    className="d-flex gap-2 align-items-center mt-2"
+                  >
                     <select
                       value={part.item_id}
-                      onChange={(e) => setPart(idx, { item_id: e.target.value })}
+                      onChange={(e) =>
+                        setPart(idx, { item_id: e.target.value })
+                      }
                       className="form-select form-select-sm"
                       style={{ flex: 3 }}
                     >
@@ -330,15 +351,34 @@ export default function MaintenanceLog({ row, assetType }) {
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min="1"
-                      value={part.qty}
-                      onChange={(e) => setPart(idx, { qty: e.target.value })}
-                      className={`form-control form-control-sm${over ? " is-invalid" : ""}`}
-                      style={{ flex: 1 }}
-                      title={over ? "Exceeds available stock" : "Quantity"}
-                    />
+                    {item?.tracking_type === "serialized" ? (
+                      <select
+                        value={part.serial_no || ""}
+                        onChange={(e) =>
+                          setPart(idx, { serial_no: e.target.value, qty: 1 })
+                        }
+                        className="form-select form-select-sm"
+                        style={{ flex: 2 }}
+                      >
+                        <option value="">Pick serial…</option>
+                        {(unitsByItem[item.id] || []).map((u) => (
+                          <option key={u.id} value={u.serial_no}>
+                            {u.serial_no}
+                            {u.bin_code ? ` (${u.bin_code})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="number"
+                        min="1"
+                        value={part.qty}
+                        onChange={(e) => setPart(idx, { qty: e.target.value })}
+                        className={`form-control form-control-sm${over ? " is-invalid" : ""}`}
+                        style={{ flex: 1 }}
+                        title={over ? "Exceeds available stock" : "Quantity"}
+                      />
+                    )}
                     <input
                       type="number"
                       min="0"

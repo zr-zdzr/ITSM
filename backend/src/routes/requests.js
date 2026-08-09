@@ -302,6 +302,16 @@ router.post(
 
       // Verify + deduct stock atomically
       for (const item of approvedItems.rows) {
+        const trk = await client.query(
+          "SELECT tracking_type FROM inv_items WHERE id=$1",
+          [item.item_id],
+        );
+        if (trk.rows[0]?.tracking_type === "serialized") {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: `${item.item_name} is serialized — units move through repairs or unit status changes, not requests`,
+          });
+        }
         const s = await client.query(
           "SELECT * FROM inv_stock WHERE item_id=$1 FOR UPDATE",
           [item.item_id],

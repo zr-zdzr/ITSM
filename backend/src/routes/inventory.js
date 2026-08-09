@@ -404,6 +404,20 @@ router.post(
       if (!sr.rows[0]) return res.status(404).json({ error: "Item not found" });
       const stock = sr.rows[0];
 
+      // Serialized stock is a count of units; a raw quantity bump would
+      // desync it from the units table. Move the units instead.
+      const trk = await client.query(
+        "SELECT tracking_type FROM inv_items WHERE id=$1",
+        [req.params.id],
+      );
+      if (trk.rows[0]?.tracking_type === "serialized") {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error:
+            "This item is serialized — adjust it by adding units or changing a unit's status",
+        });
+      }
+
       let update;
       if (type === "purchase" || (type === "correction" && change > 0)) {
         update = `qty_available = qty_available + ${change}`;

@@ -12,18 +12,33 @@ import {
   Monitor,
   Smartphone,
   ChevronDown,
+  Boxes,
+  Warehouse,
+  QrCode,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import Modal from "../components/ui/Modal";
+import QRModal from "../components/ui/QRModal";
 import { cn } from "../lib/utils";
 
 const TRACKING_LABELS = {
   quantity: "Consumable",
   quantity_returnable: "Returnable",
+  serialized: "Serialized",
 };
+const UNIT_STATUS_COLOR = {
+  in_stock: { bg: "rgba(34,197,94,0.15)", color: "#4ade80" },
+  reserved: { bg: "rgba(14,165,233,0.15)", color: "#7dd3fc" },
+  installed: { bg: "rgba(0,170,47,0.15)", color: "#4ade80" },
+  faulty: { bg: "rgba(245,158,11,0.15)", color: "#fbbf24" },
+  rma: { bg: "rgba(168,85,247,0.15)", color: "#c4b5fd" },
+  scrapped: { bg: "rgba(113,113,122,0.2)", color: "#a1a1aa" },
+};
+// Manual transitions only — 'installed' happens via repairs.
+const UNIT_STATUSES = ["in_stock", "reserved", "faulty", "rma", "scrapped"];
 const STOCK_BADGE = {
   in_stock: { bg: "rgba(34,197,94,0.15)", color: "#4ade80" },
   low_stock: { bg: "rgba(245,158,11,0.15)", color: "#fbbf24" },
@@ -73,6 +88,18 @@ export default function Inventory() {
   const [catModal, setCatModal] = useState(false);
   const [history, setHistory] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  const [bins, setBins] = useState([]);
+  const [binsModal, setBinsModal] = useState(false);
+  const [binForm, setBinForm] = useState({ code: "", location: "" });
+  const [unitsModal, setUnitsModal] = useState(null); // the serialized item
+  const [units, setUnits] = useState([]);
+  const [unitForm, setUnitForm] = useState({
+    serials: "",
+    bin_id: "",
+    cost_pkr: "",
+  });
+  const [unitQR, setUnitQR] = useState(null);
 
   const [itemForm, setItemForm] = useState({});
   const [stockForm, setStockForm] = useState({
@@ -212,6 +239,76 @@ export default function Inventory() {
   const fi = (k, v) => setItemForm((f) => ({ ...f, [k]: v }));
   const fs = (k, v) => setStockForm((f) => ({ ...f, [k]: v }));
 
+  async function loadBins() {
+    try {
+      setBins(await api.get("/api/inventory/bins"));
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  async function saveBin() {
+    setSaving(true);
+    try {
+      await api.post("/api/inventory/bins", binForm);
+      toast("Bin created", "success");
+      setBinForm({ code: "", location: "" });
+      loadBins();
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openUnits(item) {
+    try {
+      const [u] = await Promise.all([
+        api.get(`/api/inventory/items/${item.id}/units`),
+        bins.length ? Promise.resolve() : loadBins(),
+      ]);
+      setUnits(u);
+      setUnitForm({ serials: "", bin_id: "", cost_pkr: "" });
+      setUnitsModal(item);
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
+  async function addUnits() {
+    const serials = unitForm.serials
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!serials.length) return;
+    setSaving(true);
+    try {
+      await api.post(`/api/inventory/items/${unitsModal.id}/units`, {
+        serials,
+        bin_id: unitForm.bin_id || null,
+        cost_pkr: unitForm.cost_pkr || null,
+      });
+      toast(`${serials.length} unit(s) added`, "success");
+      setUnits(await api.get(`/api/inventory/items/${unitsModal.id}/units`));
+      setUnitForm({ serials: "", bin_id: "", cost_pkr: "" });
+      load();
+    } catch (e) {
+      toast(e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setUnitStatus(unit, status) {
+    try {
+      await api.put(`/api/inventory/units/${unit.id}`, { status });
+      setUnits(await api.get(`/api/inventory/items/${unitsModal.id}/units`));
+      load();
+    } catch (e) {
+      toast(e.message, "error");
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -233,6 +330,15 @@ export default function Inventory() {
             style={{ width: 32, height: 32, padding: 0 }}
           >
             <RefreshCw size={14} />
+          </button>
+          <button
+            onClick={() => {
+              loadBins();
+              setBinsModal(true);
+            }}
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+          >
+            <Warehouse size={13} /> Bins
           </button>
           {canCreate && (
             <>
@@ -469,29 +575,41 @@ export default function Inventory() {
                       </td>
                       <td className="align-middle">
                         <div className="d-flex align-items-center gap-1">
+                          {item.tracking_type === "serialized" && (
+                            <button
+                              onClick={() => openUnits(item)}
+                              title="Units"
+                              className="btn btn-link p-1"
+                              style={{ color: "#7dd3fc", lineHeight: 1 }}
+                            >
+                              <Boxes size={14} />
+                            </button>
+                          )}
                           {canEdit && (
                             <>
-                              <button
-                                onClick={() => {
-                                  setStockModal(item);
-                                  setStockForm({
-                                    type: "purchase",
-                                    qty_change: "",
-                                    notes: "",
-                                  });
-                                }}
-                                title="Add Stock"
-                                className="btn btn-link p-1"
-                                style={{ color: "#4ade80", lineHeight: 1 }}
-                                onMouseEnter={(e) =>
-                                  (e.currentTarget.style.color = "#22c55e")
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.currentTarget.style.color = "#4ade80")
-                                }
-                              >
-                                <ArrowUpCircle size={14} />
-                              </button>
+                              {item.tracking_type !== "serialized" && (
+                                <button
+                                  onClick={() => {
+                                    setStockModal(item);
+                                    setStockForm({
+                                      type: "purchase",
+                                      qty_change: "",
+                                      notes: "",
+                                    });
+                                  }}
+                                  title="Add Stock"
+                                  className="btn btn-link p-1"
+                                  style={{ color: "#4ade80", lineHeight: 1 }}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.color = "#22c55e")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.color = "#4ade80")
+                                  }
+                                >
+                                  <ArrowUpCircle size={14} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => openEdit(item)}
                                 title="Edit"
@@ -799,6 +917,7 @@ export default function Inventory() {
               >
                 <option value="quantity">Consumable</option>
                 <option value="quantity_returnable">Returnable</option>
+                <option value="serialized">Serialized (per-unit)</option>
               </select>
             </div>
             <div className="col-md-6">
@@ -844,7 +963,7 @@ export default function Inventory() {
                 className={inp}
               />
             </div>
-            {!editItem && (
+            {!editItem && itemForm.tracking_type !== "serialized" && (
               <div className="col-md-6">
                 <label className="form-label small fw-medium mb-1">
                   Initial Qty
@@ -857,6 +976,14 @@ export default function Inventory() {
                   placeholder="0"
                   className={inp}
                 />
+              </div>
+            )}
+            {itemForm.tracking_type === "serialized" && (
+              <div className="col-md-6 d-flex align-items-end">
+                <p className="small text-secondary mb-1">
+                  Stock for serialized items comes from adding units (each with
+                  its own serial number) after the item is created.
+                </p>
               </div>
             )}
             <div className="col-md-6">
@@ -1119,6 +1246,248 @@ export default function Inventory() {
           </div>
         </div>
       </Modal>
+
+      {/* Bins Modal */}
+      <Modal
+        open={binsModal}
+        onClose={() => setBinsModal(false)}
+        title="Storage Bins"
+      >
+        <div className="d-flex flex-column gap-3">
+          {canCreate && (
+            <div className="d-flex gap-2">
+              <input
+                value={binForm.code}
+                onChange={(e) =>
+                  setBinForm((f) => ({ ...f, code: e.target.value }))
+                }
+                placeholder="Code (e.g. R2-S4)"
+                className={inp}
+                style={{ flex: 1 }}
+              />
+              <input
+                value={binForm.location}
+                onChange={(e) =>
+                  setBinForm((f) => ({ ...f, location: e.target.value }))
+                }
+                placeholder="Location"
+                className={inp}
+                style={{ flex: 2 }}
+              />
+              <button
+                onClick={saveBin}
+                disabled={saving || !binForm.code.trim()}
+                className="btn btn-primary btn-sm"
+              >
+                Add
+              </button>
+            </div>
+          )}
+          {!bins.length ? (
+            <p className="small text-secondary mb-0">No bins yet</p>
+          ) : (
+            <table className="table table-sm align-middle mb-0">
+              <thead>
+                <tr className="small text-secondary">
+                  <th>Code</th>
+                  <th>Location</th>
+                  <th className="text-end">Units in stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bins.map((b) => (
+                  <tr key={b.id}>
+                    <td className="font-monospace fw-semibold">{b.code}</td>
+                    <td className="small text-secondary">
+                      {b.location || "—"}
+                    </td>
+                    <td className="text-end font-monospace">
+                      {b.units_in_stock}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Modal>
+
+      {/* Units Modal */}
+      <Modal
+        open={!!unitsModal}
+        onClose={() => setUnitsModal(null)}
+        title={unitsModal ? `Units — ${unitsModal.name}` : ""}
+      >
+        <div className="d-flex flex-column gap-3">
+          {canCreate && (
+            <div
+              className="p-3 rounded-3"
+              style={{ border: "1px solid var(--bs-border-color)" }}
+            >
+              <label className="form-label small fw-medium mb-1">
+                Add units (one serial per line)
+              </label>
+              <textarea
+                value={unitForm.serials}
+                onChange={(e) =>
+                  setUnitForm((f) => ({ ...f, serials: e.target.value }))
+                }
+                rows={3}
+                placeholder={"SN-0001\nSN-0002"}
+                className={inp}
+                style={{ resize: "none" }}
+              />
+              <div className="d-flex gap-2 mt-2">
+                <select
+                  value={unitForm.bin_id}
+                  onChange={(e) =>
+                    setUnitForm((f) => ({ ...f, bin_id: e.target.value }))
+                  }
+                  className={sel}
+                  style={{ flex: 2 }}
+                >
+                  <option value="">No bin</option>
+                  {bins.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.code} {b.location ? `— ${b.location}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  value={unitForm.cost_pkr}
+                  onChange={(e) =>
+                    setUnitForm((f) => ({ ...f, cost_pkr: e.target.value }))
+                  }
+                  placeholder="Unit cost PKR"
+                  className={inp}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  onClick={addUnits}
+                  disabled={saving || !unitForm.serials.trim()}
+                  className="btn btn-primary btn-sm"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
+          {!units.length ? (
+            <p className="small text-secondary mb-0">No units yet</p>
+          ) : (
+            <div style={{ maxHeight: 320, overflowY: "auto" }}>
+              <table className="table table-sm align-middle mb-0">
+                <thead>
+                  <tr className="small text-secondary">
+                    <th>Serial</th>
+                    <th>Status</th>
+                    <th>Bin</th>
+                    <th className="text-end">Cost</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {units.map((u) => {
+                    const sc =
+                      UNIT_STATUS_COLOR[u.status] || UNIT_STATUS_COLOR.scrapped;
+                    return (
+                      <tr key={u.id}>
+                        <td className="font-monospace">{u.serial_no}</td>
+                        <td>
+                          {u.status === "installed" ? (
+                            <span
+                              className="badge rounded-pill px-2"
+                              style={{
+                                background: sc.bg,
+                                color: sc.color,
+                                fontSize: "11px",
+                              }}
+                              title={`Installed in ${u.installed_asset_type} #${u.installed_asset_id}`}
+                            >
+                              installed → {u.installed_asset_type} #
+                              {u.installed_asset_id}
+                            </span>
+                          ) : canEdit ? (
+                            <select
+                              value={u.status}
+                              onChange={(e) => setUnitStatus(u, e.target.value)}
+                              className="form-select form-select-sm py-0"
+                              style={{
+                                fontSize: "11px",
+                                width: "auto",
+                                background: sc.bg,
+                                color: sc.color,
+                                border: "none",
+                              }}
+                            >
+                              {UNIT_STATUSES.map((s) => (
+                                <option key={s} value={s}>
+                                  {s.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className="badge rounded-pill px-2"
+                              style={{
+                                background: sc.bg,
+                                color: sc.color,
+                                fontSize: "11px",
+                              }}
+                            >
+                              {u.status.replace("_", " ")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="small text-secondary">
+                          {u.bin_code || "—"}
+                        </td>
+                        <td className="text-end small font-monospace">
+                          {u.cost_pkr
+                            ? Number(u.cost_pkr).toLocaleString()
+                            : "—"}
+                        </td>
+                        <td className="text-end">
+                          <button
+                            onClick={() => setUnitQR(u)}
+                            title="QR label"
+                            className="btn btn-link text-secondary p-1"
+                            style={{ lineHeight: 1 }}
+                          >
+                            <QrCode size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Unit QR — the payload is a lookup URL, so any phone camera resolves
+          the label to the unit's record. */}
+      <QRModal
+        open={!!unitQR}
+        onClose={() => setUnitQR(null)}
+        value={
+          unitQR ? `${window.location.origin}/inventory/units/${unitQR.id}` : ""
+        }
+        label={unitQR?.serial_no || ""}
+        details={
+          unitQR
+            ? [
+                `Item: ${unitsModal?.name || ""}`,
+                `Serial: ${unitQR.serial_no}`,
+                unitQR.bin_code ? `Bin: ${unitQR.bin_code}` : null,
+              ].filter(Boolean)
+            : []
+        }
+      />
     </motion.div>
   );
 }
