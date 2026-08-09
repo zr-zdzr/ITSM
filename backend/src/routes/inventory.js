@@ -31,10 +31,13 @@ async function checkAlerts(itemId, client) {
   else if (qty_available <= reorder_level) alertType = "low_stock";
 
   if (alertType) {
+    // The casts are load-bearing: with untyped parameters Postgres deduces
+    // $2 as text in the SELECT list but varchar in the WHERE clause and
+    // rejects the statement — this INSERT had never succeeded without them.
     await q.query(
       `INSERT INTO inv_alerts (item_id, alert_type, threshold_value, current_value)
-       SELECT $1,$2,$3,$4 WHERE NOT EXISTS (
-         SELECT 1 FROM inv_alerts WHERE item_id=$1 AND alert_type=$2 AND is_resolved=false
+       SELECT $1::int, $2::varchar, $3::int, $4::int WHERE NOT EXISTS (
+         SELECT 1 FROM inv_alerts WHERE item_id=$1::int AND alert_type=$2::varchar AND is_resolved=false
        )`,
       [itemId, alertType, reorder_level, qty_available],
     );
