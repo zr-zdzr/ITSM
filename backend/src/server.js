@@ -338,6 +338,27 @@ async function runMigrations() {
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_maint_asset ON maintenance_log(asset_type, asset_id)`,
   );
+  // ── Spare parts consumed by repairs (docs/spare-parts-architecture.md §2a) ──
+  // unit_cost_pkr is a snapshot at consumption time: a later catalog price
+  // change must never reprice a past repair. Totals are computed at read time.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS maintenance_parts (
+      id                 SERIAL PRIMARY KEY,
+      maintenance_log_id INTEGER NOT NULL REFERENCES maintenance_log(id) ON DELETE CASCADE,
+      item_id            INTEGER NOT NULL REFERENCES inv_items(id),
+      qty                INTEGER NOT NULL DEFAULT 1 CHECK (qty > 0),
+      unit_cost_pkr      NUMERIC(10,2),
+      serial_no          VARCHAR(100),
+      notes              TEXT,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_maint_parts_log ON maintenance_parts(maintenance_log_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_maint_parts_item ON maintenance_parts(item_id)`,
+  );
   // ── Employees: drop legacy first_name/last_name columns ────
   await db.query(`ALTER TABLE employees DROP COLUMN IF EXISTS first_name`);
   await db.query(`ALTER TABLE employees DROP COLUMN IF EXISTS last_name`);
@@ -361,6 +382,13 @@ async function runMigrations() {
       updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // With maintenance_parts carrying their own costs, maintenance_log.cost_pkr
+  // now means the labor/service charge. vendor_id supersedes free-text
+  // performed_by (kept for old rows and ad-hoc technicians). Must run after
+  // the vendors CREATE above or a fresh install has nothing to reference.
+  await db.query(
+    `ALTER TABLE maintenance_log ADD COLUMN IF NOT EXISTS vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL`,
+  );
   // ── Systems table enhancements ───────────────────────────
   await db.query(
     `ALTER TABLE systems DROP CONSTRAINT IF EXISTS systems_assigned_type_check`,

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
+import MaintenanceLog from "../components/ui/MaintenanceLog";
 import { api } from "../lib/api";
 import { genAssetTag } from "../lib/utils";
 import { useToast } from "../contexts/ToastContext";
@@ -515,7 +516,10 @@ const config = {
   ),
   renderView: (row) => <MobileDeviceView {...row} />,
   viewExtra: (row) => (
-    <AssetHistoryTimeline assetType="mobile" assetId={row.id} />
+    <>
+      <MaintenanceLog row={row} assetType="mobile" />
+      <AssetHistoryTimeline assetType="mobile" assetId={row.id} />
+    </>
   ),
 };
 

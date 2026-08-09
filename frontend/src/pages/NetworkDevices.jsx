@@ -1,6 +1,7 @@
 import ModulePage from "./ModulePage";
 import Badge from "../components/ui/Badge";
 import AssetHistoryTimeline from "../components/ui/AssetHistoryTimeline";
+import MaintenanceLog from "../components/ui/MaintenanceLog";
 import { genAssetTag } from "../lib/utils";
 
 const config = {
@@ -134,7 +135,10 @@ const config = {
     { name: "notes", label: "Notes", type: "textarea", fullWidth: true },
   ],
   viewExtra: (row) => (
-    <AssetHistoryTimeline assetType="network" assetId={row.id} />
+    <>
+      <MaintenanceLog row={row} assetType="network" />
+      <AssetHistoryTimeline assetType="network" assetId={row.id} />
+    </>
   ),
 };
 
