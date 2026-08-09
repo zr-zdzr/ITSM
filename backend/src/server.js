@@ -64,6 +64,28 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// The employee role is a hard whitelist. hasPerm() enforces it wherever a
+// route calls perm(), but most read routes are requireAuth-only (the
+// universal-read rule made per-route read checks redundant for staff roles),
+// so without this gate an employee could list systems, employees, reports…
+// Defense in depth: employees reach only their own support/request surface.
+const EMPLOYEE_API_ALLOW = [
+  { method: null, pattern: /^\/tickets(\/|$)/ },
+  { method: null, pattern: /^\/requests(\/|$)/ },
+  // The new-request cart needs the item catalog (read-only).
+  { method: "GET", pattern: /^\/inventory\/items\/?$/ },
+];
+app.use("/api", (req, res, next) => {
+  if (req.user?.role !== "employee") return next();
+  const ok = EMPLOYEE_API_ALLOW.some(
+    (rule) =>
+      (!rule.method || rule.method === req.method) &&
+      rule.pattern.test(req.path),
+  );
+  if (!ok) return res.status(403).json({ error: "Permission denied" });
+  next();
+});
+
 app.use("/auth", require("./routes/auth"));
 app.use("/api/systems", require("./routes/systems"));
 app.use("/api/network", require("./routes/network"));
@@ -77,6 +99,7 @@ app.use("/api/recycle-bin", require("./routes/recycle-bin"));
 app.use("/api/inventory", require("./routes/inventory").router);
 app.use("/api/inventory", require("./routes/units"));
 app.use("/api/requests", require("./routes/requests"));
+app.use("/api/tickets", require("./routes/tickets"));
 app.use("/api/assignments", require("./routes/assignments"));
 app.use("/api/asset-history", require("./routes/asset-history"));
 app.use("/api/purchases", require("./routes/purchases"));
@@ -436,6 +459,74 @@ async function runMigrations() {
   // One home bin per bulk-consumable item; UNIQUE(item_id) on inv_stock stays.
   await db.query(
     `ALTER TABLE inv_stock ADD COLUMN IF NOT EXISTS bin_id INTEGER REFERENCES inv_bins(id) ON DELETE SET NULL`,
+  );
+
+  // ── SUPPORT TICKETS + EMPLOYEE SELF-SERVICE (support-module-architecture.md §2a) ──
+  // The 'employee' role gives every staff member a portal login scoped to the
+  // support module only — hasPerm() whitelists it, so widening this CHECK must
+  // run before any employee account is created.
+  await db.query(
+    `ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`,
+  );
+  await db.query(
+    `ALTER TABLE users ADD CONSTRAINT users_role_check
+       CHECK (role IN ('super_admin','user','viewer','employee'))`,
+  );
+  // Bulk-provisioned accounts get a temp password; the flag forces a change
+  // on first login.
+  await db.query(
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`,
+  );
+  await db.query(`CREATE SEQUENCE IF NOT EXISTS support_ticket_seq START 1`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id                    SERIAL PRIMARY KEY,
+      ticket_number         VARCHAR(30) UNIQUE NOT NULL,
+      category              VARCHAR(30) NOT NULL CHECK (category IN
+                            ('hardware_fault','performance','os','software','network','printer','email_gws')),
+      priority              VARCHAR(20) NOT NULL DEFAULT 'normal'
+                            CHECK (priority IN ('low','normal','high','urgent')),
+      status                VARCHAR(20) NOT NULL DEFAULT 'open'
+                            CHECK (status IN ('open','assigned','in_progress','resolved','closed','reopened','cancelled')),
+      subject               VARCHAR(200) NOT NULL,
+      description           TEXT NOT NULL,
+      requester_id          INTEGER NOT NULL REFERENCES users(id),
+      requester_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+      requester_department  VARCHAR(100),
+      asset_type            VARCHAR(20),
+      asset_id              INTEGER,
+      assigned_to           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      assigned_at           TIMESTAMPTZ,
+      resolution_notes      TEXT,
+      resolved_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      resolved_at           TIMESTAMPTZ,
+      closed_at             TIMESTAMPTZ,
+      created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_tickets_requester ON support_tickets(requester_id)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_tickets_status ON support_tickets(status)`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON support_tickets(assigned_to)`,
+  );
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ticket_comments (
+      id           SERIAL PRIMARY KEY,
+      ticket_id    INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,
+      author_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      author_label VARCHAR(255),
+      body         TEXT NOT NULL,
+      is_internal  BOOLEAN NOT NULL DEFAULT false,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON ticket_comments(ticket_id)`,
   );
   // ── Systems table enhancements ───────────────────────────
   await db.query(

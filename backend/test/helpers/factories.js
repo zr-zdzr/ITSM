@@ -77,6 +77,28 @@ async function makeEmployee({ fullName = "Chain Holder", ...rest } = {}) {
   return rows[0];
 }
 
+/**
+ * An employee with a linked portal login of role 'employee' — the shape
+ * bulk provisioning produces. Returns { employee, user }.
+ */
+async function makeEmployeeWithLogin({
+  fullName = "Staff Member",
+  email = `${Math.random().toString(36).slice(2, 10)}@bykea.com`,
+  department = "Operations",
+} = {}) {
+  const employee = await makeEmployee({ fullName, department });
+  await db.query("UPDATE employees SET email=$1 WHERE id=$2", [
+    email,
+    employee.id,
+  ]);
+  const user = await makeUser({ email, name: fullName, role: "employee" });
+  await db.query("UPDATE employees SET portal_user_id=$1 WHERE id=$2", [
+    user.id,
+    employee.id,
+  ]);
+  return { employee, user };
+}
+
 /** Insert a consumable item together with its stock row. */
 async function makeItem({ name = "USB-C Cable", qty = 10, ...rest } = {}) {
   const { rows } = await db.query(
@@ -105,6 +127,7 @@ module.exports = {
   grant,
   loginAs,
   makeEmployee,
+  makeEmployeeWithLogin,
   makeItem,
   stockOf,
   db,

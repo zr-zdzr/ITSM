@@ -15,6 +15,7 @@ const MODULES = [
   "gws",
   "employees",
   "reports",
+  "support",
 ];
 
 function log(userId, action, id, label, details, ip, changes) {
@@ -215,8 +216,10 @@ router.post("/", requireAuth, adminOnly, async (req, res, next) => {
     return res
       .status(400)
       .json({ error: "Password must be at least 6 characters" });
-  if (!["super_admin", "user"].includes(role))
-    return res.status(400).json({ error: "Role must be super_admin or user" });
+  if (!["super_admin", "user", "employee"].includes(role))
+    return res
+      .status(400)
+      .json({ error: "Role must be super_admin, user or employee" });
   try {
     const empR = await db.query("SELECT * FROM employees WHERE id=$1", [
       employee_id,
@@ -244,7 +247,9 @@ router.post("/", requireAuth, adminOnly, async (req, res, next) => {
       newUser.id,
       employee_id,
     ]);
-    if (role !== "super_admin") await insertDefaultPermissions(newUser.id);
+    // Employees don't get permission rows — their access is the hard
+    // whitelist in hasPerm(), not the user_permissions table.
+    if (role === "user") await insertDefaultPermissions(newUser.id);
     await log(
       req.user.id,
       "created",
@@ -262,6 +267,74 @@ router.post("/", requireAuth, adminOnly, async (req, res, next) => {
     next(err);
   }
 });
+
+// ── BULK-PROVISION EMPLOYEE ACCOUNTS ──────────────────────
+// Creates a portal login (role 'employee') for every active employee that has
+// an email and no account yet. Temp passwords are returned ONCE in the
+// response for the admin to distribute — only bcrypt hashes are stored, and
+// nothing secret reaches the activity log. Idempotent: a second call finds
+// no eligible employees and creates nothing.
+router.post(
+  "/bulk-provision",
+  requireAuth,
+  adminOnly,
+  async (req, res, next) => {
+    try {
+      const eligible = await db.query(
+        `SELECT id, full_name, email, department, designation
+         FROM employees
+         WHERE is_active = true AND email IS NOT NULL AND portal_user_id IS NULL
+         ORDER BY full_name`,
+      );
+      const created = [];
+      const skipped = [];
+      for (const emp of eligible.rows) {
+        const tempPassword = require("crypto")
+          .randomBytes(9)
+          .toString("base64url");
+        const hash = await bcrypt.hash(tempPassword, 10);
+        try {
+          const r = await db.query(
+            `INSERT INTO users (email, name, password_hash, role, department, designation, is_active, must_change_password)
+             VALUES ($1,$2,$3,'employee',$4,$5,true,true) RETURNING id`,
+            [emp.email, emp.full_name, hash, emp.department, emp.designation],
+          );
+          await db.query("UPDATE employees SET portal_user_id=$1 WHERE id=$2", [
+            r.rows[0].id,
+            emp.id,
+          ]);
+          created.push({
+            employee_id: emp.id,
+            name: emp.full_name,
+            email: emp.email,
+            temp_password: tempPassword,
+          });
+        } catch (err) {
+          if (err.code === "23505") {
+            skipped.push({
+              email: emp.email,
+              reason: "email already has a portal account",
+            });
+          } else throw err;
+        }
+      }
+      await log(
+        req.user.id,
+        "bulk_provisioned",
+        null,
+        "Employee accounts",
+        `${created.length} account(s) created, ${skipped.length} skipped`,
+        getIP(req),
+        created.length
+          ? { emails: [created.map((c) => c.email).join(", ")] }
+          : null,
+      );
+      res.json({ created, skipped });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 // ── GET ONE USER ──────────────────────────────────────────
 router.get("/:id", requireAuth, adminOnly, async (req, res, next) => {

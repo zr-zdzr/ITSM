@@ -10,6 +10,9 @@ const { logActivity, getIP } = require("../utils/activity");
 // throttled — it takes ten *wrong* passwords from one IP to trip.
 // Keyed on IP via the default generator; `trust proxy` is set in server.js,
 // so that is the real client address from X-Forwarded-For, not nginx's.
+// Caveat: a whole office behind one NAT shares this budget — during an
+// employee-account rollout week (everyone typing temp passwords), ten typos
+// from the office lock the office. Raise `limit` temporarily if that bites.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
@@ -83,7 +86,7 @@ router.post("/login", loginLimiter, async (req, res, next) => {
         "Login successful",
         ip,
       );
-      res.json({ ok: true });
+      res.json({ ok: true, must_change_password: user.must_change_password });
     });
   } catch (err) {
     next(err);
@@ -114,8 +117,16 @@ router.post("/logout", (req, res, next) => {
 router.get("/me", async (req, res, next) => {
   if (!req.isAuthenticated())
     return res.status(401).json({ error: "Not authenticated" });
-  const { id, email, name, avatar_url, role, department, designation } =
-    req.user;
+  const {
+    id,
+    email,
+    name,
+    avatar_url,
+    role,
+    department,
+    designation,
+    must_change_password,
+  } = req.user;
   let permissions = null;
   if (role !== "super_admin") {
     try {
@@ -144,6 +155,7 @@ router.get("/me", async (req, res, next) => {
     role,
     department,
     designation,
+    must_change_password,
     permissions,
   });
 });
@@ -169,10 +181,11 @@ router.post("/change-password", async (req, res, next) => {
     if (!user || !(await bcrypt.compare(current_password, user.password_hash)))
       return res.status(401).json({ error: "Current password is incorrect" });
     const hash = await bcrypt.hash(new_password, 10);
-    await db.query("UPDATE users SET password_hash=$1 WHERE id=$2", [
-      hash,
-      req.user.id,
-    ]);
+    // Also clears the first-login flag set by bulk provisioning.
+    await db.query(
+      "UPDATE users SET password_hash=$1, must_change_password=false WHERE id=$2",
+      [hash, req.user.id],
+    );
     await logActivity(
       req.user.id,
       "password_changed",

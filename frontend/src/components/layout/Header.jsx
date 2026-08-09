@@ -52,6 +52,7 @@ const TITLES = {
     sub: "Assigned items & return tracking",
   },
   "/vendors": { title: "Vendors", sub: "IT vendors and suppliers" },
+  "/tickets": { title: "Support Tickets", sub: "IT complaints & support" },
   "/masterdata/heads": {
     title: "Head & Sub-Head",
     sub: "Master data for cost heads",
@@ -105,14 +106,20 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Employees can't reach the alerts / recycle-bin APIs (support-only
+  // whitelist), so don't poll on their behalf.
+  const isEmployee = user?.role === "employee";
+
   useEffect(() => {
+    if (isEmployee) return;
     api
       .get("/api/recycle-bin/count")
       .then((d) => setRecycleBinCount(d.count || 0))
       .catch((e) => console.error("Recycle bin count error:", e.message));
-  }, []);
+  }, [isEmployee]);
 
   useEffect(() => {
+    if (isEmployee) return;
     function loadAlerts() {
       api
         .get("/api/alerts/count")
@@ -122,7 +129,7 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
     loadAlerts();
     const interval = setInterval(loadAlerts, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isEmployee]);
 
   async function openAlerts() {
     setAlertsOpen((o) => !o);
@@ -228,259 +235,280 @@ export default function Header({ onRefresh, onMobileMenuToggle }) {
         </div>
 
         <div className="d-flex align-items-center gap-1">
-          {/* Global Search */}
-          <button
-            onClick={() => setSearchOpen(true)}
-            title="Search (Ctrl+K)"
-            className="d-none d-sm-flex align-items-center gap-2 btn btn-outline-secondary btn-sm px-2 py-1"
-            style={{ fontSize: "0.75rem" }}
-          >
-            <Search size={13} />
-            <span className="text-secondary">Search…</span>
-            <kbd
-              className="ms-1 bg-secondary bg-opacity-25 px-1 rounded"
-              style={{ fontSize: "9px", fontFamily: "monospace" }}
-            >
-              ⌘K
-            </kbd>
-          </button>
-          <button
-            onClick={() => setSearchOpen(true)}
-            title="Search"
-            className="btn btn-link text-secondary d-sm-none p-1"
-          >
-            <Search size={15} />
-          </button>
-
-          {/* Alerts bell */}
-          <div className="position-relative" ref={alertRef}>
-            <button
-              onClick={openAlerts}
-              title="Alerts"
-              className="btn btn-link text-secondary position-relative p-1"
-            >
-              <Bell size={15} />
-              {alertCount > 0 && (
-                <span
-                  className="position-absolute top-0 end-0 badge rounded-pill bg-warning text-dark"
-                  style={{ fontSize: "9px", minWidth: 16, padding: "2px 4px" }}
+          {/* Search, alerts and the recycle bin all read IT data the employee
+              role cannot reach — hide the whole toolbar cluster for them. */}
+          {!isEmployee && (
+            <>
+              {/* Global Search */}
+              <button
+                onClick={() => setSearchOpen(true)}
+                title="Search (Ctrl+K)"
+                className="d-none d-sm-flex align-items-center gap-2 btn btn-outline-secondary btn-sm px-2 py-1"
+                style={{ fontSize: "0.75rem" }}
+              >
+                <Search size={13} />
+                <span className="text-secondary">Search…</span>
+                <kbd
+                  className="ms-1 bg-secondary bg-opacity-25 px-1 rounded"
+                  style={{ fontSize: "9px", fontFamily: "monospace" }}
                 >
-                  {alertCount > 99 ? "99+" : alertCount}
-                </span>
-              )}
-            </button>
-            {alertsOpen && (
-              <div
-                className="itms-card shadow-lg alerts-dropdown animate-scale-in"
-                style={{ overflow: "hidden" }}
+                  ⌘K
+                </kbd>
+              </button>
+              <button
+                onClick={() => setSearchOpen(true)}
+                title="Search"
+                className="btn btn-link text-secondary d-sm-none p-1"
               >
-                <div className="px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
-                  <span className="fw-semibold small">Alerts</span>
-                  <span className="text-secondary" style={{ fontSize: "10px" }}>
-                    {alertData?.totalCount ?? "…"} active
-                  </span>
-                </div>
-                <div className="overflow-auto" style={{ maxHeight: 320 }}>
-                  {!alertData ? (
-                    <div className="px-3 py-4 text-center text-secondary small">
-                      Loading…
-                    </div>
-                  ) : alertData.totalCount === 0 ? (
-                    <div className="px-3 py-4 text-center text-secondary small">
-                      No active alerts
-                    </div>
-                  ) : (
-                    <>
-                      {alertData.inventory?.length > 0 && (
-                        <div>
-                          <div
-                            className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
-                            style={{
-                              fontSize: "10px",
-                              fontWeight: 600,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.05em",
-                              background: "var(--surface-subtle)",
-                            }}
-                          >
-                            <Package size={10} className="text-secondary" />{" "}
-                            Inventory Stock
-                          </div>
-                          {alertData.inventory.map((a, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                navigate("/inventory");
-                                setAlertsOpen(false);
-                              }}
-                              className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
-                              style={{ transition: "background 0.15s" }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.background =
-                                  "var(--surface-subtle)")
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.background =
-                                  "transparent")
-                              }
-                            >
-                              <AlertTriangle
-                                size={12}
-                                className={
-                                  a.alert_type === "out_of_stock"
-                                    ? "text-danger mt-1 flex-shrink-0"
-                                    : "text-warning mt-1 flex-shrink-0"
-                                }
-                              />
-                              <div>
-                                <p className="small fw-medium mb-0">
-                                  {a.item_name}
-                                </p>
-                                <p
-                                  className="text-secondary mb-0"
-                                  style={{ fontSize: "10px" }}
-                                >
-                                  {a.alert_type === "out_of_stock"
-                                    ? "Out of stock"
-                                    : `Low stock — ${a.current_value} ${a.unit || ""} remaining`}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {alertData.overdueReturns?.length > 0 && (
-                        <div>
-                          <div
-                            className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
-                            style={{
-                              fontSize: "10px",
-                              fontWeight: 600,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.05em",
-                              background: "var(--surface-subtle)",
-                            }}
-                          >
-                            <RotateCcw size={10} className="text-secondary" />{" "}
-                            Overdue Returns
-                          </div>
-                          {alertData.overdueReturns.map((a, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                navigate("/assignments");
-                                setAlertsOpen(false);
-                              }}
-                              className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
-                              style={{ transition: "background 0.15s" }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.background =
-                                  "var(--surface-subtle)")
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.background =
-                                  "transparent")
-                              }
-                            >
-                              <RotateCcw
-                                size={12}
-                                className="text-danger mt-1 flex-shrink-0"
-                              />
-                              <div>
-                                <p className="small fw-medium mb-0">
-                                  {a.asn_number} · {a.assignee_name}
-                                </p>
-                                <p
-                                  className="text-danger mb-0"
-                                  style={{ fontSize: "10px" }}
-                                >
-                                  Due{" "}
-                                  {new Date(
-                                    a.expected_return_date,
-                                  ).toLocaleDateString("en-GB", {
-                                    day: "numeric",
-                                    month: "short",
-                                  })}
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {alertData.warranties?.length > 0 && (
-                        <div>
-                          <div
-                            className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
-                            style={{
-                              fontSize: "10px",
-                              fontWeight: 600,
-                              textTransform: "uppercase",
-                              letterSpacing: "0.05em",
-                              background: "var(--surface-subtle)",
-                            }}
-                          >
-                            <Clock size={10} className="text-secondary" />{" "}
-                            Expiring Warranties
-                          </div>
-                          {alertData.warranties.map((a, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                navigate("/reports");
-                                setAlertsOpen(false);
-                              }}
-                              className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
-                              style={{ transition: "background 0.15s" }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.background =
-                                  "var(--surface-subtle)")
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.background =
-                                  "transparent")
-                              }
-                            >
-                              <Clock
-                                size={12}
-                                className="text-warning mt-1 flex-shrink-0"
-                              />
-                              <div>
-                                <p className="small fw-medium mb-0">
-                                  {a.label} · {a.manufacturer} {a.model}
-                                </p>
-                                <p
-                                  className="text-warning mb-0"
-                                  style={{ fontSize: "10px" }}
-                                >
-                                  {a.category} · {a.days_remaining}d remaining
-                                </p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+                <Search size={15} />
+              </button>
 
-          <button
-            onClick={() => setRecycleBinOpen(true)}
-            title="Recycle Bin"
-            className="btn btn-link text-secondary position-relative p-1"
-          >
-            <Trash2 size={15} />
-            {recycleBinCount > 0 && (
-              <span
-                className="position-absolute top-0 end-0 badge rounded-pill bg-danger"
-                style={{ fontSize: "9px", minWidth: 16, padding: "2px 4px" }}
+              {/* Alerts bell */}
+              <div className="position-relative" ref={alertRef}>
+                <button
+                  onClick={openAlerts}
+                  title="Alerts"
+                  className="btn btn-link text-secondary position-relative p-1"
+                >
+                  <Bell size={15} />
+                  {alertCount > 0 && (
+                    <span
+                      className="position-absolute top-0 end-0 badge rounded-pill bg-warning text-dark"
+                      style={{
+                        fontSize: "9px",
+                        minWidth: 16,
+                        padding: "2px 4px",
+                      }}
+                    >
+                      {alertCount > 99 ? "99+" : alertCount}
+                    </span>
+                  )}
+                </button>
+                {alertsOpen && (
+                  <div
+                    className="itms-card shadow-lg alerts-dropdown animate-scale-in"
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div className="px-3 py-2 border-bottom d-flex align-items-center justify-content-between">
+                      <span className="fw-semibold small">Alerts</span>
+                      <span
+                        className="text-secondary"
+                        style={{ fontSize: "10px" }}
+                      >
+                        {alertData?.totalCount ?? "…"} active
+                      </span>
+                    </div>
+                    <div className="overflow-auto" style={{ maxHeight: 320 }}>
+                      {!alertData ? (
+                        <div className="px-3 py-4 text-center text-secondary small">
+                          Loading…
+                        </div>
+                      ) : alertData.totalCount === 0 ? (
+                        <div className="px-3 py-4 text-center text-secondary small">
+                          No active alerts
+                        </div>
+                      ) : (
+                        <>
+                          {alertData.inventory?.length > 0 && (
+                            <div>
+                              <div
+                                className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 600,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                  background: "var(--surface-subtle)",
+                                }}
+                              >
+                                <Package size={10} className="text-secondary" />{" "}
+                                Inventory Stock
+                              </div>
+                              {alertData.inventory.map((a, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => {
+                                    navigate("/inventory");
+                                    setAlertsOpen(false);
+                                  }}
+                                  className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
+                                  style={{ transition: "background 0.15s" }}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "var(--surface-subtle)")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "transparent")
+                                  }
+                                >
+                                  <AlertTriangle
+                                    size={12}
+                                    className={
+                                      a.alert_type === "out_of_stock"
+                                        ? "text-danger mt-1 flex-shrink-0"
+                                        : "text-warning mt-1 flex-shrink-0"
+                                    }
+                                  />
+                                  <div>
+                                    <p className="small fw-medium mb-0">
+                                      {a.item_name}
+                                    </p>
+                                    <p
+                                      className="text-secondary mb-0"
+                                      style={{ fontSize: "10px" }}
+                                    >
+                                      {a.alert_type === "out_of_stock"
+                                        ? "Out of stock"
+                                        : `Low stock — ${a.current_value} ${a.unit || ""} remaining`}
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {alertData.overdueReturns?.length > 0 && (
+                            <div>
+                              <div
+                                className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 600,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                  background: "var(--surface-subtle)",
+                                }}
+                              >
+                                <RotateCcw
+                                  size={10}
+                                  className="text-secondary"
+                                />{" "}
+                                Overdue Returns
+                              </div>
+                              {alertData.overdueReturns.map((a, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => {
+                                    navigate("/assignments");
+                                    setAlertsOpen(false);
+                                  }}
+                                  className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
+                                  style={{ transition: "background 0.15s" }}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "var(--surface-subtle)")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "transparent")
+                                  }
+                                >
+                                  <RotateCcw
+                                    size={12}
+                                    className="text-danger mt-1 flex-shrink-0"
+                                  />
+                                  <div>
+                                    <p className="small fw-medium mb-0">
+                                      {a.asn_number} · {a.assignee_name}
+                                    </p>
+                                    <p
+                                      className="text-danger mb-0"
+                                      style={{ fontSize: "10px" }}
+                                    >
+                                      Due{" "}
+                                      {new Date(
+                                        a.expected_return_date,
+                                      ).toLocaleDateString("en-GB", {
+                                        day: "numeric",
+                                        month: "short",
+                                      })}
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {alertData.warranties?.length > 0 && (
+                            <div>
+                              <div
+                                className="px-3 py-1 d-flex align-items-center gap-1 border-bottom"
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 600,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em",
+                                  background: "var(--surface-subtle)",
+                                }}
+                              >
+                                <Clock size={10} className="text-secondary" />{" "}
+                                Expiring Warranties
+                              </div>
+                              {alertData.warranties.map((a, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => {
+                                    navigate("/reports");
+                                    setAlertsOpen(false);
+                                  }}
+                                  className="w-100 d-flex align-items-start gap-2 px-3 py-2 border-bottom border-0 bg-transparent text-start"
+                                  style={{ transition: "background 0.15s" }}
+                                  onMouseEnter={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "var(--surface-subtle)")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.currentTarget.style.background =
+                                      "transparent")
+                                  }
+                                >
+                                  <Clock
+                                    size={12}
+                                    className="text-warning mt-1 flex-shrink-0"
+                                  />
+                                  <div>
+                                    <p className="small fw-medium mb-0">
+                                      {a.label} · {a.manufacturer} {a.model}
+                                    </p>
+                                    <p
+                                      className="text-warning mb-0"
+                                      style={{ fontSize: "10px" }}
+                                    >
+                                      {a.category} · {a.days_remaining}d
+                                      remaining
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setRecycleBinOpen(true)}
+                title="Recycle Bin"
+                className="btn btn-link text-secondary position-relative p-1"
               >
-                {recycleBinCount > 99 ? "99+" : recycleBinCount}
-              </span>
-            )}
-          </button>
+                <Trash2 size={15} />
+                {recycleBinCount > 0 && (
+                  <span
+                    className="position-absolute top-0 end-0 badge rounded-pill bg-danger"
+                    style={{
+                      fontSize: "9px",
+                      minWidth: 16,
+                      padding: "2px 4px",
+                    }}
+                  >
+                    {recycleBinCount > 99 ? "99+" : recycleBinCount}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
 
           <button
             onClick={onRefresh}

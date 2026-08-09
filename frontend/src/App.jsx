@@ -16,6 +16,7 @@ import ActivityLog from "./pages/ActivityLog";
 import Inventory from "./pages/Inventory";
 import UnitLookup from "./pages/UnitLookup";
 import Requests from "./pages/Requests";
+import Tickets from "./pages/Tickets";
 import Assignments from "./pages/Assignments";
 import Vendors from "./pages/Vendors";
 import HeadManagement from "./pages/HeadManagement";
@@ -54,7 +55,17 @@ function AppRoutes() {
           </Guard>
         }
       >
-        <Route index element={<Dashboard />} />
+        <Route
+          index
+          element={
+            user?.role === "employee" ? (
+              <Navigate to="/tickets" replace />
+            ) : (
+              <Dashboard />
+            )
+          }
+        />
+        <Route path="tickets" element={<Tickets />} />
         <Route path="systems" element={<Systems />} />
         <Route path="network" element={<NetworkDevices />} />
         <Route path="mobiles" element={<MobileDevices />} />

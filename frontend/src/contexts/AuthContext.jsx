@@ -18,6 +18,11 @@ export function AuthProvider({ children }) {
   function canPerm(module, action) {
     if (!user) return false;
     if (user.role === "super_admin") return true;
+    // Mirrors the backend hasPerm() whitelist: employees reach only the
+    // support module (plus their own inventory requests, which are
+    // requireAuth routes and not gated through here).
+    if (user.role === "employee")
+      return module === "support" && (action === "read" || action === "create");
     return user.permissions?.[module]?.[`can_${action}`] === true;
   }
 
